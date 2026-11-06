@@ -1,0 +1,6 @@
+{
+  "name": "ETTORE — Men's Essentials",
+  "description": "Boutique e-commerce masculine de luxe minimaliste ciblant le Maroc, paiement à la livraison (COD), bilingue FR/AR (RTL), avec backend Cloudflare D1 et facture A4 imprimable.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
