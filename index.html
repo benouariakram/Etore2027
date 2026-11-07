@@ -641,9 +641,22 @@
           toast_status_updated: "Statut mis à jour",
           toast_product_saved: "Produit enregistré",
           toast_product_deleted: "Produit supprimé",
-          close: "Fermer",
           options_size: "Taille / Format",
           options_color: "Teinte",
+          product_back_to_collection: "← Retour à la collection",
+          product_share_link: "Copier le lien produit",
+          product_share_whatsapp: "Envoyer par WhatsApp",
+          product_link_copied: "Lien copié dans le presse-papier ! Vous pouvez l'envoyer à vos clients.",
+          product_buy_now_cod: "Commander directement (COD)",
+          product_add_to_cart_success: "Article ajouté au panier avec succès !",
+          product_in_stock_msg: "En stock — Expédition express sous 24h",
+          product_delivery_guarantee: "Livraison express à domicile (24-72h partout au Maroc)",
+          product_cod_guarantee: "Paiement en espèces à la livraison (COD) après vérification",
+          product_exchange_guarantee: "Échange garanti sous 7 jours",
+          product_craft_guarantee: "Matières nobles & tannage végétal artisanal de Fès",
+          product_related_title: "Créations Recommandées de la Maison",
+          admin_view_product: "Voir la page",
+          admin_copy_link: "Copier lien",
         },
         ar: {
           brand: "إيتوري",
@@ -774,9 +787,22 @@
           toast_status_updated: "تم تحديث حالة الطلب",
           toast_product_saved: "تم حفظ المنتج بنجاح",
           toast_product_deleted: "تم حذف المنتج",
-          close: "إغلاق",
           options_size: "المقاس / السعة",
           options_color: "اللون",
+          product_back_to_collection: "← العودة إلى المجموعة الكاملة",
+          product_share_link: "نسخ رابط المنتج للزبون",
+          product_share_whatsapp: "إرسال عبر واتساب",
+          product_link_copied: "تم نسخ رابط المنتج بنجاح! يمكنك إرساله للزبائن مباشرة.",
+          product_buy_now_cod: "طلب مباشر (الدفع عند الاستلام)",
+          product_add_to_cart_success: "تمت إضافة المنتج إلى السلة بنجاح!",
+          product_in_stock_msg: "متوفر بالمخزن — شحن سريع خلال 24 ساعة",
+          product_delivery_guarantee: "توصيل سريع لباب منزلك في جميع مدن المغرب (24-72 ساعة)",
+          product_cod_guarantee: "الدفع نقداً بعد فحص المنتج عند الاستلام (COD)",
+          product_exchange_guarantee: "إمكانية الاستبدال خلال 7 أيام",
+          product_craft_guarantee: "مواد نباتية فاخرة ودباغة تقليدية أصيلة بفاس",
+          product_related_title: "إبداعات مختارة قد تنال إعجابك",
+          admin_view_product: "عرض الصفحة",
+          admin_copy_link: "نسخ الرابط",
         }
       };
 
@@ -964,6 +990,487 @@
       }
 
       // ========================================================================
+      // SUB-COMPONENT: DEDICATED PRODUCT PAGE VIEW (Unique Shareable Index Link)
+      // ========================================================================
+      function ProductDetailPage({
+        product,
+        allProducts,
+        lang,
+        t,
+        wishlist,
+        toggleWishlist,
+        onBack,
+        onAddToCart,
+        onDirectCheckout,
+        onSelectProduct,
+        showToast
+      }) {
+        const [activeImageIdx, setActiveImageIdx] = useState(0);
+        const [selectedSize, setSelectedSize] = useState((product.sizes && product.sizes[0]) || '');
+        const [selectedColor, setSelectedColor] = useState((product.colors && product.colors[0]) || '');
+        const [qty, setQty] = useState(1);
+        const [copied, setCopied] = useState(false);
+
+        // Reset state if product changes
+        useEffect(() => {
+          setActiveImageIdx(0);
+          setSelectedSize((product.sizes && product.sizes[0]) || '');
+          setSelectedColor((product.colors && product.colors[0]) || '');
+          setQty(1);
+          setCopied(false);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, [product.id]);
+
+        const title = lang === 'ar' ? (product.nameAr || product.nameFr) : product.nameFr;
+        const desc = lang === 'ar' ? (product.descAr || product.descFr) : product.descFr;
+        const isWish = wishlist.includes(product.id);
+        const isOut = !product.inStock || product.stock <= 0;
+        const isLow = product.stock > 0 && product.stock < 5;
+        const currentUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
+
+        const copyLink = () => {
+          try {
+            navigator.clipboard.writeText(currentUrl);
+            setCopied(true);
+            showToast(t.product_link_copied, 'success');
+            setTimeout(() => setCopied(false), 3000);
+          } catch {
+            showToast(currentUrl, 'info');
+          }
+        };
+
+        const shareWhatsApp = () => {
+          const text = lang === 'ar'
+            ? `مرحباً 👋 اكتشف هذه القطعة الراقية من دار إيتوري:\n\n*${title}*\nالسعر: ${product.price} درهم مغربي (الدفع عند الاستلام)\n\nرابط المنتج المباشر:\n${currentUrl}`
+            : `Bonjour 👋 Découvrez cette création de la Maison ETTORE :\n\n*${title}*\nPrix : ${product.price} MAD (Paiement à la livraison)\n\nLien direct vers la pièce :\n${currentUrl}`;
+          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        };
+
+        const handleDirectOrder = () => {
+          if (isOut) return;
+          const checkoutItem = {
+            productId: product.id,
+            nameFr: product.nameFr,
+            nameAr: product.nameAr,
+            price: Number(product.price),
+            quantity: qty,
+            size: selectedSize,
+            color: selectedColor,
+            image: (product.images && product.images[0]) || '',
+            lineKey: `${product.id}_${selectedSize}_${selectedColor}`
+          };
+          onDirectCheckout(checkoutItem);
+        };
+
+        // 3 Related products from catalog
+        const related = useMemo(() => {
+          const others = allProducts.filter(p => p.id !== product.id);
+          const sameCat = others.filter(p => p.category === product.category);
+          return (sameCat.length >= 3 ? sameCat : others).slice(0, 3);
+        }, [allProducts, product.id, product.category]);
+
+        return (
+          <div className="w-full bg-canvas text-noir animate-fade-up">
+            {/* Top Breadcrumb & Share Action Bar */}
+            <div className="border-b border-taupe/20 bg-card/60 backdrop-blur-xs">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                {/* Back Link & Breadcrumb */}
+                <div className="flex items-center gap-2 text-taupe-dark">
+                  <button
+                    type="button"
+                    onClick={onBack}
+                    className="flex items-center gap-1.5 font-semibold text-noir hover:text-caramel transition-colors"
+                  >
+                    <span>{t.product_back_to_collection}</span>
+                  </button>
+                  <span>/</span>
+                  <span className="uppercase tracking-wider font-mono text-[11px] text-taupe-dark">
+                    {product.category}
+                  </span>
+                  <span>/</span>
+                  <span className="text-noir font-medium line-clamp-1 max-w-[200px] sm:max-w-xs">
+                    {title}
+                  </span>
+                </div>
+
+                {/* Direct Share Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={copyLink}
+                    className={`px-3 py-1.5 border rounded-xs flex items-center gap-1.5 font-semibold tracking-wider transition-all duration-200 shadow-xs ${
+                      copied
+                        ? 'border-[#10B981] bg-[#ECFDF5] text-[#065F46]'
+                        : 'border-taupe/30 hover:border-noir bg-canvas text-noir hover:bg-card'
+                    }`}
+                    title="Copier le lien direct pour vos clients"
+                  >
+                    <svg className="w-3.5 h-3.5 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    <span>{copied ? '✓ Lien copié !' : t.product_share_link}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={shareWhatsApp}
+                    className="px-3 py-1.5 bg-[#10B981] hover:bg-[#059669] text-white rounded-xs flex items-center gap-1.5 font-semibold tracking-wider transition-colors shadow-xs"
+                    title="Envoyer le produit directement au client via WhatsApp"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.969.586 1.777.947 2.796.947 3.179 0 5.765-2.587 5.765-5.766 0-3.18-2.586-5.734-5.765-5.734zm9.969 5.766c0 5.516-4.484 10-10 10-1.748 0-3.393-.453-4.836-1.246l-5.164 1.354 1.379-5.029c-.879-1.488-1.379-3.224-1.379-5.079 0-5.516 4.484-10 10-10s10 4.484 10 10z"/>
+                    </svg>
+                    <span className="hidden sm:inline">{t.product_share_whatsapp}</span>
+                    <span className="sm:hidden">WhatsApp</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Showcase Container (Split 2-Column Luxury Layout) */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
+                
+                {/* Left: Interactive Media Showcase (Col 1-7) */}
+                <div className="lg:col-span-7 flex flex-col gap-4">
+                  {/* Hero Showcase Frame */}
+                  <div className="relative aspect-4/3 sm:aspect-square w-full bg-[#EFECE6] border border-taupe/20 overflow-hidden shadow-sm group">
+                    <img
+                      src={(product.images && product.images[activeImageIdx]) || (product.images && product.images[0])}
+                      alt={title}
+                      className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 cursor-zoom-in"
+                    />
+
+                    {/* Top Badges */}
+                    <div className="absolute top-4 start-4 flex flex-col gap-1 z-10">
+                      {isOut ? (
+                        <span className="bg-noir/90 text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
+                          {t.badge_out}
+                        </span>
+                      ) : product.badge === 'exclusive' ? (
+                        <span className="bg-caramel text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
+                          {t.badge_exclusive}
+                        </span>
+                      ) : product.badge === 'luxury' ? (
+                        <span className="bg-[#4A3525] text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
+                          {t.badge_luxury}
+                        </span>
+                      ) : product.isNew ? (
+                        <span className="bg-noir text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
+                          {t.badge_new}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {/* Wishlist Button on image */}
+                    <button
+                      type="button"
+                      onClick={() => toggleWishlist(product.id)}
+                      className="absolute top-4 end-4 w-9 h-9 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110 active:scale-95"
+                      aria-label="Wishlist"
+                    >
+                      <svg
+                        className={`w-4 h-4 transition-colors ${isWish ? 'fill-caramel text-caramel animate-heart-pop' : 'text-noir/60 hover:text-noir'}`}
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Thumbnail Row (if multiple images) */}
+                  {product.images && product.images.length > 1 && (
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {product.images.map((img, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setActiveImageIdx(i)}
+                          className={`w-20 h-20 sm:w-24 sm:h-24 shrink-0 border-2 overflow-hidden bg-card transition-all duration-200 ${
+                            activeImageIdx === i
+                              ? 'border-caramel scale-102 shadow-sm'
+                              : 'border-taupe/20 opacity-70 hover:opacity-100 hover:border-noir/40'
+                          }`}
+                        >
+                          <img src={img} alt="" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Shareable URL Banner Card for Merchant */}
+                  <div className="mt-2 p-3.5 bg-card border border-taupe/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 truncate text-taupe-dark">
+                      <span className="font-semibold text-noir">🔗 Lien direct client :</span>
+                      <span className="font-mono text-[11px] truncate select-all">{currentUrl}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={copyLink}
+                      className="shrink-0 px-3 py-1 bg-noir text-white hover:bg-caramel text-[11px] font-semibold uppercase tracking-wider transition-colors"
+                    >
+                      {copied ? '✓ Copié' : 'Copier'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right: Product Purchase Module & Value Proposition (Col 8-12) */}
+                <div className="lg:col-span-5 flex flex-col">
+                  {/* Category & Verified Rating */}
+                  <div className="flex items-center justify-between text-xs text-taupe-dark uppercase tracking-widest mb-3">
+                    <span className="font-semibold text-caramel">{product.category} · ETTORE ATELIER</span>
+                    <div className="flex items-center gap-1 text-caramel font-semibold">
+                      <span>★ {product.rating || 5}.0</span>
+                      <span className="text-taupe text-[10px] lowercase font-normal">(avis vérifiés)</span>
+                    </div>
+                  </div>
+
+                  {/* Headline Title */}
+                  <h1 className="font-serif italic text-3xl sm:text-4xl lg:text-5xl font-normal text-noir mb-4 leading-tight">
+                    {title}
+                  </h1>
+
+                  {/* Price & Stock Pill */}
+                  <div className="flex items-baseline gap-3 mb-6 pb-4 border-b border-taupe/20">
+                    <span className="text-2xl sm:text-3xl font-bold text-noir tabular-nums">
+                      {Number(product.price).toLocaleString()} MAD
+                    </span>
+                    {product.oldPrice && (
+                      <span className="text-sm sm:text-base text-taupe line-through tabular-nums">
+                        {Number(product.oldPrice).toLocaleString()} MAD
+                      </span>
+                    )}
+                    {product.oldPrice && (
+                      <span className="text-[11px] font-bold text-white bg-caramel px-2 py-0.5 rounded-xs">
+                        -{Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)}%
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Live Stock Notification */}
+                  <div className="mb-6">
+                    {isOut ? (
+                      <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#B91C1C]">
+                        <span className="w-2 h-2 rounded-full bg-[#B91C1C]" />
+                        <span>{t.out_of_stock}</span>
+                      </div>
+                    ) : isLow ? (
+                      <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#B91C1C] animate-flame">
+                        <span>🔥</span>
+                        <span>{t.low_stock_alert.replace('🔥 ', '').replace('{n}', product.stock)}</span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#065F46]">
+                        <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+                        <span>{t.product_in_stock_msg}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Editorial Description */}
+                  <p className="text-xs sm:text-sm text-taupe-dark leading-relaxed mb-6 font-light">
+                    {desc}
+                  </p>
+
+                  {/* Size Selector */}
+                  {product.sizes && product.sizes.length > 0 && (
+                    <div className="mb-5">
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-noir">
+                          {t.options_size}
+                        </label>
+                        <span className="text-[11px] text-taupe font-mono">{selectedSize}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {product.sizes.map(size => (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => setSelectedSize(size)}
+                            className={`min-w-10 px-3 py-2 text-xs font-semibold border transition-all duration-200 ${
+                              selectedSize === size
+                                ? 'border-noir bg-noir text-white shadow-xs'
+                                : 'border-taupe/30 hover:border-noir text-noir bg-canvas'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Color Selector */}
+                  {product.colors && product.colors.length > 0 && (
+                    <div className="mb-6">
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-noir">
+                          {t.options_color}
+                        </label>
+                      </div>
+                      <div className="flex gap-2.5">
+                        {product.colors.map(color => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => setSelectedColor(color)}
+                            className={`w-8 h-8 rounded-full border-2 transition-transform duration-200 ${
+                              selectedColor === color
+                                ? 'border-caramel scale-110 shadow-md ring-2 ring-caramel/20'
+                                : 'border-transparent hover:scale-105'
+                            }`}
+                            style={{ backgroundColor: color }}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quantity Stepper & Dual Buttons */}
+                  <div className="space-y-3 pt-4 border-t border-taupe/20">
+                    <div className="flex items-center gap-3">
+                      {/* Stepper */}
+                      <div className="flex items-center border border-taupe/30 bg-card">
+                        <button
+                          type="button"
+                          onClick={() => setQty(q => Math.max(1, q - 1))}
+                          className="px-3.5 py-3 text-xs hover:bg-taupe/20 transition-colors"
+                          disabled={qty <= 1}
+                        >
+                          -
+                        </button>
+                        <span className="px-4 py-3 text-xs font-semibold tabular-nums min-w-10 text-center">
+                          {qty}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setQty(q => Math.min(product.stock || 99, q + 1))}
+                          className="px-3.5 py-3 text-xs hover:bg-taupe/20 transition-colors"
+                          disabled={qty >= product.stock}
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      {/* Add To Cart */}
+                      <button
+                        type="button"
+                        disabled={isOut}
+                        onClick={() => onAddToCart(product, selectedSize, selectedColor, qty)}
+                        className={`flex-1 py-3.5 px-4 text-xs font-semibold uppercase tracking-[0.15em] transition-all duration-200 shadow-sm ${
+                          isOut
+                            ? 'bg-taupe/20 text-taupe-dark cursor-not-allowed'
+                            : 'bg-noir text-white hover:bg-caramel active:scale-98'
+                        }`}
+                      >
+                        {isOut ? t.out_of_stock : t.add_to_cart}
+                      </button>
+                    </div>
+
+                    {/* Direct COD Checkout Button (1-Click Express Checkout) */}
+                    <button
+                      type="button"
+                      disabled={isOut}
+                      onClick={handleDirectOrder}
+                      className={`w-full py-3.5 px-4 text-xs font-semibold uppercase tracking-[0.18em] transition-all duration-200 shadow-md ${
+                        isOut
+                          ? 'bg-taupe/20 text-taupe-dark cursor-not-allowed'
+                          : 'bg-caramel text-white hover:bg-noir active:scale-98'
+                      }`}
+                    >
+                      {isOut ? t.out_of_stock : t.product_buy_now_cod}
+                    </button>
+                  </div>
+
+                  {/* Moroccan Trust Guarantees List */}
+                  <div className="mt-8 pt-6 border-t border-taupe/20 space-y-3 text-xs text-taupe-dark">
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">🚚</span>
+                      <span>{t.product_delivery_guarantee}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">💵</span>
+                      <span>{t.product_cod_guarantee}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">🔄</span>
+                      <span>{t.product_exchange_guarantee}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">🌿</span>
+                      <span>{t.product_craft_guarantee}</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Related Creations Section */}
+            {related.length > 0 && (
+              <section className="border-t border-taupe/20 bg-card/40 py-16">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <span className="text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-1">
+                        ETTORE MEN'S ESSENTIALS
+                      </span>
+                      <h2 className="font-serif italic text-2xl sm:text-3xl text-noir font-normal">
+                        {t.product_related_title}
+                      </h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onBack}
+                      className="text-xs font-semibold text-caramel hover:underline uppercase tracking-wider"
+                    >
+                      Voir toute la collection →
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {related.map(p => {
+                      const relTitle = lang === 'ar' ? (p.nameAr || p.nameFr) : p.nameFr;
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => onSelectProduct(p.id)}
+                          className="group cursor-pointer bg-card border border-taupe/20 p-4 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
+                        >
+                          <div className="aspect-4/3 w-full bg-[#EFECE6] overflow-hidden mb-3">
+                            <img
+                              src={p.images && p.images[0]}
+                              alt={relTitle}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                          </div>
+                          <div className="text-[10px] text-taupe-dark uppercase tracking-wider mb-1">{p.category}</div>
+                          <h3 className="font-serif text-lg font-semibold text-noir mb-2 group-hover:text-caramel transition-colors">
+                            {relTitle}
+                          </h3>
+                          <div className="flex items-baseline justify-between pt-2 border-t border-taupe/15">
+                            <span className="font-semibold text-sm text-noir tabular-nums">
+                              {Number(p.price).toLocaleString()} MAD
+                            </span>
+                            <span className="text-xs text-caramel font-semibold">
+                              Voir la page →
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
+        );
+      }
+
+      // ========================================================================
       // MAIN REACT APPLET COMPONENT
       // ========================================================================
       function App() {
@@ -1039,6 +1546,78 @@
         const [quickViewImageIdx, setQuickViewImageIdx] = useState(0);
         const [quickViewSize, setQuickViewSize] = useState('');
         const [quickViewColor, setQuickViewColor] = useState('');
+
+        // --- Dedicated Product Page URL Routing Helpers ---
+        const getProductIdFromURL = () => {
+          try {
+            const params = new URLSearchParams(window.location.search);
+            const p = params.get('product');
+            if (p) return parseInt(p, 10) || null;
+            const hashMatch = window.location.hash.match(/product[-=/](\d+)/i);
+            if (hashMatch) return parseInt(hashMatch[1], 10) || null;
+            const pathMatch = window.location.pathname.match(/\/product\/(\d+)/i);
+            if (pathMatch) return parseInt(pathMatch[1], 10) || null;
+          } catch (e) {}
+          return null;
+        };
+
+        const [selectedProductId, setSelectedProductId] = useState(() => getProductIdFromURL());
+        const [directCheckoutItem, setDirectCheckoutItem] = useState(null);
+
+        const navigateToProduct = useCallback((productId) => {
+          if (!productId) return;
+          setSelectedProductId(productId);
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('product', productId);
+            window.history.pushState({ productId }, '', url.toString());
+          } catch (e) {
+            window.history.pushState({ productId }, '', `?product=${productId}`);
+          }
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, []);
+
+        const backToHome = useCallback(() => {
+          setSelectedProductId(null);
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('product');
+            const cleanPath = url.pathname + (url.search ? url.search : '');
+            window.history.pushState({}, '', cleanPath || '/');
+          } catch (e) {
+            window.history.pushState({}, '', window.location.pathname || '/');
+          }
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, []);
+
+        // Listen for browser popstate & hashchange
+        useEffect(() => {
+          const handleUrlChange = () => {
+            const id = getProductIdFromURL();
+            setSelectedProductId(id);
+          };
+          window.addEventListener('popstate', handleUrlChange);
+          window.addEventListener('hashchange', handleUrlChange);
+          return () => {
+            window.removeEventListener('popstate', handleUrlChange);
+            window.removeEventListener('hashchange', handleUrlChange);
+          };
+        }, []);
+
+        const selectedProduct = useMemo(() => {
+          if (!selectedProductId) return null;
+          return products.find(p => p.id === Number(selectedProductId)) || null;
+        }, [selectedProductId, products]);
+
+        // Dynamic Document Title
+        useEffect(() => {
+          if (selectedProduct) {
+            const prodName = lang === 'ar' ? (selectedProduct.nameAr || selectedProduct.nameFr) : selectedProduct.nameFr;
+            document.title = `${prodName} | ${t.brand} — Men's Essentials`;
+          } else {
+            document.title = `${t.brand} — Men's Essentials | Luxe Minimaliste Maroc`;
+          }
+        }, [selectedProduct, lang, t]);
 
         useEffect(() => {
           const handleScroll = () => {
@@ -1405,13 +1984,52 @@
 
                   {/* Desktop Nav Links */}
                   <nav className="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide">
-                    <a href="#collection" className="nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap">
+                    <a
+                      href="#collection"
+                      onClick={(e) => {
+                        if (selectedProductId) {
+                          e.preventDefault();
+                          backToHome();
+                          setTimeout(() => {
+                            const el = document.getElementById('collection');
+                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                          }, 60);
+                        }
+                      }}
+                      className="nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap"
+                    >
                       {t.nav_collection}
                     </a>
-                    <a href="#savoir-faire" className="nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap">
+                    <a
+                      href="#savoir-faire"
+                      onClick={(e) => {
+                        if (selectedProductId) {
+                          e.preventDefault();
+                          backToHome();
+                          setTimeout(() => {
+                            const el = document.getElementById('savoir-faire');
+                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                          }, 60);
+                        }
+                      }}
+                      className="nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap"
+                    >
                       {t.nav_craft}
                     </a>
-                    <a href="#temoignages" className="nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap">
+                    <a
+                      href="#temoignages"
+                      onClick={(e) => {
+                        if (selectedProductId) {
+                          e.preventDefault();
+                          backToHome();
+                          setTimeout(() => {
+                            const el = document.getElementById('temoignages');
+                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                          }, 60);
+                        }
+                      }}
+                      className="nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap"
+                    >
                       {t.nav_testimonials}
                     </a>
                   </nav>
@@ -1419,7 +2037,14 @@
 
                 {/* Zone 2: Brand Logo (Centered, Serif, Refined Spacing & Hover Spread) */}
                 <div className="text-center">
-                  <a href="#" className="inline-block group focus:outline-none">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      backToHome();
+                    }}
+                    className="inline-block group focus:outline-none cursor-pointer"
+                  >
                     <span className="font-serif text-2xl sm:text-3xl font-bold tracking-[0.25em] text-noir uppercase group-hover:text-caramel group-hover:tracking-[0.3em] transition-all duration-300">
                       {t.brand}
                     </span>
@@ -1498,10 +2123,55 @@
               </div>
             </header>
 
-            {/* ================================================================ */}
-            {/* 2. HERO SECTION — 3-SLIDE WALLPAPER SLIDER */}
-            {/* ================================================================ */}
-            <section
+            {selectedProductId ? (
+              selectedProduct ? (
+                <ProductDetailPage
+                  product={selectedProduct}
+                  allProducts={products}
+                  lang={lang}
+                  t={t}
+                  wishlist={wishlist}
+                  toggleWishlist={toggleWishlist}
+                  onBack={backToHome}
+                  onAddToCart={(prod, sz, col, qty) => {
+                    addToCart(prod, sz, col, qty);
+                  }}
+                  onDirectCheckout={(checkoutItem) => {
+                    setDirectCheckoutItem(checkoutItem);
+                    setCheckoutOpen(true);
+                  }}
+                  onSelectProduct={(id) => {
+                    navigateToProduct(id);
+                  }}
+                  showToast={showToast}
+                />
+              ) : loadingProducts ? (
+                <div className="py-32 max-w-3xl mx-auto px-4 text-center">
+                  <div className="animate-spin w-10 h-10 border-2 border-caramel border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="font-serif italic text-xl text-noir">Chargement de la création ETTORE...</p>
+                </div>
+              ) : (
+                <div className="py-28 max-w-xl mx-auto px-4 text-center">
+                  <div className="text-4xl mb-4">✨</div>
+                  <h2 className="font-serif italic text-3xl text-noir mb-3">Création introuvable</h2>
+                  <p className="text-xs text-taupe-dark mb-6 leading-relaxed">
+                    Cette pièce n'est plus disponible ou a été retirée de la collection.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={backToHome}
+                    className="px-6 py-3 bg-noir text-white text-xs font-semibold uppercase tracking-wider hover:bg-caramel transition-colors"
+                  >
+                    {t.product_back_to_collection}
+                  </button>
+                </div>
+              )
+            ) : (
+              <>
+                {/* ================================================================ */}
+                {/* 2. HERO SECTION — 3-SLIDE WALLPAPER SLIDER */}
+                {/* ================================================================ */}
+                <section
               className="relative overflow-hidden bg-noir select-none border-b border-taupe/20"
               role="region"
               aria-roledescription="carousel"
@@ -1824,7 +2494,10 @@
                         className="group flex flex-col bg-card border border-taupe/20 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
                       >
                         {/* Image Showcase Container */}
-                        <div className="relative aspect-4/3 w-full bg-[#EFECE6] overflow-hidden">
+                        <div
+                          onClick={() => navigateToProduct(product.id)}
+                          className="relative aspect-4/3 w-full bg-[#EFECE6] overflow-hidden cursor-pointer"
+                        >
                           <img
                             src={product.images && product.images[0]}
                             alt={title}
@@ -1833,7 +2506,7 @@
                           />
 
                           {/* Top Badges */}
-                          <div className="absolute top-3 start-3 flex flex-col gap-1 z-10">
+                          <div className="absolute top-3 start-3 flex flex-col gap-1 z-10 pointer-events-none">
                             {isOut ? (
                               <span className="bg-noir/90 text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
                                 {t.badge_out}
@@ -1855,27 +2528,55 @@
 
                           {/* Photos Indicator */}
                           {product.images && product.images.length > 1 && (
-                            <span className="absolute bottom-3 end-3 bg-black/60 text-white text-[10px] px-2 py-0.5 backdrop-blur-xs font-mono">
+                            <span className="absolute bottom-3 end-3 bg-black/60 text-white text-[10px] px-2 py-0.5 backdrop-blur-xs font-mono pointer-events-none">
                               +{product.images.length - 1} photos
                             </span>
                           )}
 
-                          {/* Wishlist Heart with Pop Animation */}
-                          <button
-                            type="button"
-                            onClick={() => toggleWishlist(product.id)}
-                            className="absolute top-3 end-3 w-8 h-8 rounded-full bg-white/80 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90"
-                            aria-label="Wishlist"
-                          >
-                            <svg
-                              className={`w-4 h-4 transition-colors ${isWish ? 'fill-caramel text-caramel animate-heart-pop' : 'text-noir/60 hover:text-noir'}`}
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth="1.75"
+                          {/* Top End Actions: Client Link Copy & Wishlist */}
+                          <div className="absolute top-3 end-3 flex items-center gap-1.5 z-10">
+                            {/* Copy direct client link */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const url = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
+                                try {
+                                  navigator.clipboard.writeText(url);
+                                  showToast(t.product_link_copied, 'success');
+                                } catch {
+                                  showToast(url, 'info');
+                                }
+                              }}
+                              className="w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90 text-noir/70 hover:text-caramel"
+                              title="Copier le lien direct client"
+                              aria-label="Copier le lien client"
                             >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                            </svg>
-                          </button>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                              </svg>
+                            </button>
+
+                            {/* Wishlist Heart */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleWishlist(product.id);
+                              }}
+                              className="w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90"
+                              aria-label="Wishlist"
+                            >
+                              <svg
+                                className={`w-4 h-4 transition-colors ${isWish ? 'fill-caramel text-caramel animate-heart-pop' : 'text-noir/60 hover:text-noir'}`}
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth="1.75"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
 
                         {/* Product Info */}
@@ -1887,7 +2588,10 @@
                           </div>
 
                           {/* Title */}
-                          <h3 className="font-serif text-xl font-semibold text-noir mb-2 group-hover:text-caramel transition-colors">
+                          <h3
+                            onClick={() => navigateToProduct(product.id)}
+                            className="font-serif text-xl font-semibold text-noir mb-2 group-hover:text-caramel transition-colors cursor-pointer"
+                          >
                             {title}
                           </h3>
 
@@ -1916,14 +2620,16 @@
                             )}
                           </div>
 
-                          {/* Action Buttons: Quick View & Add to Cart */}
+                          {/* Action Buttons: View Product Page & Add to Cart */}
                           <div className="grid grid-cols-2 gap-2 mt-auto">
                             <button
                               type="button"
-                              onClick={() => openQuickView(product)}
-                              className="px-3 py-2.5 border border-taupe/30 text-xs font-semibold uppercase tracking-wider text-noir hover:border-noir hover:bg-canvas transition-colors"
+                              onClick={() => navigateToProduct(product.id)}
+                              className="px-3 py-2.5 border border-taupe/30 text-xs font-semibold uppercase tracking-wider text-noir hover:border-noir hover:bg-noir hover:text-white transition-all flex items-center justify-center gap-1"
+                              title="Ouvrir la page dédiée avec lien direct"
                             >
-                              {t.quick_view}
+                              <span>{t.admin_view_product || "Voir"}</span>
+                              <span className="text-[10px]">→</span>
                             </button>
                             <button
                               type="button"
@@ -2058,6 +2764,8 @@
                 ))}
               </div>
             </section>
+              </>
+            )}
 
             {/* ================================================================ */}
             {/* 6. FOOTER (4 Colonnes) */}
@@ -2610,6 +3318,18 @@
                     >
                       {!quickViewProduct.inStock || quickViewProduct.stock <= 0 ? t.out_of_stock : t.add_to_cart}
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pid = quickViewProduct.id;
+                        setQuickViewProduct(null);
+                        navigateToProduct(pid);
+                      }}
+                      className="w-full mt-2.5 py-2 text-center text-xs text-caramel hover:text-noir font-semibold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <span>🔗 {lang === 'ar' ? 'فتح صفحة المنتج المخصصة ورابط المشاركة ↗' : 'Ouvrir la page dédiée & lien direct ↗'}</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -2620,14 +3340,31 @@
             {/* ================================================================ */}
             {checkoutOpen && (
               <CheckoutModal
-                cart={cart}
-                totals={cartTotals}
+                cart={directCheckoutItem ? [directCheckoutItem] : cart}
+                totals={
+                  directCheckoutItem
+                    ? {
+                        subtotal: Number(directCheckoutItem.price) * Number(directCheckoutItem.quantity),
+                        discount: appliedPromo.toUpperCase() === 'RAWCRAFT10' ? Math.round(Number(directCheckoutItem.price) * Number(directCheckoutItem.quantity) * 0.10) : 0,
+                        shipping: 0,
+                        total: Math.max(0, (Number(directCheckoutItem.price) * Number(directCheckoutItem.quantity)) - (appliedPromo.toUpperCase() === 'RAWCRAFT10' ? Math.round(Number(directCheckoutItem.price) * Number(directCheckoutItem.quantity) * 0.10) : 0)),
+                        itemCount: directCheckoutItem.quantity
+                      }
+                    : cartTotals
+                }
                 promoCode={appliedPromo}
                 lang={lang}
                 t={t}
-                onClose={() => setCheckoutOpen(false)}
+                onClose={() => {
+                  setCheckoutOpen(false);
+                  setDirectCheckoutItem(null);
+                }}
                 onSuccess={(createdOrder) => {
-                  setCart([]);
+                  if (directCheckoutItem) {
+                    setDirectCheckoutItem(null);
+                  } else {
+                    setCart([]);
+                  }
                   setCheckoutOpen(false);
                   setCurrentInvoiceOrder(createdOrder);
                   showToast(t.toast_order_success, 'success');
@@ -2745,6 +3482,19 @@
                   setCurrentInvoiceOrder(order);
                 }}
                 showToast={showToast}
+                onViewProductPage={(prodId) => {
+                  setAdminOpen(false);
+                  navigateToProduct(prodId);
+                }}
+                onCopyProductLink={(prodId) => {
+                  const url = `${window.location.origin}${window.location.pathname}?product=${prodId}`;
+                  try {
+                    navigator.clipboard.writeText(url);
+                    showToast(t.product_link_copied, 'success');
+                  } catch {
+                    showToast(url, 'info');
+                  }
+                }}
               />
             )}
 
@@ -2758,10 +3508,14 @@
                 lang={lang}
                 t={t}
                 onClose={() => setProductFormModal(null)}
-                onSaved={() => {
+                onSaved={(savedProduct) => {
                   setProductFormModal(null);
                   fetchProducts();
                   showToast(t.toast_product_saved, 'success');
+                  if (savedProduct && savedProduct.id) {
+                    setAdminOpen(false);
+                    navigateToProduct(savedProduct.id);
+                  }
                 }}
                 onError={(err) => showToast(err || 'Erreur enregistrement', 'error')}
               />
@@ -3111,7 +3865,7 @@
         token, adminUser, setAdminUser, adminPass, setAdminPass, loginError,
         onLogin, onLogout, kpis, activeTab, setActiveTab, products, orders,
         lang, t, onClose, onRefreshOrders, onRefreshProducts, onEditProduct,
-        onAddProduct, onViewInvoice, showToast
+        onAddProduct, onViewInvoice, showToast, onViewProductPage, onCopyProductLink
       }) {
         const handleStatusChange = async (orderId, newStatus) => {
           try {
@@ -3344,7 +4098,26 @@
                                     {p.stock}
                                   </span>
                                 </td>
-                                <td className="p-3 text-right space-x-2">
+                                <td className="p-3 text-right space-x-2 whitespace-nowrap">
+                                  <button
+                                    onClick={() => {
+                                      onClose();
+                                      if (onViewProductPage) onViewProductPage(p.id);
+                                    }}
+                                    className="px-2.5 py-1 bg-noir text-white hover:bg-caramel text-[11px] font-semibold uppercase tracking-wider transition-colors rounded-xs"
+                                    title="Ouvrir la page dédiée du produit"
+                                  >
+                                    👁️ {t.admin_view_product || "Voir"}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (onCopyProductLink) onCopyProductLink(p.id);
+                                    }}
+                                    className="px-2.5 py-1 border border-taupe/30 hover:border-noir text-noir text-[11px] font-semibold uppercase tracking-wider transition-colors rounded-xs"
+                                    title="Copier le lien direct client"
+                                  >
+                                    📋 {t.admin_copy_link || "Lien"}
+                                  </button>
                                   <button
                                     onClick={() => onEditProduct(p)}
                                     className="px-2.5 py-1 border border-taupe/30 hover:border-noir text-noir rounded-xs"
@@ -3502,7 +4275,8 @@
             });
 
             if (res.ok) {
-              onSaved();
+              const resData = await res.json().catch(() => ({}));
+              onSaved(resData.product || payload);
             } else {
               const data = await res.json();
               onError(data.error || 'Erreur enregistrement');

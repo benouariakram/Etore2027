@@ -277,6 +277,17 @@ export async function onRequest(context) {
     }
 
     // --------------------------------------------------------------------------
+    // PRODUITS: GET /api/products/:id (public get single product)
+    // --------------------------------------------------------------------------
+    if (path.startsWith("products/") && method === "GET") {
+      const id = Number(path.replace("products/", ""));
+      if (!id) return json({ error: "ID produit invalide" }, 400);
+      const row = await db.prepare("SELECT data FROM products WHERE id = ?").bind(id).first();
+      if (!row || !row.data) return json({ error: "Produit introuvable" }, 404);
+      return json(JSON.parse(row.data));
+    }
+
+    // --------------------------------------------------------------------------
     // PRODUITS: PUT /api/products (admin upsert)
     // --------------------------------------------------------------------------
     if (path === "products" && method === "PUT") {

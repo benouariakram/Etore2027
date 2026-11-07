@@ -208,6 +208,16 @@ app.get('/api/products', (req: Request, res: Response) => {
   return res.json(productsStore);
 });
 
+// Get single product by id
+app.get('/api/products/:id', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const product = productsStore.find((p: any) => p.id === id);
+  if (!product) {
+    return res.status(404).json({ error: "Produit introuvable" });
+  }
+  return res.json(product);
+});
+
 // Upsert product (Admin)
 app.put('/api/products', (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
