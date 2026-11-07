@@ -50,6 +50,22 @@
     <!-- Print & Global Stylesheet -->
     <style>
       /* Smooth transitions & Reset */
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+      html, body {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        position: relative;
+        margin: 0;
+        padding: 0;
+      }
+      #root {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        width: 100% !important;
+      }
       body {
         background-color: #FAF9F6;
         color: #171717;
@@ -165,11 +181,14 @@
           url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%239E8C7A' fill-opacity='0.055' fill-rule='evenodd'%3E%3Cpath d='M30 0l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm0 30l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm15-15l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zM0 15l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm30 30l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm15-15l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5z'/%3E%3Ccircle cx='30' cy='30' r='1.5' fill='%23C28B53' fill-opacity='0.16'/%3E%3C/g%3E%3C/svg%3E");
         backdrop-filter: blur(14px);
         -webkit-backdrop-filter: blur(14px);
+        overflow: hidden;
+        max-width: 100vw;
       }
 
       /* Golden hairline glow for header bottom */
       .header-gold-line {
         position: relative;
+        overflow: hidden;
       }
       .header-gold-line::after {
         content: '';
@@ -1072,29 +1091,29 @@
         return (
           <div className="w-full bg-canvas text-noir animate-fade-up">
             {/* Top Breadcrumb & Share Action Bar */}
-            <div className="border-b border-taupe/20 bg-card/60 backdrop-blur-xs">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="border-b border-taupe/20 bg-card/60 backdrop-blur-xs overflow-hidden w-full">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs w-full min-w-0">
                 {/* Back Link & Breadcrumb */}
-                <div className="flex items-center gap-2 text-taupe-dark">
+                <div className="flex items-center gap-2 text-taupe-dark min-w-0 max-w-full overflow-hidden flex-wrap">
                   <button
                     type="button"
                     onClick={onBack}
-                    className="flex items-center gap-1.5 font-semibold text-noir hover:text-caramel transition-colors"
+                    className="flex items-center gap-1.5 font-semibold text-noir hover:text-caramel transition-colors shrink-0"
                   >
                     <span>{t.product_back_to_collection}</span>
                   </button>
-                  <span>/</span>
-                  <span className="uppercase tracking-wider font-mono text-[11px] text-taupe-dark">
+                  <span className="shrink-0 text-taupe/40">/</span>
+                  <span className="uppercase tracking-wider font-mono text-[11px] text-taupe-dark shrink-0">
                     {product.category}
                   </span>
-                  <span>/</span>
-                  <span className="text-noir font-medium line-clamp-1 max-w-[200px] sm:max-w-xs">
+                  <span className="shrink-0 text-taupe/40">/</span>
+                  <span className="text-noir font-medium truncate min-w-0 max-w-[140px] sm:max-w-xs">
                     {title}
                   </span>
                 </div>
 
                 {/* Direct Share Buttons */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
                   <button
                     type="button"
                     onClick={copyLink}
@@ -1201,15 +1220,15 @@
                   )}
 
                   {/* Shareable URL Banner Card for Merchant */}
-                  <div className="mt-2 p-3.5 bg-card border border-taupe/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2 truncate text-taupe-dark">
-                      <span className="font-semibold text-noir">🔗 Lien direct client :</span>
-                      <span className="font-mono text-[11px] truncate select-all">{currentUrl}</span>
+                  <div className="mt-2 p-3 bg-card border border-taupe/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs max-w-full overflow-hidden">
+                    <div className="flex items-center gap-2 min-w-0 max-w-full overflow-hidden">
+                      <span className="font-semibold text-noir shrink-0">🔗 Lien direct :</span>
+                      <span className="font-mono text-[11px] truncate min-w-0 select-all text-taupe-dark block">{currentUrl}</span>
                     </div>
                     <button
                       type="button"
                       onClick={copyLink}
-                      className="shrink-0 px-3 py-1 bg-noir text-white hover:bg-caramel text-[11px] font-semibold uppercase tracking-wider transition-colors"
+                      className="shrink-0 self-start sm:self-auto px-3 py-1 bg-noir text-white hover:bg-caramel text-[11px] font-semibold uppercase tracking-wider transition-colors"
                     >
                       {copied ? '✓ Copié' : 'Copier'}
                     </button>
@@ -1960,11 +1979,11 @@
         };
 
         return (
-          <div className="min-h-screen flex flex-col bg-canvas text-noir">
+          <div className="min-h-screen flex flex-col bg-canvas text-noir w-full max-w-full overflow-x-hidden relative">
             {/* ================================================================ */}
             {/* 1. HEADER STICKY & TOP BAR (Luxury Mashrabiya BG & Gold Line) */}
             {/* ================================================================ */}
-            <header className={`sticky top-0 z-40 header-luxury-bg header-gold-line transition-all duration-300 ${scrolled ? 'shadow-lg shadow-noir/5' : ''}`}>
+            <header className={`sticky top-0 z-40 header-luxury-bg header-gold-line overflow-hidden w-full max-w-full transition-all duration-300 ${scrolled ? 'shadow-lg shadow-noir/5' : ''}`}>
               <div className="header-shimmer-beam" />
               <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 transition-all duration-300 ${scrolled ? 'h-16' : 'h-20'}`}>
                 
@@ -3584,9 +3603,9 @@
         };
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto overflow-x-hidden">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={onClose} />
-            <div className="relative bg-canvas w-full max-w-xl max-h-[90vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-6 sm:p-8 animate-modal-pop">
+            <div className="relative bg-canvas w-full max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden z-10 shadow-2xl border border-taupe/30 p-5 sm:p-8 animate-modal-pop box-border my-auto">
               <button
                 onClick={onClose}
                 className="absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg"
@@ -3725,10 +3744,10 @@
                 <button
                   type="submit"
                   disabled={!isFormValid || submitting}
-                  className={`w-full py-3.5 text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm ${
+                  className={`w-full py-3.5 px-3 text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm whitespace-normal text-center leading-snug box-border ${
                     !isFormValid || submitting
                       ? 'bg-taupe/30 text-taupe-dark cursor-not-allowed'
-                      : 'bg-noir text-white hover:bg-caramel'
+                      : 'bg-noir text-white hover:bg-caramel active:scale-98'
                   }`}
                 >
                   {submitting ? 'Validation en cours...' : t.order_confirm_btn}
@@ -3773,9 +3792,9 @@
         };
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto overflow-x-hidden">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={onClose} />
-            <div className="relative bg-canvas w-full max-w-lg p-6 sm:p-8 z-10 shadow-2xl border border-taupe/30 animate-modal-pop">
+            <div className="relative bg-canvas w-full max-w-lg p-5 sm:p-8 z-10 shadow-2xl border border-taupe/30 animate-modal-pop box-border my-auto overflow-x-hidden">
               <button
                 onClick={onClose}
                 className="absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg"
