@@ -1,0 +1,195 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Represents an e-commerce catalog item in ETTORE store",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Unique identifier of the product"
+        },
+        "nameFr": {
+          "type": "string",
+          "description": "Product name in French",
+          "maxLength": 150
+        },
+        "nameAr": {
+          "type": "string",
+          "description": "Product name in Arabic",
+          "maxLength": 150
+        },
+        "price": {
+          "type": "number",
+          "description": "Unit price in Moroccan Dirhams (MAD)"
+        },
+        "oldPrice": {
+          "type": "number",
+          "description": "Original crossed out price if discounted"
+        },
+        "category": {
+          "type": "string",
+          "description": "Product category",
+          "enum": ["chaussures", "soins", "maison"]
+        },
+        "inStock": {
+          "type": "boolean",
+          "description": "Whether the product is currently available"
+        },
+        "stock": {
+          "type": "number",
+          "description": "Remaining stock count"
+        },
+        "badge": {
+          "type": "string",
+          "description": "Marketing badge indicator",
+          "enum": ["new", "exclusive", "luxury", "out"]
+        },
+        "isNew": {
+          "type": "boolean",
+          "description": "Whether the product is flagged as new arrival"
+        },
+        "rating": {
+          "type": "number",
+          "description": "Average review rating (1 to 5)"
+        },
+        "images": {
+          "type": "array",
+          "description": "List of SVG data URIs or image URLs"
+        },
+        "descFr": {
+          "type": "string",
+          "description": "Editorial description in French",
+          "maxLength": 1000
+        },
+        "descAr": {
+          "type": "string",
+          "description": "Editorial description in Arabic",
+          "maxLength": 1000
+        },
+        "sizes": {
+          "type": "array",
+          "description": "Available size options"
+        },
+        "colors": {
+          "type": "array",
+          "description": "Available hex color options"
+        }
+      },
+      "required": ["id", "nameFr", "price", "stock", "category"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Represents a cash on delivery (COD) customer order",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Order reference code (e.g., CMD-A8F2K9)",
+          "pattern": "^CMD-[A-Z0-9]{6}$",
+          "maxLength": 16
+        },
+        "date": {
+          "type": "string",
+          "description": "ISO timestamp of order placement"
+        },
+        "status": {
+          "type": "string",
+          "description": "Order fulfillment status",
+          "enum": ["En attente", "Confirmée", "En cours", "Livrée", "Annulée"]
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Customer full name",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "customerPhone": {
+          "type": "string",
+          "description": "Customer Moroccan mobile phone number",
+          "pattern": "^(06|07)[0-9]{8}$",
+          "maxLength": 15
+        },
+        "city": {
+          "type": "string",
+          "description": "Delivery city in Morocco",
+          "maxLength": 50
+        },
+        "address": {
+          "type": "string",
+          "description": "Complete shipping street address",
+          "minLength": 5,
+          "maxLength": 300
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional delivery instructions",
+          "maxLength": 500
+        },
+        "items": {
+          "type": "array",
+          "description": "Ordered products line items"
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "Order subtotal before discount"
+        },
+        "discount": {
+          "type": "number",
+          "description": "Applied discount amount in MAD"
+        },
+        "promoCode": {
+          "type": "string",
+          "description": "Coupon code used",
+          "maxLength": 30
+        },
+        "shippingFee": {
+          "type": "number",
+          "description": "Shipping cost in MAD"
+        },
+        "total": {
+          "type": "number",
+          "description": "Total amount to pay on delivery"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Payment terms (e.g. COD)",
+          "maxLength": 50
+        }
+      },
+      "required": ["id", "customerName", "customerPhone", "city", "address", "items", "total"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Designates an authorized administrator UID",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth user UID",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "description": "Administrator email address",
+          "maxLength": 150
+        }
+      },
+      "required": ["uid", "email"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Catalog products readable by anyone, writable by admin"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer COD orders creatable by customers, readable for tracking by ID, manageable by admin"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Trusted administrative user accounts"
+    }
+  }
+}

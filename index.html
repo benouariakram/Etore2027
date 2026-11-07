@@ -155,6 +155,164 @@
         animation: item-bounce-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
       }
 
+      /* ================================================================ */
+      /* LUXURY HEADER BACKGROUND & BESPOKE MOTION STYLES */
+      /* ================================================================ */
+      .header-luxury-bg {
+        background-color: rgba(250, 249, 246, 0.94);
+        background-image:
+          radial-gradient(ellipse at 50% -20%, rgba(194, 139, 83, 0.22) 0%, rgba(250, 249, 246, 0) 75%),
+          url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%239E8C7A' fill-opacity='0.055' fill-rule='evenodd'%3E%3Cpath d='M30 0l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm0 30l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm15-15l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zM0 15l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm30 30l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm15-15l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5z'/%3E%3Ccircle cx='30' cy='30' r='1.5' fill='%23C28B53' fill-opacity='0.16'/%3E%3C/g%3E%3C/svg%3E");
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+      }
+
+      /* Golden hairline glow for header bottom */
+      .header-gold-line {
+        position: relative;
+      }
+      .header-gold-line::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent 5%, rgba(194, 139, 83, 0.35) 25%, rgba(194, 139, 83, 0.85) 50%, rgba(194, 139, 83, 0.35) 75%, transparent 95%);
+        pointer-events: none;
+      }
+
+      /* Ambient shimmer beam at the very top of header */
+      @keyframes header-shimmer-sweep {
+        0% { transform: translateX(-100%); }
+        60%, 100% { transform: translateX(250%); }
+      }
+      .header-shimmer-beam {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 40%;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(194, 139, 83, 0.85), transparent);
+        animation: header-shimmer-sweep 7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        pointer-events: none;
+      }
+
+      /* Slow rotation for craft emblem */
+      @keyframes spin-slow {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      .animate-spin-slow {
+        animation: spin-slow 45s linear infinite;
+        transform-origin: center;
+      }
+
+      /* Floating beacon pulse for WhatsApp */
+      @keyframes beacon-pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+        }
+        70% {
+          box-shadow: 0 0 0 16px rgba(16, 185, 129, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+        }
+      }
+      .animate-beacon {
+        animation: beacon-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      /* Staggered entrance animations */
+      @keyframes fade-slide-up {
+        0% {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-fade-up {
+        animation: fade-slide-up 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      /* Heart pop animation */
+      @keyframes heart-pop {
+        0% { transform: scale(1); }
+        40% { transform: scale(1.35); }
+        75% { transform: scale(0.92); }
+        100% { transform: scale(1); }
+      }
+      .animate-heart-pop {
+        animation: heart-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      /* Flame low-stock glow */
+      @keyframes flame-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.85; transform: scale(1.05); }
+      }
+      .animate-flame {
+        display: inline-block;
+        animation: flame-pulse 2s ease-in-out infinite;
+      }
+
+      /* Modal pop-in */
+      @keyframes modal-pop {
+        0% {
+          opacity: 0;
+          transform: scale(0.97) translateY(8px);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+      .animate-modal-pop {
+        animation: modal-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      /* Nav Link Hover Underline Indicator */
+      .nav-link-indicator {
+        position: relative;
+        display: inline-block;
+      }
+      .nav-link-indicator::after {
+        content: '';
+        position: absolute;
+        bottom: -4px;
+        left: 0;
+        width: 100%;
+        height: 1.5px;
+        background: linear-gradient(90deg, #9E8C7A, #C28B53);
+        transform: scaleX(0);
+        transform-origin: center;
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .nav-link-indicator:hover::after {
+        transform: scaleX(1);
+      }
+
+      /* Hero Wallpaper Slider Animations */
+      @keyframes kenburns-slow {
+        0% { transform: scale(1); }
+        100% { transform: scale(1.07); }
+      }
+      .animate-kenburns {
+        animation: kenburns-slow 8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+      }
+
+      @keyframes slide-progress-fill {
+        0% { width: 0%; }
+        100% { width: 100%; }
+      }
+      .animate-slide-progress {
+        animation: slide-progress-fill 6.5s linear forwards;
+      }
+
       /* Print Area - Strict Single A4 Page Contract */
       @page {
         size: A4;
@@ -368,6 +526,19 @@
           hero_subtitle: "Pensé pour l'homme contemporain au Maroc. Matières nobles, savoir-faire séculaire et livraison express avec paiement sécurisé à la livraison.",
           hero_cta: "Explorer la Collection",
           hero_story_btn: "Notre Savoir-Faire",
+          hero_slide2_badge: "Rituels Botaniques & Soins d'Origine",
+          hero_slide2_title: "Élixirs de l'Atlas & Cèdre Millénaire",
+          hero_slide2_subtitle: "Formules pures infusées à l'huile de pépins de figue de barbarie et d'argan bio pour régénérer la peau et magnifier la barbe.",
+          hero_slide2_cta1: "Découvrir les Soins",
+          hero_slide2_cta2: "Ingrédients d'Origine",
+          hero_slide3_badge: "Ligne Maison, Bain & Matières Nobles",
+          hero_slide3_title: "L'Art de Vivre au Naturel",
+          hero_slide3_subtitle: "Peignoirs en lin pré-lavé 380g/m² et plaids en mérinos extra-fin façonnés pour des moments de calme souverain.",
+          hero_slide3_cta1: "Voir la Ligne Maison",
+          hero_slide3_cta2: "Héritage Artisanal",
+          hero_tab_1: "01 · Maroquinerie",
+          hero_tab_2: "02 · Soins Botaniques",
+          hero_tab_3: "03 · Maison & Bain",
           trust_delivery: "Livraison Partout au Maroc (24-72h)",
           trust_cod: "Paiement à la Livraison (COD)",
           trust_exchange: "Échange garanti sous 7 jours",
@@ -488,6 +659,19 @@
           hero_subtitle: "مُصمم للرجل العصري بالمغرب. مواد نباتية أصيلة، دباغة طبيعية بفاس، وعناية نقية مع التوصيل السريع والدفع نقداً عند الاستلام.",
           hero_cta: "استكشف المجموعة",
           hero_story_btn: "قصة الحرفية",
+          hero_slide2_badge: "طقوس نباتية وعناية أصيلة للرجل",
+          hero_slide2_title: "إكسير الأطلس النادر وخشب الأرز العتيق",
+          hero_slide2_subtitle: "تركيبات فائقة النقاء غنية بزيت بذور التين الشوكي والأركان العضوي لتجديد خلايا البشرة وتهذيب اللحية بنعومة.",
+          hero_slide2_cta1: "اكتشف تشكيلة العناية",
+          hero_slide2_cta2: "المكونات العضوية",
+          hero_slide3_badge: "المنزل والاسترخاء ومواد فاخرة",
+          hero_slide3_title: "فن العيش والهدوء الملكي",
+          hero_slide3_subtitle: "أردية حمام من الكتان الطبيعي المغسول بكثافة 380غ/م² وأغطية من صوف الميرينو الممشط لراحة لا تضاهى.",
+          hero_slide3_cta1: "اكتشف تشكيلة المنزل",
+          hero_slide3_cta2: "التراث الحرفي",
+          hero_tab_1: "٠١ · المصنوعات الجلدية",
+          hero_tab_2: "٠٢ · العناية والزيوت",
+          hero_tab_3: "٠٣ · المنزل والكتان",
           trust_delivery: "توصيل سريع لجميع مدن المغرب (24-72 ساعة)",
           trust_cod: "الدفع نقداً عند الاستلام (COD)",
           trust_exchange: "ضمان الاستبدال خلال 7 أيام",
@@ -850,10 +1034,82 @@
         const [cartOpen, setCartOpen] = useState(false);
         const [badgePulsing, setBadgePulsing] = useState(false);
         const [lastAddedLineKey, setLastAddedLineKey] = useState(null);
+        const [scrolled, setScrolled] = useState(false);
         const [quickViewProduct, setQuickViewProduct] = useState(null);
         const [quickViewImageIdx, setQuickViewImageIdx] = useState(0);
         const [quickViewSize, setQuickViewSize] = useState('');
         const [quickViewColor, setQuickViewColor] = useState('');
+
+        useEffect(() => {
+          const handleScroll = () => {
+            setScrolled(window.scrollY > 20);
+          };
+          window.addEventListener('scroll', handleScroll, { passive: true });
+          return () => window.removeEventListener('scroll', handleScroll);
+        }, []);
+
+        // --- Hero Wallpaper Slider State & Definition ---
+        const [heroSlide, setHeroSlide] = useState(0);
+        const [isHeroPaused, setIsHeroPaused] = useState(false);
+        const touchStartX = useRef(null);
+
+        const nextHeroSlide = useCallback(() => {
+          setHeroSlide(prev => (prev + 1) % 3);
+        }, []);
+
+        const prevHeroSlide = useCallback(() => {
+          setHeroSlide(prev => (prev - 1 + 3) % 3);
+        }, []);
+
+        useEffect(() => {
+          if (isHeroPaused) return;
+          const timer = setInterval(() => {
+            setHeroSlide(prev => (prev + 1) % 3);
+          }, 6500);
+          return () => clearInterval(timer);
+        }, [isHeroPaused, heroSlide]);
+
+        const heroSlides = useMemo(() => [
+          {
+            id: 0,
+            wallpaper: '/images/hero-1-leather.jpg',
+            badge: t.hero_badge,
+            title: t.hero_title,
+            subtitle: t.hero_subtitle,
+            categoryFilter: 'all',
+            cta1: t.hero_cta,
+            cta1Href: '#collection',
+            cta2: t.hero_story_btn,
+            cta2Href: '#savoir-faire',
+            tag: t.hero_tab_1 || "01 · Maroquinerie"
+          },
+          {
+            id: 1,
+            wallpaper: '/images/hero-2-botanical.jpg',
+            badge: t.hero_slide2_badge || "Rituels Botaniques & Soins d'Origine",
+            title: t.hero_slide2_title || "Élixirs de l'Atlas & Cèdre Millénaire",
+            subtitle: t.hero_slide2_subtitle || "Formules pures infusées à l'huile de pépins de figue de barbarie et d'argan bio pour régénérer la peau et magnifier la barbe.",
+            categoryFilter: 'soins',
+            cta1: t.hero_slide2_cta1 || "Découvrir les Soins",
+            cta1Href: '#collection',
+            cta2: t.hero_slide2_cta2 || "Ingrédients d'Origine",
+            cta2Href: '#savoir-faire',
+            tag: t.hero_tab_2 || "02 · Soins Botaniques"
+          },
+          {
+            id: 2,
+            wallpaper: '/images/hero-3-linen.jpg',
+            badge: t.hero_slide3_badge || "Ligne Maison, Bain & Matières Nobles",
+            title: t.hero_slide3_title || "L'Art de Vivre au Naturel",
+            subtitle: t.hero_slide3_subtitle || "Peignoirs en lin pré-lavé 380g/m² et plaids en mérinos extra-fin façonnés pour des moments de calme souverain.",
+            categoryFilter: 'maison',
+            cta1: t.hero_slide3_cta1 || "Voir la Ligne Maison",
+            cta1Href: '#collection',
+            cta2: t.hero_slide3_cta2 || "Héritage Artisanal",
+            cta2Href: '#savoir-faire',
+            tag: t.hero_tab_3 || "03 · Maison & Bain"
+          }
+        ], [t]);
 
         const [checkoutOpen, setCheckoutOpen] = useState(false);
         const [currentInvoiceOrder, setCurrentInvoiceOrder] = useState(null);
@@ -1127,10 +1383,11 @@
         return (
           <div className="min-h-screen flex flex-col bg-canvas text-noir">
             {/* ================================================================ */}
-            {/* 1. HEADER STICKY & TOP BAR */}
+            {/* 1. HEADER STICKY & TOP BAR (Luxury Mashrabiya BG & Gold Line) */}
             {/* ================================================================ */}
-            <header className="sticky top-0 z-40 bg-canvas/95 backdrop-blur-md border-b border-taupe/20 transition-all duration-200">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+            <header className={`sticky top-0 z-40 header-luxury-bg header-gold-line transition-all duration-300 ${scrolled ? 'shadow-lg shadow-noir/5' : ''}`}>
+              <div className="header-shimmer-beam" />
+              <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 transition-all duration-300 ${scrolled ? 'h-16' : 'h-20'}`}>
                 
                 {/* Zone 1: Burger Mobile & Navigation Desktop */}
                 <div className="flex items-center gap-6">
@@ -1148,25 +1405,25 @@
 
                   {/* Desktop Nav Links */}
                   <nav className="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide">
-                    <a href="#collection" className="text-noir hover:text-caramel transition-colors whitespace-nowrap">
+                    <a href="#collection" className="nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap">
                       {t.nav_collection}
                     </a>
-                    <a href="#savoir-faire" className="text-noir hover:text-caramel transition-colors whitespace-nowrap">
+                    <a href="#savoir-faire" className="nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap">
                       {t.nav_craft}
                     </a>
-                    <a href="#temoignages" className="text-noir hover:text-caramel transition-colors whitespace-nowrap">
+                    <a href="#temoignages" className="nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap">
                       {t.nav_testimonials}
                     </a>
                   </nav>
                 </div>
 
-                {/* Zone 2: Brand Logo (Centered, Serif, Refined Spacing) */}
+                {/* Zone 2: Brand Logo (Centered, Serif, Refined Spacing & Hover Spread) */}
                 <div className="text-center">
                   <a href="#" className="inline-block group focus:outline-none">
-                    <span className="font-serif text-2xl sm:text-3xl font-bold tracking-[0.25em] text-noir uppercase group-hover:text-caramel transition-colors">
+                    <span className="font-serif text-2xl sm:text-3xl font-bold tracking-[0.25em] text-noir uppercase group-hover:text-caramel group-hover:tracking-[0.3em] transition-all duration-300">
                       {t.brand}
                     </span>
-                    <span className="block text-[9px] tracking-[0.3em] uppercase text-taupe-dark -mt-1 font-sans">
+                    <span className="block text-[9px] tracking-[0.3em] uppercase text-taupe-dark -mt-1 font-sans group-hover:text-noir transition-colors">
                       {t.tagline}
                     </span>
                   </a>
@@ -1242,54 +1499,183 @@
             </header>
 
             {/* ================================================================ */}
-            {/* 2. HERO SECTION (Serif Italic, Clean Space, High Contrast) */}
+            {/* 2. HERO SECTION — 3-SLIDE WALLPAPER SLIDER */}
             {/* ================================================================ */}
-            <section className="relative overflow-hidden py-16 sm:py-24 border-b border-taupe/15 bg-gradient-to-b from-canvas via-card/50 to-canvas">
-              <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                {/* Subtle Kicker / Clean Unboxed Metadata */}
-                <div className="inline-flex items-center gap-2 text-xs font-semibold tracking-[0.2em] uppercase text-caramel mb-5">
-                  <span>{t.hero_badge}</span>
+            <section
+              className="relative overflow-hidden bg-noir select-none border-b border-taupe/20"
+              role="region"
+              aria-roledescription="carousel"
+              aria-label="Collection Présentation ETTORE"
+              onMouseEnter={() => setIsHeroPaused(true)}
+              onMouseLeave={() => setIsHeroPaused(false)}
+              onTouchStart={(e) => {
+                touchStartX.current = e.touches[0].clientX;
+              }}
+              onTouchEnd={(e) => {
+                if (touchStartX.current !== null) {
+                  const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+                  if (deltaX > 40) {
+                    lang === 'ar' ? nextHeroSlide() : prevHeroSlide();
+                  } else if (deltaX < -40) {
+                    lang === 'ar' ? prevHeroSlide() : nextHeroSlide();
+                  }
+                  touchStartX.current = null;
+                }
+              }}
+            >
+              {/* Wallpaper Backgrounds Stack (3 Slides with Smooth Cross-Fade & Ken Burns) */}
+              <div className="absolute inset-0 z-0 overflow-hidden">
+                {heroSlides.map((slide, idx) => {
+                  const isActive = heroSlide === idx;
+                  return (
+                    <div
+                      key={slide.id}
+                      className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                        isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                      }`}
+                      aria-hidden={!isActive}
+                    >
+                      <img
+                        src={slide.wallpaper}
+                        alt=""
+                        className={`w-full h-full object-cover object-center ${
+                          isActive ? 'scale-105 transition-transform duration-7000 ease-out' : 'scale-100'
+                        }`}
+                      />
+                    </div>
+                  );
+                })}
+
+                {/* Luxury Vignette & Dark Editorial Scrim for Impeccable Typography Legibility */}
+                <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#141210]/95 via-[#141210]/65 to-[#141210]/50" />
+                <div className="absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,rgba(194,139,83,0.18)_0%,rgba(14,12,10,0.75)_100%)] mix-blend-multiply" />
+                <div className="absolute inset-0 z-10 border-b border-white/10" />
+              </div>
+
+              {/* Slider Content Viewport */}
+              <div className="relative z-20 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-24 sm:pt-32 sm:pb-32 lg:pt-36 lg:pb-36 flex flex-col items-center justify-center text-center min-h-[580px] sm:min-h-[640px] lg:min-h-[680px]">
+                {heroSlides.map((slide, idx) => {
+                  if (heroSlide !== idx) return null;
+                  return (
+                    <div key={slide.id} className="w-full flex flex-col items-center">
+                      {/* Badge / Kicker with Gold Dots */}
+                      <div className="inline-flex items-center gap-2 text-xs font-semibold tracking-[0.25em] uppercase text-caramel mb-5 animate-fade-up drop-shadow-sm">
+                        <span className="w-1.5 h-1.5 rounded-full bg-caramel inline-block" />
+                        <span>{slide.badge}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-caramel inline-block" />
+                      </div>
+
+                      {/* Editorial Title (Cormorant Garamond Italic) */}
+                      <h1
+                        style={{ animationDelay: '120ms' }}
+                        className="font-serif italic text-4xl sm:text-6xl lg:text-7xl font-normal text-white tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 drop-shadow-md animate-fade-up"
+                      >
+                        {slide.title}
+                      </h1>
+
+                      {/* Subtitle with measure limits */}
+                      <p
+                        style={{ animationDelay: '240ms' }}
+                        className="text-base sm:text-lg text-white/90 max-w-2xl mx-auto font-light leading-relaxed mb-10 drop-shadow-sm animate-fade-up"
+                      >
+                        {slide.subtitle}
+                      </p>
+
+                      {/* CTAs */}
+                      <div
+                        style={{ animationDelay: '360ms' }}
+                        className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto animate-fade-up"
+                      >
+                        <a
+                          href={slide.cta1Href}
+                          onClick={() => {
+                            if (slide.categoryFilter) {
+                              setSelectedCategory(slide.categoryFilter);
+                            }
+                          }}
+                          className="w-full sm:w-auto px-8 py-3.5 bg-caramel text-white text-xs font-semibold uppercase tracking-[0.18em] hover:bg-white hover:text-noir transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+                        >
+                          {slide.cta1}
+                        </a>
+                        <a
+                          href={slide.cta2Href}
+                          className="w-full sm:w-auto px-8 py-3.5 border border-white/40 text-white text-xs font-semibold uppercase tracking-[0.18em] hover:border-white hover:bg-white/10 backdrop-blur-xs transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
+                        >
+                          {slide.cta2}
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Left & Right Chevron Arrows (Respects RTL for Arabic) */}
+                <button
+                  type="button"
+                  onClick={lang === 'ar' ? nextHeroSlide : prevHeroSlide}
+                  className="absolute start-4 sm:start-8 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/35 hover:bg-black/70 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all duration-200 hover:scale-110 active:scale-95 z-30 focus:outline-hidden shadow-lg"
+                  aria-label="Slide précédent"
+                >
+                  <svg className="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={lang === 'ar' ? prevHeroSlide : nextHeroSlide}
+                  className="absolute end-4 sm:end-8 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/35 hover:bg-black/70 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-all duration-200 hover:scale-110 active:scale-95 z-30 focus:outline-hidden shadow-lg"
+                  aria-label="Slide suivant"
+                >
+                  <svg className="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+
+                {/* 3 Progress Bars / Tabs (Bottom of Viewport) */}
+                <div className="absolute bottom-8 left-0 right-0 z-30 flex items-center justify-center gap-3 sm:gap-6 px-4">
+                  {heroSlides.map((slide, idx) => {
+                    const isActive = heroSlide === idx;
+                    return (
+                      <button
+                        key={slide.id}
+                        type="button"
+                        onClick={() => setHeroSlide(idx)}
+                        className={`text-start group transition-all duration-300 focus:outline-hidden ${
+                          isActive ? 'opacity-100' : 'opacity-55 hover:opacity-85'
+                        }`}
+                      >
+                        <span className="block text-[10px] sm:text-xs font-semibold tracking-wider text-white/95 uppercase font-mono">
+                          {slide.tag}
+                        </span>
+                        <div className="w-20 sm:w-28 md:w-36 h-1 bg-white/25 rounded-full overflow-hidden mt-1.5 relative">
+                          {isActive && (
+                            <div
+                              key={`${heroSlide}-${isHeroPaused}`}
+                              className={`h-full bg-caramel rounded-full ${
+                                isHeroPaused ? 'w-full' : 'animate-slide-progress'
+                              }`}
+                            />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
+              </div>
 
-                {/* Refined Headline with Cormorant Garamond */}
-                <h1 className="font-serif italic text-4xl sm:text-6xl lg:text-7xl font-normal text-noir tracking-tight max-w-4xl mx-auto leading-[1.1] mb-6">
-                  {t.hero_title}
-                </h1>
-
-                {/* Subtitle with measure limits */}
-                <p className="text-base sm:text-lg text-taupe-dark max-w-2xl mx-auto font-light leading-relaxed mb-10">
-                  {t.hero_subtitle}
-                </p>
-
-                {/* Dual CTAs */}
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <a
-                    href="#collection"
-                    className="w-full sm:w-auto px-8 py-3.5 bg-noir text-canvas text-xs font-semibold uppercase tracking-[0.15em] hover:bg-caramel hover:text-white transition-colors duration-200 shadow-sm"
-                  >
-                    {t.hero_cta}
-                  </a>
-                  <a
-                    href="#savoir-faire"
-                    className="w-full sm:w-auto px-8 py-3.5 border border-noir/30 text-noir text-xs font-semibold uppercase tracking-[0.15em] hover:border-noir hover:bg-noir/5 transition-colors duration-200"
-                  >
-                    {t.hero_story_btn}
-                  </a>
-                </div>
-
-                {/* 3 Trust Markers Row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-16 mt-16 border-t border-taupe/20 text-xs text-taupe-dark">
-                  <div className="flex items-center justify-center gap-3">
-                    <span className="text-lg">🇲🇦</span>
-                    <span className="font-medium">{t.trust_delivery}</span>
+              {/* 3 Moroccan Trust Markers (Integrated Glass Bar at Base of Hero) */}
+              <div className="relative z-20 bg-black/55 backdrop-blur-md border-t border-white/10 py-4 px-4">
+                <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4 text-center text-xs text-white/90">
+                  <div className="flex items-center justify-center gap-2.5">
+                    <span className="text-base">🇲🇦</span>
+                    <span className="font-medium tracking-wide">{t.trust_delivery}</span>
                   </div>
-                  <div className="flex items-center justify-center gap-3">
-                    <span className="text-lg">💵</span>
-                    <span className="font-medium">{t.trust_cod}</span>
+                  <div className="flex items-center justify-center gap-2.5">
+                    <span className="text-base">💵</span>
+                    <span className="font-medium tracking-wide">{t.trust_cod}</span>
                   </div>
-                  <div className="flex items-center justify-center gap-3">
-                    <span className="text-lg">✨</span>
-                    <span className="font-medium">{t.trust_exchange}</span>
+                  <div className="flex items-center justify-center gap-2.5">
+                    <span className="text-base">✨</span>
+                    <span className="font-medium tracking-wide">{t.trust_exchange}</span>
                   </div>
                 </div>
               </div>
@@ -1435,7 +1821,7 @@
                     return (
                       <div
                         key={product.id}
-                        className="group flex flex-col bg-card border border-taupe/20 transition-all duration-300 hover:border-taupe/50 hover:shadow-sm"
+                        className="group flex flex-col bg-card border border-taupe/20 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
                       >
                         {/* Image Showcase Container */}
                         <div className="relative aspect-4/3 w-full bg-[#EFECE6] overflow-hidden">
@@ -1474,15 +1860,15 @@
                             </span>
                           )}
 
-                          {/* Wishlist Heart */}
+                          {/* Wishlist Heart with Pop Animation */}
                           <button
                             type="button"
                             onClick={() => toggleWishlist(product.id)}
-                            className="absolute top-3 end-3 w-8 h-8 rounded-full bg-white/80 hover:bg-white flex items-center justify-center transition-colors shadow-xs"
+                            className="absolute top-3 end-3 w-8 h-8 rounded-full bg-white/80 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90"
                             aria-label="Wishlist"
                           >
                             <svg
-                              className={`w-4 h-4 transition-colors ${isWish ? 'fill-caramel text-caramel' : 'text-noir/60 hover:text-noir'}`}
+                              className={`w-4 h-4 transition-colors ${isWish ? 'fill-caramel text-caramel animate-heart-pop' : 'text-noir/60 hover:text-noir'}`}
                               viewBox="0 0 24 24"
                               stroke="currentColor"
                               strokeWidth="1.75"
@@ -1510,10 +1896,11 @@
                             {desc}
                           </p>
 
-                          {/* Stock Warning if low */}
+                          {/* Stock Warning if low with Flame Pulse */}
                           {isLow && (
-                            <p className="text-[11px] font-semibold text-[#B91C1C] mb-3">
-                              {t.low_stock_alert.replace('{n}', product.stock)}
+                            <p className="text-[11px] font-semibold text-[#B91C1C] mb-3 flex items-center">
+                              <span className="animate-flame me-1 inline-block">🔥</span>
+                              <span>{t.low_stock_alert.replace('🔥 ', '').replace('{n}', product.stock)}</span>
                             </p>
                           )}
 
@@ -1596,12 +1983,14 @@
                     </div>
                   </div>
 
-                  {/* Atelier Illustration visual */}
+                  {/* Atelier Illustration visual with Slow Spinning Seal */}
                   <div className="relative aspect-4/3 bg-[#EAE4DC] border border-taupe/30 overflow-hidden shadow-sm flex items-center justify-center p-8">
                     <svg className="w-full h-full max-h-80" viewBox="0 0 600 450" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <rect width="600" height="450" fill="#EAE4DC" />
-                      <circle cx="300" cy="225" r="160" stroke="#9E8C7A" stroke-width="1.5" stroke-dasharray="6 6" />
-                      <circle cx="300" cy="225" r="130" fill="#FAF9F6" stroke="#9E8C7A" stroke-width="2" />
+                      <g className="animate-spin-slow" style={{ transformOrigin: '300px 225px' }}>
+                        <circle cx="300" cy="225" r="160" stroke="#9E8C7A" strokeWidth="1.5" strokeDasharray="6 6" />
+                      </g>
+                      <circle cx="300" cy="225" r="130" fill="#FAF9F6" stroke="#9E8C7A" strokeWidth="2" />
                       <path d="M220 180C250 140 350 140 380 180C400 210 390 270 300 290C210 270 200 210 220 180Z" fill="#3D2B1F" />
                       <path d="M250 190C270 165 330 165 350 190C360 210 340 240 300 250C260 240 240 210 250 190Z" fill="#634731" />
                       <text x="300" y="340" font-family="'Cormorant Garamond', serif" font-size="20" fill="#171717" text-anchor="middle" letter-spacing="4">ETTORE ATELIER</text>
@@ -1755,14 +2144,14 @@
             </footer>
 
             {/* ================================================================ */}
-            {/* 7. FLOATING WHATSAPP BUTTON (Emerald Green, Hover Scale) */}
+            {/* 7. FLOATING WHATSAPP BUTTON (Emerald Green, Beacon Animation) */}
             {/* ================================================================ */}
             <a
               href="https://wa.me/212600773716?text=Bonjour%20ETTORE,%20j%27aimerais%20avoir%20des%20renseignements"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Contacter sur WhatsApp"
-              className="fixed bottom-6 end-6 z-40 bg-[#10B981] text-white p-3.5 rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform duration-200 flex items-center justify-center group"
+              className="fixed bottom-6 end-6 z-40 bg-[#10B981] text-white p-3.5 rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform duration-200 flex items-center justify-center group animate-beacon"
             >
               <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24">
                 <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.969.586 1.777.947 2.796.947 3.179 0 5.765-2.587 5.765-5.766 0-3.18-2.586-5.734-5.765-5.734zm9.969 5.766c0 5.516-4.484 10-10 10-1.748 0-3.393-.453-4.836-1.246l-5.164 1.354 1.379-5.029c-.879-1.488-1.379-3.224-1.379-5.079 0-5.516 4.484-10 10-10s10 4.484 10 10z"/>
@@ -2090,7 +2479,7 @@
                   className="fixed inset-0 bg-black/60 backdrop-blur-xs"
                   onClick={() => setQuickViewProduct(null)}
                 />
-                <div className="relative bg-canvas w-full max-w-4xl max-h-[90vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 flex flex-col md:flex-row">
+                <div className="relative bg-canvas w-full max-w-4xl max-h-[90vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 flex flex-col md:flex-row animate-modal-pop">
                   <button
                     onClick={() => setQuickViewProduct(null)}
                     className="absolute top-4 end-4 z-20 p-2 text-noir hover:text-caramel bg-canvas/80 rounded-full"
@@ -2257,7 +2646,7 @@
                   className="fixed inset-0 bg-black/60 backdrop-blur-xs"
                   onClick={() => setCurrentInvoiceOrder(null)}
                 />
-                <div className="relative bg-white w-full max-w-3xl max-h-[92vh] overflow-hidden z-10 shadow-2xl flex flex-col border border-taupe/30">
+                <div className="relative bg-white w-full max-w-3xl max-h-[92vh] overflow-hidden z-10 shadow-2xl flex flex-col border border-taupe/30 animate-modal-pop">
                   {/* Modal Action Bar */}
                   <div className="p-4 bg-noir text-white flex items-center justify-between">
                     <span className="font-serif text-lg font-bold">{t.invoice_modal_title}</span>
@@ -2443,7 +2832,7 @@
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={onClose} />
-            <div className="relative bg-canvas w-full max-w-xl max-h-[90vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-6 sm:p-8">
+            <div className="relative bg-canvas w-full max-w-xl max-h-[90vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-6 sm:p-8 animate-modal-pop">
               <button
                 onClick={onClose}
                 className="absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg"
@@ -2632,7 +3021,7 @@
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={onClose} />
-            <div className="relative bg-canvas w-full max-w-lg p-6 sm:p-8 z-10 shadow-2xl border border-taupe/30">
+            <div className="relative bg-canvas w-full max-w-lg p-6 sm:p-8 z-10 shadow-2xl border border-taupe/30 animate-modal-pop">
               <button
                 onClick={onClose}
                 className="absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg"

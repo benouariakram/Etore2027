@@ -244,7 +244,7 @@ app.delete('/api/products/:id', (req: Request, res: Response) => {
 });
 
 // Create Order (Public COD Checkout)
-app.post('/api/orders', (req: Request, res: Response) => {
+app.post('/api/orders', async (req: Request, res: Response) => {
   const { customerName, customerPhone, city, address, notes, items, promoCode } = req.body || {};
 
   if (!customerName || !customerPhone || !city || !address) {
@@ -331,13 +331,35 @@ app.post('/api/orders', (req: Request, res: Response) => {
 
   ordersStore.unshift(newOrder);
 
+  // Sync to Firestore database
+  try {
+    const { setDoc, doc } = await import('firebase/firestore');
+    const { db } = await import('./src/firebase.ts');
+    await setDoc(doc(db, 'orders', orderId), newOrder);
+  } catch (err) {
+    console.warn('Firestore sync note:', err);
+  }
+
   return res.status(201).json({ ok: true, order: newOrder });
 });
 
 // Order tracking (Public)
-app.get('/api/orders/:id', (req: Request, res: Response) => {
+app.get('/api/orders/:id', async (req: Request, res: Response) => {
   const orderId = String(req.params.id).trim().toUpperCase();
-  const order = ordersStore.find(o => o.id === orderId);
+  let order = ordersStore.find(o => o.id === orderId);
+
+  // If not found in local memory, check Firestore
+  if (!order) {
+    try {
+      const { getDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('./src/firebase.ts');
+      const snap = await getDoc(doc(db, 'orders', orderId));
+      if (snap.exists()) {
+        order = snap.data();
+      }
+    } catch {}
+  }
+
   if (!order) {
     return res.status(404).json({ error: "Commande introuvable" });
   }
@@ -383,6 +405,9 @@ app.delete('/api/orders/:id', (req: Request, res: Response) => {
 
 // Setup Vite in Dev or serve static in Prod
 async function startServer() {
+  app.use('/images', express.static(path.resolve(__dirname, 'public/images')));
+  app.use(express.static(path.resolve(__dirname, 'public')));
+
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
