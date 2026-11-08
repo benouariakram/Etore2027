@@ -1833,6 +1833,17 @@
           return null;
         };
 
+        const checkIsAdminURL = () => {
+          try {
+            const p = (window.location.pathname || '').toLowerCase();
+            const h = (window.location.hash || '').toLowerCase();
+            const s = (window.location.search || '').toLowerCase();
+            return p.startsWith('/admin') || p === '/admin' || h.includes('admin') || s.includes('admin');
+          } catch (e) {
+            return false;
+          }
+        };
+
         const [selectedProductIdentifier, setSelectedProductIdentifier] = useState(() => getProductIdentifierFromURL());
         const [directCheckoutItem, setDirectCheckoutItem] = useState(null);
 
@@ -1866,6 +1877,9 @@
           const handleUrlChange = () => {
             const id = getProductIdentifierFromURL();
             setSelectedProductIdentifier(id);
+            if (checkIsAdminURL()) {
+              setAdminOpen(true);
+            }
           };
           window.addEventListener('popstate', handleUrlChange);
           window.addEventListener('hashchange', handleUrlChange);
@@ -1992,7 +2006,21 @@
         const [checkoutOpen, setCheckoutOpen] = useState(false);
         const [currentInvoiceOrder, setCurrentInvoiceOrder] = useState(null);
         const [trackingOpen, setTrackingOpen] = useState(false);
-        const [adminOpen, setAdminOpen] = useState(false);
+        const [adminOpen, setAdminOpen] = useState(() => checkIsAdminURL());
+        const openAdminPanel = useCallback(() => {
+          setAdminOpen(true);
+          try {
+            window.history.pushState({ admin: true }, '', '/admin');
+          } catch (e) {}
+        }, []);
+        const handleCloseAdmin = useCallback(() => {
+          setAdminOpen(false);
+          try {
+            if (checkIsAdminURL()) {
+              window.history.pushState({}, '', '/');
+            }
+          } catch (e) {}
+        }, []);
         const [productFormModal, setProductFormModal] = useState(null); // null or product object
 
         // --- Toasts ---
@@ -2218,12 +2246,24 @@
 
         // --- Admin KPI Stats ---
         const adminKPIs = useMemo(() => {
-          const validOrders = orders.filter(o => o.status !== 'Annulée');
-          const totalSales = validOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-          const orderCount = validOrders.length;
-          const avgBasket = orderCount > 0 ? Math.round(totalSales / orderCount) : 0;
-          const outOfStockCount = products.filter(p => !p.inStock || p.stock === 0).length;
-          return { totalSales, orderCount, avgBasket, outOfStockCount };
+          const safeOrders = Array.isArray(orders) ? orders : [];
+          const safeProducts = Array.isArray(products) ? products : [];
+          const validOrders = safeOrders.filter(o => o && o.status !== 'Annulée');
+          const revenue = validOrders.reduce((sum, o) => sum + Number(o?.total || 0), 0);
+          const totalOrders = safeOrders.length;
+          const avgOrderValue = totalOrders > 0 ? Math.round(revenue / totalOrders) : 0;
+          const activeProducts = safeProducts.filter(p => p && (p.stock || 0) > 0).length;
+          const outOfStockCount = safeProducts.filter(p => !p || !p.inStock || p.stock === 0).length;
+          return {
+            revenue,
+            totalSales: revenue,
+            totalOrders,
+            orderCount: totalOrders,
+            avgOrderValue,
+            avgBasket: avgOrderValue,
+            activeProducts,
+            outOfStockCount
+          };
         }, [orders, products]);
 
         // --- Admin Login Action ---
@@ -2385,7 +2425,7 @@
 
                   {/* Admin Icon (Desktop) */}
                   <button
-                    onClick={() => setAdminOpen(true)}
+                    onClick={openAdminPanel}
                     title="Administration (Ctrl+Shift+A)"
                     className="hidden sm:inline-flex p-2 text-taupe-dark hover:text-noir transition-colors rounded hover:bg-card"
                     aria-label="Admin"
@@ -2423,7 +2463,7 @@
               </div>
             </header>
 
-            {selectedProductId ? (
+            {selectedProductIdentifier ? (
               selectedProduct ? (
                 <ProductDetailPage
                   product={selectedProduct}
@@ -2448,7 +2488,7 @@
               ) : loadingProducts ? (
                 <div className="py-32 max-w-3xl mx-auto px-4 text-center">
                   <div className="animate-spin w-10 h-10 border-2 border-caramel border-t-transparent rounded-full mx-auto mb-4"></div>
-                  <p className="font-serif italic text-xl text-noir">Chargement de la création ETTORE...</p>
+                  <p className="font-serif italic text-xl text-noir">Chargement de la création MODANOVA...</p>
                 </div>
               ) : (
                 <div className="py-28 max-w-xl mx-auto px-4 text-center">
@@ -3271,7 +3311,7 @@
                       <span>→</span>
                     </button>
                     <button
-                      onClick={() => { setMobileDrawerOpen(false); setAdminOpen(true); }}
+                      onClick={() => { setMobileDrawerOpen(false); openAdminPanel(); }}
                       className="w-full text-start text-sm font-medium text-taupe-dark hover:text-noir py-1 flex items-center justify-between"
                     >
                       <span>{t.nav_admin}</span>
@@ -3799,7 +3839,7 @@
                 orders={orders}
                 lang={lang}
                 t={t}
-                onClose={() => setAdminOpen(false)}
+                onClose={handleCloseAdmin}
                 onRefreshOrders={fetchAdminOrders}
                 onRefreshProducts={fetchProducts}
                 onEditProduct={(p) => setProductFormModal(p)}
@@ -4272,6 +4312,7 @@
           verified: true
         });
         const [testimonialSaving, setTestimonialSaving] = useState(false);
+        const [showLoginPassword, setShowLoginPassword] = useState(false);
 
         useEffect(() => {
           if (heroSlides && heroSlides.length > 0) {
@@ -4631,16 +4672,23 @@
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-white/70 mb-2">
                       Mot de passe
                     </label>
-                    <input
-                      type="password"
-                      value={adminPass}
-                      onChange={(e) => setAdminPass(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full bg-[#121212] border border-[#333] px-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:border-[#E6C687] focus:outline-none"
-                      required
-                    />
-                    <div className="text-[10px] text-white/40 mt-1">
-                      (Code par défaut : <code className="text-[#E6C687]">modanova2025</code>)
+                    <div className="relative">
+                      <input
+                        type={showLoginPassword ? "text" : "password"}
+                        value={adminPass}
+                        onChange={(e) => setAdminPass(e.target.value)}
+                        placeholder="••••••••••••"
+                        autoComplete="current-password"
+                        className="w-full bg-[#121212] border border-[#333] px-3.5 py-2.5 pr-14 text-sm text-white placeholder-white/30 focus:border-[#E6C687] focus:outline-none"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(prev => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-white/50 hover:text-[#E6C687] transition-colors"
+                      >
+                        {showLoginPassword ? "Masquer" : "Afficher"}
+                      </button>
                     </div>
                   </div>
 
@@ -4891,7 +4939,7 @@
                       Chiffre d'Affaires
                     </div>
                     <div className="font-serif text-2xl font-bold text-caramel mt-1 tabular-nums">
-                      {kpis.revenue.toLocaleString()} MAD
+                      {((kpis && (kpis.revenue != null ? kpis.revenue : kpis.totalSales)) || 0).toLocaleString()} MAD
                     </div>
                     <div className="text-[11px] text-taupe mt-0.5">Commandes validées & en cours</div>
                   </div>
@@ -4901,9 +4949,9 @@
                       Total Commandes
                     </div>
                     <div className="font-serif text-2xl font-bold text-noir mt-1 tabular-nums">
-                      {kpis.totalOrders}
+                      {(kpis && (kpis.totalOrders != null ? kpis.totalOrders : kpis.orderCount)) ?? ((orders && orders.length) || 0)}
                     </div>
-                    <div className="text-[11px] text-taupe mt-0.5">{orders.filter(o => o.status === 'En attente').length} en attente de confirmation</div>
+                    <div className="text-[11px] text-taupe mt-0.5">{(orders || []).filter(o => o && o.status === 'En attente').length} en attente de confirmation</div>
                   </div>
 
                   <div className="bg-white p-4 border border-taupe/20 shadow-2xs rounded-xs">
@@ -4911,7 +4959,7 @@
                       Panier Moyen
                     </div>
                     <div className="font-serif text-2xl font-bold text-noir mt-1 tabular-nums">
-                      {kpis.avgOrderValue} MAD
+                      {((kpis && (kpis.avgOrderValue != null ? kpis.avgOrderValue : kpis.avgBasket)) || 0)} MAD
                     </div>
                     <div className="text-[11px] text-taupe mt-0.5">Moyenne par panier</div>
                   </div>
@@ -4921,9 +4969,9 @@
                       Articles en Ligne
                     </div>
                     <div className="font-serif text-2xl font-bold text-noir mt-1 tabular-nums">
-                      {products.length}
+                      {(products || []).length}
                     </div>
-                    <div className="text-[11px] text-taupe mt-0.5">{products.filter(p => p.stock > 0).length} en stock immédiat</div>
+                    <div className="text-[11px] text-taupe mt-0.5">{(products || []).filter(p => p && (p.stock || 0) > 0).length} en stock immédiat</div>
                   </div>
                 </div>
 
