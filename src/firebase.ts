@@ -19,6 +19,12 @@ import {
   orderBy,
   writeBatch
 } from 'firebase/firestore';
+import {
+  getStorage,
+  ref,
+  uploadString,
+  getDownloadURL
+} from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // 1. Initialize Firebase App and Services
@@ -27,6 +33,7 @@ export const app = initializeApp(firebaseConfig);
 // CRITICAL: Must pass firebaseConfig.firestoreDatabaseId to getFirestore
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+export const storage = getStorage(app, firebaseConfig.storageBucket ? `gs://${firebaseConfig.storageBucket}` : undefined);
 
 // 2. Validate Connection to Firestore on Boot
 export async function testConnection() {
@@ -185,3 +192,40 @@ export async function deleteFirestoreOrder(orderId: string) {
     handleFirestoreError(err, OperationType.DELETE, path);
   }
 }
+
+// 6. Firebase Storage Upload Helper
+export async function uploadImageToFirebase(dataUrl: string, folder: string = 'products', filename?: string): Promise<string> {
+  const safeName = (filename || 'image.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${folder}/${Date.now()}_${safeName}`;
+  const storageRef = ref(storage, path);
+  await uploadString(storageRef, dataUrl, 'data_url');
+  const downloadUrl = await getDownloadURL(storageRef);
+  return downloadUrl;
+}
+
+// 7. Hero Slider Settings in Firestore
+export async function fetchSliderSettings() {
+  const path = 'settings/heroSlider';
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'heroSlider'));
+    if (!snap.exists()) return null;
+    return snap.data()?.slides || null;
+  } catch (err) {
+    console.warn('Failed to load slider from Firestore:', err);
+    return null;
+  }
+}
+
+export async function saveSliderSettings(slides: any[]) {
+  const path = 'settings/heroSlider';
+  try {
+    await setDoc(doc(db, 'settings', 'heroSlider'), {
+      slides,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+

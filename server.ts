@@ -7,6 +7,7 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -16,7 +17,8 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // In-memory data store for local development preview
 const ALLOWED_STATUSES = [
@@ -177,8 +179,51 @@ const defaultProducts = [
   }
 ];
 
+const defaultSliderSlides = [
+  {
+    id: 0,
+    wallpaper: '/images/hero-1-leather.jpg',
+    badge: "Maison de maroquinerie & soins d'exception",
+    title: "L'Essence du Luxe Brut & Minimaliste",
+    subtitle: "Pensé pour l'homme contemporain au Maroc. Matières nobles, savoir-faire séculaire et livraison express avec paiement sécurisé à la livraison.",
+    categoryFilter: 'Jackets',
+    cta1: "Explorer la Collection",
+    cta1Href: "#collection",
+    cta2: "Notre Savoir-Faire",
+    cta2Href: "#savoir-faire",
+    tag: "01 - Jackets"
+  },
+  {
+    id: 1,
+    wallpaper: '/images/hero-2-botanical.jpg',
+    badge: "Accessoires & Maroquinerie d'Exception",
+    title: "L'Art du Détail & des Matières Nobles",
+    subtitle: "Sélection rigoureuse d'accessoires, maroquinerie d'exception et souliers façonnés par des maîtres artisans pour parfaire votre vestiaire.",
+    categoryFilter: 'Accessoires',
+    cta1: "Découvrir la Sélection",
+    cta1Href: "#collection",
+    cta2: "Savoir-Faire Artisanal",
+    cta2Href: "#savoir-faire",
+    tag: "02 - Accessoires"
+  },
+  {
+    id: 2,
+    wallpaper: '/images/hero-3-linen.jpg',
+    badge: "Soulier & Chaussures Sartoriales",
+    title: "Élégance Éternelle & Confort Suprême",
+    subtitle: "Mules, souliers et cuirs pleine fleur assemblés à la main au Maroc pour une démarche affirmée et un confort absolu.",
+    categoryFilter: 'Chaussures',
+    cta1: "Voir les Chaussures",
+    cta1Href: "#collection",
+    cta2: "Cuirs Sélectionnés",
+    cta2Href: "#savoir-faire",
+    tag: "03 - Chaussures"
+  }
+];
+
 let productsStore: any[] = JSON.parse(JSON.stringify(defaultProducts));
 let ordersStore: any[] = [];
+let sliderStore: any[] = JSON.parse(JSON.stringify(defaultSliderSlides));
 
 // ==========================================
 // API ROUTES
@@ -252,6 +297,95 @@ app.delete('/api/products/:id', (req: Request, res: Response) => {
   productsStore = productsStore.filter((p: any) => p.id !== id);
   return res.json({ ok: true, id });
 });
+
+// ==========================================
+// HERO SLIDER ROUTES (Admin Dynamic Management)
+// ==========================================
+app.get('/api/slider', async (req: Request, res: Response) => {
+  try {
+    const { fetchSliderSettings } = await import('./src/firebase.ts');
+    const firestoreSlides = await fetchSliderSettings();
+    if (firestoreSlides && Array.isArray(firestoreSlides) && firestoreSlides.length > 0) {
+      sliderStore = firestoreSlides;
+      return res.json(firestoreSlides);
+    }
+  } catch (err) {
+    console.warn('Note: Using memory slider slides:', err);
+  }
+  return res.json(sliderStore);
+});
+
+app.put('/api/slider', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const { slides } = req.body || {};
+  if (!Array.isArray(slides) || slides.length === 0) {
+    return res.status(400).json({ error: "Liste de slides invalide" });
+  }
+  sliderStore = slides;
+  try {
+    const { saveSliderSettings } = await import('./src/firebase.ts');
+    await saveSliderSettings(slides);
+  } catch (err) {
+    console.warn('Note: Slider sync to Firestore notice:', err);
+  }
+  return res.json({ ok: true, slides: sliderStore });
+});
+
+// ==========================================
+// FILE UPLOAD ROUTE (Firebase Storage + Server Cache)
+// ==========================================
+app.post('/api/upload', async (req: Request, res: Response) => {
+  try {
+    const { file, filename, folder = 'products' } = req.body || {};
+    if (!file) {
+      return res.status(400).json({ error: "Aucun fichier reçu" });
+    }
+
+    let downloadUrl = '';
+    // 1. Attempt upload directly to Firebase Storage
+    try {
+      const { uploadImageToFirebase } = await import('./src/firebase.ts');
+      downloadUrl = await uploadImageToFirebase(file, folder, filename);
+    } catch (fbErr) {
+      console.warn('Firebase Storage upload notice (using fallback):', fbErr);
+    }
+
+    // 2. Also save to /public/uploads directory as resilient fallback
+    const uploadsDir = path.resolve(__dirname, 'public/uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const matches = typeof file === 'string' ? file.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/) : null;
+    let extension = 'jpg';
+    if (matches && matches[1]) {
+      if (matches[1].includes('png')) extension = 'png';
+      else if (matches[1].includes('webp')) extension = 'webp';
+      else if (matches[1].includes('svg')) extension = 'svg';
+      else if (matches[1].includes('gif')) extension = 'gif';
+    } else if (filename && filename.includes('.')) {
+      extension = filename.split('.').pop() || 'jpg';
+    }
+
+    const safeBase = (filename ? filename.replace(/\.[^/.]+$/, "") : 'image').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeFilename = `${folder}_${Date.now()}_${safeBase}.${extension}`;
+    const localFilePath = path.join(uploadsDir, safeFilename);
+
+    if (matches && matches[2]) {
+      const buffer = Buffer.from(matches[2], 'base64');
+      fs.writeFileSync(localFilePath, buffer);
+    }
+
+    const finalUrl = downloadUrl || `/uploads/${safeFilename}`;
+    return res.json({ ok: true, url: finalUrl, storage: Boolean(downloadUrl) ? 'firebase' : 'local' });
+  } catch (error: any) {
+    console.error('Upload handler error:', error);
+    return res.status(500).json({ error: error.message || "Erreur lors du traitement de l'image" });
+  }
+});
+
 
 // Create Order (Public COD Checkout)
 app.post('/api/orders', async (req: Request, res: Response) => {
@@ -415,6 +549,11 @@ app.delete('/api/orders/:id', (req: Request, res: Response) => {
 
 // Setup Vite in Dev or serve static in Prod
 async function startServer() {
+  const uploadsDir = path.resolve(__dirname, 'public/uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  app.use('/uploads', express.static(uploadsDir));
   app.use('/images', express.static(path.resolve(__dirname, 'public/images')));
   app.use(express.static(path.resolve(__dirname, 'public')));
 

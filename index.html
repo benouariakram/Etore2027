@@ -385,18 +385,98 @@
       }
 
       // ========================================================================
-      // Moroccan Cities and Delivery SLA
+      // Moroccan Cities and Delivery SLA (Major Cities First, then Alphabetical)
       // ========================================================================
       const MOROCCAN_CITIES = [
-        { id: 'Casablanca', nameFr: 'Casablanca', nameAr: 'الدار البيضاء', delay: '24h' },
-        { id: 'Rabat', nameFr: 'Rabat', nameAr: 'الرباط', delay: '24h' },
-        { id: 'Marrakech', nameFr: 'Marrakech', nameAr: 'مراكش', delay: '48h' },
-        { id: 'Tanger', nameFr: 'Tanger', nameAr: 'طنجة', delay: '48h' },
-        { id: 'Fes', nameFr: 'Fès', nameAr: 'فاس', delay: '48h' },
-        { id: 'Meknes', nameFr: 'Meknès', nameAr: 'مكناس', delay: '48h' },
-        { id: 'Tetouan', nameFr: 'Tétouan', nameAr: 'تطوان', delay: '48h' },
-        { id: 'Agadir', nameFr: 'Agadir', nameAr: 'أكادير', delay: '72h' },
-        { id: 'Oujda', nameFr: 'Oujda', nameAr: 'وجدة', delay: '72h' },
+        // --- Grandes Villes Prioritaires ---
+        { id: 'Casablanca', nameFr: 'Casablanca', nameAr: 'الدار البيضاء', delay: '24h', isMajor: true },
+        { id: 'Rabat', nameFr: 'Rabat', nameAr: 'الرباط', delay: '24h', isMajor: true },
+        { id: 'Kenitra', nameFr: 'Kénitra', nameAr: 'القنيطرة', delay: '24h', isMajor: true },
+        { id: 'Marrakech', nameFr: 'Marrakech', nameAr: 'مراكش', delay: '48h', isMajor: true },
+        { id: 'Tanger', nameFr: 'Tanger', nameAr: 'طنجة', delay: '48h', isMajor: true },
+        { id: 'Fes', nameFr: 'Fès', nameAr: 'فاس', delay: '48h', isMajor: true },
+        { id: 'Agadir', nameFr: 'Agadir', nameAr: 'أكادير', delay: '48h', isMajor: true },
+        { id: 'Meknes', nameFr: 'Meknès', nameAr: 'مكناس', delay: '48h', isMajor: true },
+        { id: 'Oujda', nameFr: 'Oujda', nameAr: 'وجدة', delay: '48h', isMajor: true },
+        { id: 'Tetouan', nameFr: 'Tétouan', nameAr: 'تطوان', delay: '48h', isMajor: true },
+        { id: 'Sale', nameFr: 'Salé', nameAr: 'سلا', delay: '24h', isMajor: true },
+        { id: 'Mohammedia', nameFr: 'Mohammedia', nameAr: 'المحمدية', delay: '24h', isMajor: true },
+        { id: 'Temara', nameFr: 'Témara', nameAr: 'تمارة', delay: '24h', isMajor: true },
+
+        // --- Reste des Villes du Maroc (Ordre Alphabétique) ---
+        { id: 'Al_Hoceima', nameFr: 'Al Hoceïma', nameAr: 'الحسيمة', delay: '48-72h' },
+        { id: 'Assilah', nameFr: 'Assilah', nameAr: 'أصيلة', delay: '48h' },
+        { id: 'Azemmour', nameFr: 'Azemmour', nameAr: 'أزمور', delay: '48h' },
+        { id: 'Azrou', nameFr: 'Azrou', nameAr: 'أزرو', delay: '48h' },
+        { id: 'Ben_Guerir', nameFr: 'Ben Guerir', nameAr: 'ابن جرير', delay: '48h' },
+        { id: 'Beni_Mellal', nameFr: 'Béni Mellal', nameAr: 'بني ملال', delay: '48h' },
+        { id: 'Berkane', nameFr: 'Berkane', nameAr: 'بركان', delay: '48-72h' },
+        { id: 'Berrechid', nameFr: 'Berrechid', nameAr: 'برشيد', delay: '24-48h' },
+        { id: 'Bouskoura', nameFr: 'Bouskoura', nameAr: 'بوسكورة', delay: '24h' },
+        { id: 'Bouznika', nameFr: 'Bouznika', nameAr: 'بوزنيقة', delay: '24h' },
+        { id: 'Chefchaouen', nameFr: 'Chefchaouen', nameAr: 'شفشاون', delay: '48h' },
+        { id: 'Dakhla', nameFr: 'Dakhla', nameAr: 'الداخلة', delay: '72h' },
+        { id: 'Dar_Bouazza', nameFr: 'Dar Bouazza', nameAr: 'دار بوعزة', delay: '24h' },
+        { id: 'El_Jadida', nameFr: 'El Jadida', nameAr: 'الجديدة', delay: '48h' },
+        { id: 'El_Kelaa_des_Sraghna', nameFr: 'El Kelaâ des Sraghna', nameAr: 'قلعة السراغنة', delay: '48h' },
+        { id: 'Errachidia', nameFr: 'Errachidia', nameAr: 'الرشيدية', delay: '72h' },
+        { id: 'Essaouira', nameFr: 'Essaouira', nameAr: 'الصويرة', delay: '48h' },
+        { id: 'Fnideq', nameFr: 'Fnideq', nameAr: 'الفنيدق', delay: '48h' },
+        { id: 'Fquih_Ben_Salah', nameFr: 'Fquih Ben Salah', nameAr: 'الفقيه بن صالح', delay: '48h' },
+        { id: 'Guelmim', nameFr: 'Guelmim', nameAr: 'كلميم', delay: '72h' },
+        { id: 'Guercif', nameFr: 'Guercif', nameAr: 'جرسيف', delay: '48-72h' },
+        { id: 'Ifrane', nameFr: 'Ifrane', nameAr: 'إفران', delay: '48h' },
+        { id: 'Karia_Ba_Mohamed', nameFr: 'Karia Ba Mohamed', nameAr: 'قرية با محمد', delay: '48h' },
+        { id: 'Khemisset', nameFr: 'Khémisset', nameAr: 'الخميسات', delay: '48h' },
+        { id: 'Khenifra', nameFr: 'Khénifra', nameAr: 'خنيفرة', delay: '48h' },
+        { id: 'Khouribga', nameFr: 'Khouribga', nameAr: 'خريبكة', delay: '48h' },
+        { id: 'Ksar_El_Kebir', nameFr: 'Ksar El Kébir', nameAr: 'القصر الكبير', delay: '48h' },
+        { id: 'Laayoune', nameFr: 'Laâyoune', nameAr: 'العيون', delay: '72h' },
+        { id: 'Larache', nameFr: 'Larache', nameAr: 'العرائش', delay: '48h' },
+        { id: 'Mdiq', nameFr: "M'diq", nameAr: 'المضيق', delay: '48h' },
+        { id: 'Martil', nameFr: 'Martil', nameAr: 'مرتيل', delay: '48h' },
+        { id: 'Mediouna', nameFr: 'Médiouna', nameAr: 'مديونة', delay: '24h' },
+        { id: 'Mehdya', nameFr: 'Mehdya', nameAr: 'المهدية', delay: '24h' },
+        { id: 'Midelt', nameFr: 'Midelt', nameAr: 'ميدلت', delay: '48-72h' },
+        { id: 'Nador', nameFr: 'Nador', nameAr: 'الناظور', delay: '48-72h' },
+        { id: 'Ouarzazate', nameFr: 'Ouarzazate', nameAr: 'ورزازات', delay: '72h' },
+        { id: 'Oued_Zem', nameFr: 'Oued Zem', nameAr: 'واد زم', delay: '48h' },
+        { id: 'Oulad_Teima', nameFr: 'Oulad Teïma', nameAr: 'أولاد تايمة', delay: '48-72h' },
+        { id: 'Safi', nameFr: 'Safi', nameAr: 'آسفي', delay: '48h' },
+        { id: 'Sefrou', nameFr: 'Séfrou', nameAr: 'صفرو', delay: '48h' },
+        { id: 'Settat', nameFr: 'Settat', nameAr: 'سطات', delay: '48h' },
+        { id: 'Sidi_Bennour', nameFr: 'Sidi Bennour', nameAr: 'سيدي بنور', delay: '48h' },
+        { id: 'Sidi_Kacem', nameFr: 'Sidi Kacem', nameAr: 'سيدي قاسم', delay: '48h' },
+        { id: 'Sidi_Slimane', nameFr: 'Sidi Slimane', nameAr: 'سيدي سليمان', delay: '48h' },
+        { id: 'Sidi_Yahya', nameFr: 'Sidi Yahya El Gharb', nameAr: 'سيدي يحيى الغرب', delay: '24-48h' },
+        { id: 'Skhirat', nameFr: 'Skhirat', nameAr: 'الصخيرات', delay: '24h' },
+        { id: 'Souk_El_Arbaa', nameFr: 'Souk El Arbaa', nameAr: 'سوق الأربعاء', delay: '48h' },
+        { id: 'Tan_Tan', nameFr: 'Tan-Tan', nameAr: 'طانطان', delay: '72h' },
+        { id: 'Taounate', nameFr: 'Taounate', nameAr: 'تاونات', delay: '48-72h' },
+        { id: 'Taroudant', nameFr: 'Taroudant', nameAr: 'تارودانت', delay: '48-72h' },
+        { id: 'Tata', nameFr: 'Tata', nameAr: 'طاطا', delay: '72h' },
+        { id: 'Taza', nameFr: 'Taza', nameAr: 'تازة', delay: '48h' },
+        { id: 'Tiflet', nameFr: 'Tiflet', nameAr: 'تيفلت', delay: '48h' },
+        { id: 'Tinghir', nameFr: 'Tinghir', nameAr: 'تنغير', delay: '72h' },
+        { id: 'Tiznit', nameFr: 'Tiznit', nameAr: 'تيزنيت', delay: '48-72h' },
+        { id: 'Youssoufia', nameFr: 'Youssoufia', nameAr: 'اليوسفية', delay: '48h' },
+        { id: 'Zagora', nameFr: 'Zagora', nameAr: 'زاكورة', delay: '72h' }
+      ];
+
+      // ========================================================================
+      // Official Product Categories
+      // ========================================================================
+      const PRODUCT_CATEGORIES = [
+        "Chaussures",
+        "Jackets",
+        "Outerwear",
+        "Bagagerie et Maroquinerie",
+        "Casquettes",
+        "Accessoires",
+        "Vêtements",
+        "Pantalons",
+        "Bag Small",
+        "Vestes Hardshell"
       ];
 
       // ========================================================================
@@ -555,9 +635,9 @@
           hero_slide3_subtitle: "Peignoirs en lin pré-lavé 380g/m² et plaids en mérinos extra-fin façonnés pour des moments de calme souverain.",
           hero_slide3_cta1: "Voir la Ligne Maison",
           hero_slide3_cta2: "Héritage Artisanal",
-          hero_tab_1: "01 · Maroquinerie",
-          hero_tab_2: "02 · Soins Botaniques",
-          hero_tab_3: "03 · Maison & Bain",
+          hero_tab_1: "01 - Jackets",
+          hero_tab_2: "02 - Accessoires",
+          hero_tab_3: "03 - Chaussures",
           trust_delivery: "Livraison Partout au Maroc (24-72h)",
           trust_cod: "Paiement à la Livraison (COD)",
           trust_exchange: "Échange garanti sous 7 jours",
@@ -701,9 +781,9 @@
           hero_slide3_subtitle: "أردية حمام من الكتان الطبيعي المغسول بكثافة 380غ/م² وأغطية من صوف الميرينو الممشط لراحة لا تضاهى.",
           hero_slide3_cta1: "اكتشف تشكيلة المنزل",
           hero_slide3_cta2: "التراث الحرفي",
-          hero_tab_1: "٠١ · المصنوعات الجلدية",
-          hero_tab_2: "٠٢ · العناية والزيوت",
-          hero_tab_3: "٠٣ · المنزل والكتان",
+          hero_tab_1: "٠١ - جاكيتات",
+          hero_tab_2: "٠٢ - إكسسوارات",
+          hero_tab_3: "٠٣ - أحذية",
           trust_delivery: "توصيل سريع لجميع مدن المغرب (24-72 ساعة)",
           trust_cod: "الدفع نقداً عند الاستلام (COD)",
           trust_exchange: "ضمان الاستبدال خلال 7 أيام",
@@ -962,7 +1042,7 @@
               <div style="font-weight: 600; color: #171717; margin-bottom: 4px;">
                 ${isAr ? 'شكراً لثقتكم في إيتوري — دار الأناقة الرجالية بالمغرب' : 'Merci pour votre confiance en ETTORE — Maison Marocaine des Essentiels'}
               </div>
-              <div>Service Conciergerie & WhatsApp : +212 600-773716 | Casablanca, Maroc</div>
+              <div>Atelier & Conciergerie : Kenitra, Maroc | WhatsApp : +212 600-773716</div>
               <div style="font-size: 10px; color: #999; margin-top: 2px;">
                 ${isAr ? 'يرجى تحضير المبلغ نقداً عند قدوم مندوب التوصيل.' : 'Veuillez préparer le montant exact en espèces à la livraison.'}
               </div>
@@ -1686,7 +1766,19 @@
         // --- Hero Wallpaper Slider State & Definition ---
         const [heroSlide, setHeroSlide] = useState(0);
         const [isHeroPaused, setIsHeroPaused] = useState(false);
+        const [customHeroSlides, setCustomHeroSlides] = useState(null);
         const touchStartX = useRef(null);
+
+        useEffect(() => {
+          fetch('/api/slider')
+            .then(res => res.json())
+            .then(data => {
+              if (Array.isArray(data) && data.length > 0) {
+                setCustomHeroSlides(data);
+              }
+            })
+            .catch(() => {});
+        }, []);
 
         const nextHeroSlide = useCallback(() => {
           setHeroSlide(prev => (prev + 1) % 3);
@@ -1704,47 +1796,52 @@
           return () => clearInterval(timer);
         }, [isHeroPaused, heroSlide]);
 
-        const heroSlides = useMemo(() => [
-          {
-            id: 0,
-            wallpaper: '/images/hero-1-leather.jpg',
-            badge: t.hero_badge,
-            title: t.hero_title,
-            subtitle: t.hero_subtitle,
-            categoryFilter: 'all',
-            cta1: t.hero_cta,
-            cta1Href: '#collection',
-            cta2: t.hero_story_btn,
-            cta2Href: '#savoir-faire',
-            tag: t.hero_tab_1 || "01 · Maroquinerie"
-          },
-          {
-            id: 1,
-            wallpaper: '/images/hero-2-botanical.jpg',
-            badge: t.hero_slide2_badge || "Rituels Botaniques & Soins d'Origine",
-            title: t.hero_slide2_title || "Élixirs de l'Atlas & Cèdre Millénaire",
-            subtitle: t.hero_slide2_subtitle || "Formules pures infusées à l'huile de pépins de figue de barbarie et d'argan bio pour régénérer la peau et magnifier la barbe.",
-            categoryFilter: 'soins',
-            cta1: t.hero_slide2_cta1 || "Découvrir les Soins",
-            cta1Href: '#collection',
-            cta2: t.hero_slide2_cta2 || "Ingrédients d'Origine",
-            cta2Href: '#savoir-faire',
-            tag: t.hero_tab_2 || "02 · Soins Botaniques"
-          },
-          {
-            id: 2,
-            wallpaper: '/images/hero-3-linen.jpg',
-            badge: t.hero_slide3_badge || "Ligne Maison, Bain & Matières Nobles",
-            title: t.hero_slide3_title || "L'Art de Vivre au Naturel",
-            subtitle: t.hero_slide3_subtitle || "Peignoirs en lin pré-lavé 380g/m² et plaids en mérinos extra-fin façonnés pour des moments de calme souverain.",
-            categoryFilter: 'maison',
-            cta1: t.hero_slide3_cta1 || "Voir la Ligne Maison",
-            cta1Href: '#collection',
-            cta2: t.hero_slide3_cta2 || "Héritage Artisanal",
-            cta2Href: '#savoir-faire',
-            tag: t.hero_tab_3 || "03 · Maison & Bain"
+        const heroSlides = useMemo(() => {
+          if (customHeroSlides && customHeroSlides.length > 0) {
+            return customHeroSlides;
           }
-        ], [t]);
+          return [
+            {
+              id: 0,
+              wallpaper: '/images/hero-1-leather.jpg',
+              badge: t.hero_badge || "Maison de maroquinerie & soins d'exception",
+              title: t.hero_title || "L'Essence du Luxe Brut & Minimaliste",
+              subtitle: t.hero_subtitle || "Pensé pour l'homme contemporain au Maroc. Matières nobles, savoir-faire séculaire et livraison express avec paiement sécurisé à la livraison.",
+              categoryFilter: 'Jackets',
+              cta1: t.hero_cta || "Explorer la Collection",
+              cta1Href: '#collection',
+              cta2: t.hero_story_btn || "Notre Savoir-Faire",
+              cta2Href: '#savoir-faire',
+              tag: t.hero_tab_1 || "01 - Jackets"
+            },
+            {
+              id: 1,
+              wallpaper: '/images/hero-2-botanical.jpg',
+              badge: t.hero_slide2_badge || "Accessoires & Maroquinerie d'Exception",
+              title: t.hero_slide2_title || "L'Art du Détail & des Matières Nobles",
+              subtitle: t.hero_slide2_subtitle || "Sélection rigoureuse d'accessoires, casquettes et maroquinerie façonnés pour parfaire votre vestiaire.",
+              categoryFilter: 'Accessoires',
+              cta1: t.hero_slide2_cta1 || "Découvrir la Sélection",
+              cta1Href: '#collection',
+              cta2: t.hero_slide2_cta2 || "Savoir-Faire Artisanal",
+              cta2Href: '#savoir-faire',
+              tag: t.hero_tab_2 || "02 - Accessoires"
+            },
+            {
+              id: 2,
+              wallpaper: '/images/hero-3-linen.jpg',
+              badge: t.hero_slide3_badge || "Soulier & Chaussures Sartoriales",
+              title: t.hero_slide3_title || "Élégance Éternelle & Confort Suprême",
+              subtitle: t.hero_slide3_subtitle || "Mules, souliers et cuirs pleine fleur assemblés à la main au Maroc pour une démarche affirmée et un confort absolu.",
+              categoryFilter: 'Chaussures',
+              cta1: t.hero_slide3_cta1 || "Voir les Chaussures",
+              cta1Href: '#collection',
+              cta2: t.hero_slide3_cta2 || "Cuirs Sélectionnés",
+              cta2Href: '#savoir-faire',
+              tag: t.hero_tab_3 || "03 - Chaussures"
+            }
+          ];
+        }, [customHeroSlides, t]);
 
         const [checkoutOpen, setCheckoutOpen] = useState(false);
         const [currentInvoiceOrder, setCurrentInvoiceOrder] = useState(null);
@@ -1955,7 +2052,7 @@
         const filteredProducts = useMemo(() => {
           return products.filter(p => {
             // Category
-            if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
+            if (selectedCategory !== 'all' && String(p.category || '').trim().toLowerCase() !== String(selectedCategory).trim().toLowerCase()) return false;
             // Stock only
             if (onlyInStock && (!p.inStock || p.stock <= 0)) return false;
             // Search Query
@@ -2448,25 +2545,26 @@
               {/* Filter Controls Row */}
               <div className="flex flex-wrap items-center justify-between gap-4 mb-8 bg-card/60 p-4 border border-taupe/15">
                 {/* Categories Segmented Control */}
-                <div className="flex flex-wrap items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1.5 max-w-full overflow-x-auto pb-1">
                   {[
                     { id: 'all', label: t.filter_all },
-                    { id: 'chaussures', label: t.filter_shoes },
-                    { id: 'soins', label: t.filter_care },
-                    { id: 'maison', label: t.filter_home },
-                  ].map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setSelectedCategory(cat.id)}
-                      className={`px-3 py-1.5 text-xs font-medium tracking-wide transition-colors ${
-                        selectedCategory === cat.id
-                          ? 'bg-noir text-white shadow-xs'
-                          : 'text-taupe-dark hover:text-noir'
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
+                    ...PRODUCT_CATEGORIES.map(cat => ({ id: cat, label: cat }))
+                  ].map(cat => {
+                    const isSelected = selectedCategory === cat.id || (selectedCategory.toLowerCase() === cat.id.toLowerCase());
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={`px-3 py-1.5 text-xs font-medium tracking-wide transition-colors whitespace-nowrap rounded-xs ${
+                          isSelected
+                            ? 'bg-noir text-white shadow-xs font-semibold'
+                            : 'bg-card text-taupe-dark hover:text-noir border border-taupe/20'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Additional controls (Sort, In-stock, Grid) */}
@@ -2870,7 +2968,7 @@
                       {t.footer_contact}
                     </h4>
                     <p className="text-xs text-white/70 leading-relaxed mb-3">
-                      Atelier & Conciergerie : Casablanca, Maroc
+                      Atelier & Conciergerie : Kenitra, Maroc
                     </p>
                     <a
                       href="https://wa.me/212600773716"
@@ -3564,7 +3662,7 @@
                   nameAr: '',
                   price: '',
                   oldPrice: '',
-                  category: 'chaussures',
+                  category: 'Chaussures',
                   inStock: true,
                   stock: 10,
                   badge: 'new',
@@ -3580,6 +3678,10 @@
                   setCurrentInvoiceOrder(order);
                 }}
                 showToast={showToast}
+                heroSlides={heroSlides}
+                onSaveSlider={(updatedSlides) => {
+                  setCustomHeroSlides(updatedSlides);
+                }}
                 onViewProductPage={(prodId) => {
                   setAdminOpen(false);
                   navigateToProduct(prodId);
@@ -3758,13 +3860,22 @@
                   <select
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="w-full bg-card border border-taupe/30 px-3.5 py-2.5 text-xs text-noir focus:border-caramel"
+                    className="w-full bg-card border border-taupe/30 px-3.5 py-2.5 text-xs text-noir focus:border-caramel font-medium"
                   >
-                    {MOROCCAN_CITIES.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {lang === 'ar' ? c.nameAr : c.nameFr} (Livraison {c.delay})
-                      </option>
-                    ))}
+                    <optgroup label={lang === 'ar' ? "⭐ المدن الكبرى (توصيل سريع)" : "⭐ Grandes Villes (Livraison Express 24-48h)"}>
+                      {MOROCCAN_CITIES.filter(c => c.isMajor).map(c => (
+                        <option key={c.id} value={c.id}>
+                          {lang === 'ar' ? c.nameAr : c.nameFr} (Livraison {c.delay})
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label={lang === 'ar' ? "📦 باقي مدن المملكة (ترتيب أبجدي)" : "📦 Toutes les Villes du Maroc (Ordre Alphabétique)"}>
+                      {MOROCCAN_CITIES.filter(c => !c.isMajor).map(c => (
+                        <option key={c.id} value={c.id}>
+                          {lang === 'ar' ? c.nameAr : c.nameFr} (Livraison {c.delay})
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
 
@@ -3963,8 +4074,93 @@
         token, adminUser, setAdminUser, adminPass, setAdminPass, loginError,
         onLogin, onLogout, kpis, activeTab, setActiveTab, products, orders,
         lang, t, onClose, onRefreshOrders, onRefreshProducts, onEditProduct,
-        onAddProduct, onViewInvoice, showToast, onViewProductPage, onCopyProductLink
+        onAddProduct, onViewInvoice, showToast, onViewProductPage, onCopyProductLink,
+        heroSlides, onSaveSlider
       }) {
+        const [sliderDraft, setSliderDraft] = useState(() => JSON.parse(JSON.stringify(heroSlides || [])));
+        const [sliderUploadingIdx, setSliderUploadingIdx] = useState(null);
+        const [sliderSaving, setSliderSaving] = useState(false);
+
+        useEffect(() => {
+          if (heroSlides && heroSlides.length > 0) {
+            setSliderDraft(JSON.parse(JSON.stringify(heroSlides)));
+          }
+        }, [heroSlides]);
+
+        const handleSlideFieldChange = (idx, field, val) => {
+          setSliderDraft(prev => {
+            const copy = [...prev];
+            copy[idx] = { ...copy[idx], [field]: val };
+            return copy;
+          });
+        };
+
+        const handleSliderPhotoUpload = async (idx, e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          setSliderUploadingIdx(idx);
+
+          try {
+            const base64Data = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                file: base64Data,
+                filename: file.name,
+                folder: 'slider'
+              })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.url) {
+              handleSlideFieldChange(idx, 'wallpaper', data.url);
+              showToast(`Photo du slide 0${idx + 1} uploadée et stockée sur Firebase !`, 'success');
+            } else {
+              showToast(data.error || "Erreur upload", 'error');
+            }
+          } catch (err) {
+            showToast("Erreur lors de l'upload vers Firebase", 'error');
+          } finally {
+            setSliderUploadingIdx(null);
+            e.target.value = '';
+          }
+        };
+
+        const handleSaveAllSlides = async () => {
+          setSliderSaving(true);
+          try {
+            const res = await fetch('/api/slider', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ slides: sliderDraft })
+            });
+            const data = await res.json();
+            if (res.ok && data.slides) {
+              if (onSaveSlider) onSaveSlider(data.slides);
+              showToast("Slider d'accueil mis à jour et synchronisé avec Firebase !", 'success');
+            } else {
+              showToast(data.error || "Erreur lors de l'enregistrement", 'error');
+            }
+          } catch {
+            showToast("Erreur de connexion", 'error');
+          } finally {
+            setSliderSaving(false);
+          }
+        };
+
         const handleStatusChange = async (orderId, newStatus) => {
           try {
             const res = await fetch(`/api/orders/${orderId}`, {
@@ -4135,8 +4331,8 @@
                     </div>
 
                     {/* Tabs Switcher */}
-                    <div className="flex items-center justify-between border-b border-taupe/20 pb-3">
-                      <div className="flex gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-taupe/20 pb-3">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => setActiveTab('products')}
                           className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
@@ -4153,6 +4349,14 @@
                         >
                           {t.admin_tab_orders} ({orders.length})
                         </button>
+                        <button
+                          onClick={() => setActiveTab('slider')}
+                          className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
+                            activeTab === 'slider' ? 'bg-noir text-white' : 'text-taupe-dark hover:text-noir'
+                          }`}
+                        >
+                          🖼️ Slider / Accueil
+                        </button>
                       </div>
 
                       {activeTab === 'products' && (
@@ -4161,6 +4365,15 @@
                           className="px-4 py-2 bg-caramel text-white text-xs font-semibold uppercase tracking-wider hover:bg-caramel/90 transition-colors"
                         >
                           {t.admin_add_product}
+                        </button>
+                      )}
+                      {activeTab === 'slider' && (
+                        <button
+                          onClick={handleSaveAllSlides}
+                          disabled={sliderSaving}
+                          className="px-4 py-2 bg-caramel text-white text-xs font-semibold uppercase tracking-wider hover:bg-caramel/90 transition-colors shadow-xs"
+                        >
+                          {sliderSaving ? 'Enregistrement...' : '💾 Sauvegarder Slider'}
                         </button>
                       )}
                     </div>
@@ -4312,6 +4525,181 @@
                         </table>
                       </div>
                     )}
+
+                    {/* Tab 3: Dynamic Slider Management */}
+                    {activeTab === 'slider' && (
+                      <div className="space-y-6">
+                        <div className="bg-card border border-taupe/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div>
+                            <h4 className="font-serif text-lg font-bold text-noir">Gestion du Slider Page d'Accueil</h4>
+                            <p className="text-xs text-taupe-dark">
+                              Personnalisez les textes de vos 3 diapositives et uploadez directement de nouvelles photos vers votre Firebase Storage.
+                            </p>
+                          </div>
+                          <button
+                            onClick={handleSaveAllSlides}
+                            disabled={sliderSaving}
+                            className="px-5 py-2.5 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-xs flex items-center gap-2 shrink-0 self-start sm:self-auto"
+                          >
+                            <span>{sliderSaving ? '⏳ Sauvegarde en cours...' : '💾 Enregistrer les 3 Slides (Firebase)'}</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          {sliderDraft.map((slide, sIdx) => (
+                            <div key={slide.id || sIdx} className="bg-card border border-taupe/20 p-5 flex flex-col justify-between space-y-4 shadow-xs">
+                              <div>
+                                <div className="flex items-center justify-between pb-3 border-b border-taupe/15 mb-4">
+                                  <span className="font-bold text-xs uppercase tracking-wider text-caramel">
+                                    Slide 0{sIdx + 1}
+                                  </span>
+                                  <span className="text-[10px] font-mono bg-noir/5 px-2 py-0.5 text-taupe-dark">
+                                    {slide.tag || `0${sIdx + 1}`}
+                                  </span>
+                                </div>
+
+                                {/* Photo Preview & Upload */}
+                                <div className="mb-4">
+                                  <label className="block text-[11px] font-bold uppercase tracking-wider text-noir mb-1.5">
+                                    Photo de fond (Wallpaper)
+                                  </label>
+                                  <div className="relative aspect-video w-full bg-noir/5 border border-taupe/25 rounded-xs overflow-hidden mb-2 group">
+                                    {slide.wallpaper ? (
+                                      <img src={slide.wallpaper} alt={`Slide ${sIdx + 1}`} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-taupe text-xs">Pas d'image</div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
+                                      <label className="px-3 py-1.5 bg-caramel hover:bg-caramel/90 text-white text-xs font-semibold cursor-pointer rounded-xs transition-colors flex items-center gap-1.5 shadow-sm">
+                                        <span>{sliderUploadingIdx === sIdx ? '⏳ Upload...' : '📸 Changer photo'}</span>
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          onChange={(e) => handleSliderPhotoUpload(sIdx, e)}
+                                          className="hidden"
+                                          disabled={sliderUploadingIdx === sIdx}
+                                        />
+                                      </label>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      value={slide.wallpaper || ''}
+                                      onChange={(e) => handleSlideFieldChange(sIdx, 'wallpaper', e.target.value)}
+                                      placeholder="URL photo Firebase ou chemin..."
+                                      className="flex-1 bg-canvas border border-taupe/30 px-2.5 py-1.5 text-[11px] text-noir focus:border-caramel"
+                                    />
+                                    <label className="px-3 py-1.5 bg-noir hover:bg-caramel text-white text-[11px] font-semibold cursor-pointer rounded-xs transition-colors shrink-0">
+                                      <span>{sliderUploadingIdx === sIdx ? '...' : '📁 Upload'}</span>
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => handleSliderPhotoUpload(sIdx, e)}
+                                        className="hidden"
+                                        disabled={sliderUploadingIdx === sIdx}
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
+
+                                {/* Slide Fields */}
+                                <div className="space-y-3 text-xs">
+                                  <div>
+                                    <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                      Onglet Navigation (Tag) *
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={slide.tag || ''}
+                                      onChange={(e) => handleSlideFieldChange(sIdx, 'tag', e.target.value)}
+                                      placeholder={sIdx === 0 ? "01 - Jackets" : sIdx === 1 ? "02 - Accessoires" : "03 - Chaussures"}
+                                      className="w-full bg-canvas border border-taupe/30 px-2.5 py-1.5 text-xs text-noir focus:border-caramel font-mono"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                      Surtitre (Badge)
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={slide.badge || ''}
+                                      onChange={(e) => handleSlideFieldChange(sIdx, 'badge', e.target.value)}
+                                      placeholder="Maison de maroquinerie..."
+                                      className="w-full bg-canvas border border-taupe/30 px-2.5 py-1.5 text-xs text-noir focus:border-caramel"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                      Titre Principal *
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={slide.title || ''}
+                                      onChange={(e) => handleSlideFieldChange(sIdx, 'title', e.target.value)}
+                                      placeholder="L'Essence du Luxe Brut..."
+                                      className="w-full bg-canvas border border-taupe/30 px-2.5 py-1.5 text-xs text-noir font-serif font-bold focus:border-caramel"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                      Sous-titre / Description
+                                    </label>
+                                    <textarea
+                                      rows="3"
+                                      value={slide.subtitle || ''}
+                                      onChange={(e) => handleSlideFieldChange(sIdx, 'subtitle', e.target.value)}
+                                      placeholder="Pensé pour l'homme contemporain au Maroc..."
+                                      className="w-full bg-canvas border border-taupe/30 px-2.5 py-1.5 text-xs text-noir focus:border-caramel leading-relaxed"
+                                    />
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                        Bouton 1 (CTA)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={slide.cta1 || ''}
+                                        onChange={(e) => handleSlideFieldChange(sIdx, 'cta1', e.target.value)}
+                                        placeholder="Explorer la Collection"
+                                        className="w-full bg-canvas border border-taupe/30 px-2 py-1 text-xs text-noir focus:border-caramel"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                        Bouton 2 (Story)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={slide.cta2 || ''}
+                                        onChange={(e) => handleSlideFieldChange(sIdx, 'cta2', e.target.value)}
+                                        placeholder="Notre Savoir-Faire"
+                                        className="w-full bg-canvas border border-taupe/30 px-2 py-1 text-xs text-noir focus:border-caramel"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="pt-4 flex justify-end">
+                          <button
+                            onClick={handleSaveAllSlides}
+                            disabled={sliderSaving}
+                            className="px-6 py-3 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-sm flex items-center gap-2"
+                          >
+                            <span>{sliderSaving ? '⏳ Sauvegarde en cours...' : '💾 Enregistrer et Synchroniser sur Firebase'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -4321,7 +4709,7 @@
       }
 
       // ========================================================================
-      // SUB-COMPONENT: PRODUCT FORM MODAL (Add / Edit)
+      // SUB-COMPONENT: PRODUCT FORM MODAL (Add / Edit + Firebase Image Upload)
       // ========================================================================
       function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onError }) {
         const [nameFr, setNameFr] = useState(initialData.nameFr || '');
@@ -4329,18 +4717,77 @@
         const [price, setPrice] = useState(initialData.price || '');
         const [oldPrice, setOldPrice] = useState(initialData.oldPrice || '');
         const [stock, setStock] = useState(initialData.stock || 0);
-        const [category, setCategory] = useState(initialData.category || 'chaussures');
+        const [category, setCategory] = useState(initialData.category || PRODUCT_CATEGORIES[0]);
         const [badge, setBadge] = useState(initialData.badge || 'new');
+        const [imagesList, setImagesList] = useState(initialData.images || []);
         const [imagesStr, setImagesStr] = useState((initialData.images || []).join(', '));
         const [descFr, setDescFr] = useState(initialData.descFr || '');
         const [descAr, setDescAr] = useState(initialData.descAr || '');
         const [sizesStr, setSizesStr] = useState((initialData.sizes || []).join(', '));
         const [colorsStr, setColorsStr] = useState((initialData.colors || []).join(', '));
+        const [uploading, setUploading] = useState(false);
+        const [uploadError, setUploadError] = useState('');
+
+        const handleFileUpload = async (e) => {
+          const files = Array.from(e.target.files || []);
+          if (files.length === 0) return;
+          setUploading(true);
+          setUploadError('');
+
+          try {
+            for (const file of files) {
+              const base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+              });
+
+              const res = await fetch('/api/upload', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  file: base64Data,
+                  filename: file.name,
+                  folder: 'products'
+                })
+              });
+
+              const data = await res.json();
+              if (res.ok && data.url) {
+                setImagesList(prev => {
+                  const next = [...prev, data.url];
+                  setImagesStr(next.join(', '));
+                  return next;
+                });
+              } else {
+                setUploadError(data.error || "Erreur lors de l'upload de l'image");
+              }
+            }
+          } catch (err) {
+            setUploadError("Erreur lors de l'envoi vers Firebase Storage");
+          } finally {
+            setUploading(false);
+            e.target.value = '';
+          }
+        };
+
+        const handleRemoveImage = (indexToRemove) => {
+          setImagesList(prev => {
+            const next = prev.filter((_, idx) => idx !== indexToRemove);
+            setImagesStr(next.join(', '));
+            return next;
+          });
+        };
 
         const handleSubmit = async (e) => {
           e.preventDefault();
           try {
-            const images = imagesStr.split(',').map(s => s.trim()).filter(Boolean);
+            const manualImages = imagesStr.split(',').map(s => s.trim()).filter(Boolean);
+            const finalImages = manualImages.length > 0 ? manualImages : imagesList;
             const sizes = sizesStr.split(',').map(s => s.trim()).filter(Boolean);
             const colors = colorsStr.split(',').map(s => s.trim()).filter(Boolean);
 
@@ -4356,7 +4803,7 @@
               badge,
               isNew: badge === 'new',
               rating: initialData.rating || 5,
-              images: images.length > 0 ? images : initialData.images,
+              images: finalImages.length > 0 ? finalImages : ['data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="%23f3f1ec"/><text x="200" y="200" fill="%23999" text-anchor="middle">ETTORE</text></svg>'],
               descFr,
               descAr,
               sizes,
@@ -4452,15 +4899,15 @@
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold uppercase mb-1">Catégorie</label>
+                    <label className="block font-bold uppercase mb-1">Catégorie *</label>
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full bg-card border border-taupe/30 p-2"
+                      className="w-full bg-card border border-taupe/30 p-2 font-medium"
                     >
-                      <option value="chaussures">Chaussures</option>
-                      <option value="soins">Soins</option>
-                      <option value="maison">Maison</option>
+                      {PRODUCT_CATEGORIES.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -4478,14 +4925,68 @@
                   </div>
                 </div>
 
+                {/* Section Upload Photo vers Firebase */}
+                <div className="border border-dashed border-caramel/50 bg-[#FAF7F2] p-3.5 rounded-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                    <div>
+                      <span className="font-bold uppercase text-[11px] text-noir block">
+                        📸 Photos du Produit (Upload Firebase Storage)
+                      </span>
+                      <span className="text-[10px] text-taupe-dark">
+                        Uploadez vos photos directement depuis votre appareil. Elles seront stockées sur Firebase Storage.
+                      </span>
+                    </div>
+                    <label className={`px-3 py-1.5 bg-noir hover:bg-caramel text-white text-[11px] font-semibold cursor-pointer rounded-xs transition-colors flex items-center gap-1.5 shrink-0 shadow-xs ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <span>{uploading ? '⏳ Upload Firebase...' : '📁 Choisir photo(s)'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        disabled={uploading}
+                      />
+                    </label>
+                  </div>
+
+                  {uploadError && (
+                    <div className="p-2 bg-red-100 text-red-800 text-[11px] rounded-xs mb-2">
+                      {uploadError}
+                    </div>
+                  )}
+
+                  {/* Thumbnail gallery of current images */}
+                  {imagesList.length > 0 && (
+                    <div className="flex items-center gap-2.5 flex-wrap pt-2 border-t border-taupe/20">
+                      {imagesList.map((imgUrl, i) => (
+                        <div key={i} className="relative w-16 h-16 border border-taupe/30 bg-card rounded-xs overflow-hidden group shadow-xs">
+                          <img src={imgUrl} alt={`Upload ${i + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(i)}
+                            className="absolute top-0 end-0 bg-red-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-bl-xs opacity-85 hover:opacity-100 transition-opacity"
+                            title="Supprimer cette photo"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="block font-bold uppercase mb-1">URLs Photos (séparées par des virgules)</label>
                   <textarea
                     rows="2"
                     value={imagesStr}
-                    onChange={(e) => setImagesStr(e.target.value)}
+                    onChange={(e) => {
+                      setImagesStr(e.target.value);
+                      const parsed = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                      setImagesList(parsed);
+                    }}
                     placeholder="https://..., data:image/svg+xml..."
-                    className="w-full bg-card border border-taupe/30 p-2"
+                    className="w-full bg-card border border-taupe/30 p-2 font-mono text-[11px]"
                   />
                 </div>
 
@@ -4543,7 +5044,7 @@
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-noir text-white font-semibold uppercase tracking-wider hover:bg-caramel"
+                    className="px-6 py-2 bg-noir text-white font-semibold uppercase tracking-wider hover:bg-caramel transition-colors"
                   >
                     Enregistrer
                   </button>
