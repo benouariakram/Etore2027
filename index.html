@@ -1113,6 +1113,24 @@
       }
 
       // ========================================================================
+      // SEO Slug Helper
+      // ========================================================================
+      function slugify(text) {
+        return String(text || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '') || 'produit';
+      }
+
+      function getProductSlug(product) {
+        if (!product) return '';
+        const base = slugify(product.nameFr || product.nameAr || 'produit');
+        return `${base}-${product.id}`;
+      }
+
+      // ========================================================================
       // SUB-COMPONENT: DEDICATED PRODUCT PAGE VIEW (Unique Shareable Index Link)
       // ========================================================================
       function ProductDetailPage({
@@ -1149,7 +1167,8 @@
         const isWish = wishlist.includes(product.id);
         const isOut = !product.inStock || product.stock <= 0;
         const isLow = product.stock > 0 && product.stock < 5;
-        const currentUrl = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
+        const productSlug = getProductSlug(product);
+        const currentUrl = `${window.location.origin}/produit/${productSlug}`;
 
         const copyLink = () => {
           try {
@@ -1164,8 +1183,8 @@
 
         const shareWhatsApp = () => {
           const text = lang === 'ar'
-            ? `مرحباً 👋 اكتشف هذه القطعة الراقية من دار إيتوري:\n\n*${title}*\nالسعر: ${product.price} درهم مغربي (الدفع عند الاستلام)\n\nرابط المنتج المباشر:\n${currentUrl}`
-            : `Bonjour 👋 Découvrez cette création de la Maison ETTORE :\n\n*${title}*\nPrix : ${product.price} MAD (Paiement à la livraison)\n\nLien direct vers la pièce :\n${currentUrl}`;
+            ? `مرحباً 👋 اكتشف هذه القطعة الراقية من دار مودانوفا (MODANOVA):\n\n*${title}*\nالسعر: ${product.price} درهم مغربي (الدفع عند الاستلام)\n\nرابط المنتج المباشر:\n${currentUrl}`
+            : `Bonjour 👋 Découvrez cette création de la Maison MODANOVA :\n\n*${title}*\nPrix : ${product.price} MAD (Paiement à la livraison)\n\nLien direct vers la pièce :\n${currentUrl}`;
           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         };
 
@@ -1256,12 +1275,12 @@
                 
                 {/* Left: Interactive Media Showcase (Col 1-7) */}
                 <div className="lg:col-span-7 flex flex-col gap-4">
-                  {/* Hero Showcase Frame */}
-                  <div className="relative aspect-4/3 sm:aspect-square w-full bg-[#EFECE6] border border-taupe/20 overflow-hidden shadow-sm group">
+                  {/* Hero Showcase Frame — Standardized 3:4 Luxury Ratio */}
+                  <div className="relative aspect-[3/4] w-full max-h-[580px] bg-[#EFECE6] border border-taupe/20 overflow-hidden shadow-sm group">
                     <img
                       src={(product.images && product.images[activeImageIdx]) || (product.images && product.images[0])}
                       alt={title}
-                      className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 cursor-zoom-in"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 cursor-zoom-in"
                     />
 
                     {/* Top Badges */}
@@ -1311,13 +1330,13 @@
                           key={i}
                           type="button"
                           onClick={() => setActiveImageIdx(i)}
-                          className={`w-20 h-20 sm:w-24 sm:h-24 shrink-0 border-2 overflow-hidden bg-card transition-all duration-200 ${
+                          className={`w-20 h-24 sm:w-24 sm:h-28 shrink-0 border-2 overflow-hidden bg-card transition-all duration-200 relative ${
                             activeImageIdx === i
                               ? 'border-caramel scale-102 shadow-sm'
                               : 'border-taupe/20 opacity-70 hover:opacity-100 hover:border-noir/40'
                           }`}
                         >
-                          <img src={img} alt="" className="w-full h-full object-cover" />
+                          <img src={img} alt="" className="w-full h-full object-cover block" />
                         </button>
                       ))}
                     </div>
@@ -1343,7 +1362,7 @@
                 <div className="lg:col-span-5 flex flex-col">
                   {/* Category & Verified Rating */}
                   <div className="flex items-center justify-between text-xs text-taupe-dark uppercase tracking-widest mb-3">
-                    <span className="font-semibold text-caramel">{product.category} · ETTORE ATELIER</span>
+                    <span className="font-semibold text-caramel uppercase">{product.category}</span>
                     <div className="flex items-center gap-1 text-caramel font-semibold">
                       <span>★ {product.rating || 5}.0</span>
                       <span className="text-taupe text-[10px] lowercase font-normal">(avis vérifiés)</span>
@@ -1522,10 +1541,6 @@
                       <span className="text-base">🔄</span>
                       <span>{t.product_exchange_guarantee}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-base">🌿</span>
-                      <span>{t.product_craft_guarantee}</span>
-                    </div>
                   </div>
                 </div>
 
@@ -1539,7 +1554,7 @@
                   <div className="flex items-center justify-between mb-8">
                     <div>
                       <span className="text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-1">
-                        ETTORE MEN'S ESSENTIALS
+                        MODANOVA MEN'S ESSENTIALS
                       </span>
                       <h2 className="font-serif italic text-2xl sm:text-3xl text-noir font-normal">
                         {t.product_related_title}
@@ -1563,11 +1578,11 @@
                           onClick={() => onSelectProduct(p.id)}
                           className="group cursor-pointer bg-card border border-taupe/20 p-4 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
                         >
-                          <div className="aspect-4/3 w-full bg-[#EFECE6] overflow-hidden mb-3">
+                          <div className="relative aspect-[3/4] w-full bg-[#EFECE6] overflow-hidden mb-3 rounded-xs">
                             <img
                               src={p.images && p.images[0]}
                               alt={relTitle}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                           </div>
                           <div className="text-[10px] text-taupe-dark uppercase tracking-wider mb-1">{p.category}</div>
@@ -1599,11 +1614,11 @@
       function App() {
         // --- Internationalization & Direction ---
         const [lang, setLang] = useState(() => {
-          return localStorage.getItem('ettore_lang') || 'fr';
+          return localStorage.getItem('modanova_lang') || localStorage.getItem('ettore_lang') || 'fr';
         });
 
         useEffect(() => {
-          localStorage.setItem('ettore_lang', lang);
+          localStorage.setItem('modanova_lang', lang);
           document.documentElement.lang = lang;
           document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
         }, [lang]);
@@ -1615,11 +1630,89 @@
         const [loadingProducts, setLoadingProducts] = useState(false);
         const [orders, setOrders] = useState([]);
 
-        // --- Persistent User State ---
+        // --- Global CMS Settings State (Dynamic Fixed Texts & Media) ---
+        const [cms, setCms] = useState({
+          topBanner: "Livraison express offerte sur toutes vos commandes au Maroc · Paiement à la livraison (COD)",
+          brandName: "MODANOVA",
+          brandTagline: "MEN'S ESSENTIALS · MAROC",
+          storyBadge: "Atelier & Savoir-Faire d'Exception",
+          storyTitle: "L'Alliance de la Tradition et du Luxe Contemporain",
+          storyText1: "Pensée pour l'homme contemporain au Maroc qui exige l'excellence, MODANOVA allie noblesse des coupes, matières d'élite et confection soignée. Chaque pièce incarne un équilibre rare entre force architecturale et confort suprême.",
+          storyText2: "De nos ateliers partenaires jusqu'à votre vestiaire, nous célébrons le raffinement absolu et l'art de vivre sans compromis.",
+          storyImage: "/images/hero-1-leather.jpg",
+          conciergeCity: "Kenitra, Maroc",
+          conciergeAddress: "Atelier & Conciergerie : Kenitra, Maroc",
+          supportPhone: "+212 6 00 00 00 00",
+          whatsappNumber: "+212 6 00 00 00 00",
+          guaranteeShipping: "Livraison Express 24/48h partout au Maroc avec suivi personnalisé.",
+          guaranteeCod: "Paiement à la livraison après vérification de votre commande.",
+          guaranteeQuality: "Garantie satisfaction et confection d'exception."
+        });
+
+        // --- Testimonials State (Dynamic CRUD Customer Reviews) ---
+        const [testimonials, setTestimonials] = useState([
+          {
+            id: 1,
+            name: "Karim Bennani",
+            city: "Casablanca",
+            rating: 5,
+            text: "Qualité exceptionnelle ! La veste est impeccable, finitions très soignées et livraison reçue le lendemain à Casablanca. Paiement à la livraison très pratique.",
+            verified: true,
+            date: "2025-01-14"
+          },
+          {
+            id: 2,
+            name: "Mehdi Tazi",
+            city: "Rabat",
+            rating: 5,
+            text: "MODANOVA est devenue ma marque de référence. Coupe moderne, tissus résistants et service client via WhatsApp ultra réactif. Je recommande à 100%.",
+            verified: true,
+            date: "2025-01-18"
+          },
+          {
+            id: 3,
+            name: "Yassine El Amrani",
+            city: "Marrakech",
+            rating: 5,
+            text: "Très satisfait de ma commande. Les chaussures sont super confortables et la confection est de haut standing. Bravo pour ce niveau de qualité au Maroc.",
+            verified: true,
+            date: "2025-01-22"
+          }
+        ]);
+
+        const fetchCms = useCallback(async () => {
+          try {
+            const res = await fetch('/api/cms');
+            if (res.ok) {
+              const data = await res.json();
+              if (data && typeof data === 'object') {
+                setCms(prev => ({ ...prev, ...data }));
+              }
+            }
+          } catch {}
+        }, []);
+
+        const fetchTestimonials = useCallback(async () => {
+          try {
+            const res = await fetch('/api/testimonials');
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data) && data.length > 0) {
+                setTestimonials(data);
+              }
+            }
+          } catch {}
+        }, []);
+
+        useEffect(() => {
+          fetchCms();
+          fetchTestimonials();
+        }, [fetchCms, fetchTestimonials]);
+
         // --- Persistent User State (Bulletproof LocalStorage) ---
         const [cart, setCart] = useState(() => {
           try {
-            const saved = localStorage.getItem('ettore_cart');
+            const saved = localStorage.getItem('modanova_cart') || localStorage.getItem('ettore_cart');
             if (saved) {
               const parsed = JSON.parse(saved);
               if (Array.isArray(parsed) && parsed.length > 0) {
@@ -1634,7 +1727,7 @@
 
         const [wishlist, setWishlist] = useState(() => {
           try {
-            const saved = localStorage.getItem('ettore_wishlist');
+            const saved = localStorage.getItem('modanova_wishlist') || localStorage.getItem('ettore_wishlist');
             if (saved) {
               const parsed = JSON.parse(saved);
               if (Array.isArray(parsed)) return parsed;
@@ -1646,14 +1739,14 @@
         });
 
         const [appliedPromo, setAppliedPromo] = useState(() => {
-          return localStorage.getItem('ettore_promo') || '';
+          return localStorage.getItem('modanova_promo') || localStorage.getItem('ettore_promo') || '';
         });
 
         // Persist Cart to LocalStorage on every change
         useEffect(() => {
           try {
-            localStorage.setItem('ettore_cart', JSON.stringify(cart));
-            localStorage.setItem('ettore_cart_saved_at', new Date().toISOString());
+            localStorage.setItem('modanova_cart', JSON.stringify(cart));
+            localStorage.setItem('modanova_cart_saved_at', new Date().toISOString());
           } catch (e) {
             console.warn('Erreur sauvegarde panier localStorage:', e);
           }
@@ -1662,7 +1755,7 @@
         // Cross-tab Synchronization (keeps cart in sync across browser tabs/windows)
         useEffect(() => {
           const handleStorageSync = (e) => {
-            if (e.key === 'ettore_cart') {
+            if (e.key === 'modanova_cart' || e.key === 'ettore_cart') {
               try {
                 const updated = JSON.parse(e.newValue || '[]');
                 if (Array.isArray(updated)) {
@@ -1677,15 +1770,15 @@
 
         useEffect(() => {
           try {
-            localStorage.setItem('ettore_wishlist', JSON.stringify(wishlist));
+            localStorage.setItem('modanova_wishlist', JSON.stringify(wishlist));
           } catch {}
         }, [wishlist]);
 
         useEffect(() => {
           if (appliedPromo) {
-            localStorage.setItem('ettore_promo', appliedPromo);
+            localStorage.setItem('modanova_promo', appliedPromo);
           } else {
-            localStorage.removeItem('ettore_promo');
+            localStorage.removeItem('modanova_promo');
           }
         }, [appliedPromo]);
 
@@ -1707,43 +1800,61 @@
         const [quickViewSize, setQuickViewSize] = useState('');
         const [quickViewColor, setQuickViewColor] = useState('');
 
-        // --- Dedicated Product Page URL Routing Helpers ---
-        const getProductIdFromURL = () => {
+        // --- Dedicated SEO Friendly Product Page URL Routing Helpers ---
+        const getProductIdentifierFromURL = () => {
           try {
+            // 1. Path match: /produit/:slug or /product/:slug
+            const pathMatch = window.location.pathname.match(/\/(?:produit|product)\/([^/?#]+)/i);
+            if (pathMatch && pathMatch[1]) {
+              const slugStr = decodeURIComponent(pathMatch[1]);
+              const idMatch = slugStr.match(/-(\d+)$/);
+              if (idMatch) return parseInt(idMatch[1], 10);
+              if (/^\d+$/.test(slugStr)) return parseInt(slugStr, 10);
+              return slugStr;
+            }
+            // 2. Query param ?produit=slug or ?product=id
             const params = new URLSearchParams(window.location.search);
-            const p = params.get('product');
-            if (p) return parseInt(p, 10) || null;
-            const hashMatch = window.location.hash.match(/product[-=/](\d+)/i);
-            if (hashMatch) return parseInt(hashMatch[1], 10) || null;
-            const pathMatch = window.location.pathname.match(/\/product\/(\d+)/i);
-            if (pathMatch) return parseInt(pathMatch[1], 10) || null;
+            const p = params.get('produit') || params.get('product');
+            if (p) {
+              const idMatch = p.match(/-(\d+)$/);
+              if (idMatch) return parseInt(idMatch[1], 10);
+              if (/^\d+$/.test(p)) return parseInt(p, 10);
+              return p;
+            }
+            // 3. Hash fallback
+            const hashMatch = window.location.hash.match(/(?:produit|product)[-=/]([^/?#]+)/i);
+            if (hashMatch && hashMatch[1]) {
+              const idMatch = hashMatch[1].match(/-(\d+)$/);
+              if (idMatch) return parseInt(idMatch[1], 10);
+              if (/^\d+$/.test(hashMatch[1])) return parseInt(hashMatch[1], 10);
+              return hashMatch[1];
+            }
           } catch (e) {}
           return null;
         };
 
-        const [selectedProductId, setSelectedProductId] = useState(() => getProductIdFromURL());
+        const [selectedProductIdentifier, setSelectedProductIdentifier] = useState(() => getProductIdentifierFromURL());
         const [directCheckoutItem, setDirectCheckoutItem] = useState(null);
 
-        const navigateToProduct = useCallback((productId) => {
-          if (!productId) return;
-          setSelectedProductId(productId);
+        const navigateToProduct = useCallback((target) => {
+          if (!target) return;
+          const prod = typeof target === 'object' ? target : products.find(p => p.id === Number(target));
+          const prodId = prod ? prod.id : Number(target);
+          setSelectedProductIdentifier(prodId);
+          const slug = prod ? getProductSlug(prod) : `produit-${prodId}`;
+          const targetUrl = `/produit/${slug}`;
           try {
-            const url = new URL(window.location.href);
-            url.searchParams.set('product', productId);
-            window.history.pushState({ productId }, '', url.toString());
+            window.history.pushState({ productId: prodId, slug }, '', targetUrl);
           } catch (e) {
-            window.history.pushState({ productId }, '', `?product=${productId}`);
+            window.history.pushState({ productId: prodId }, '', `?produit=${slug}`);
           }
           window.scrollTo({ top: 0, behavior: 'smooth' });
-        }, []);
+        }, [products]);
 
         const backToHome = useCallback(() => {
-          setSelectedProductId(null);
+          setSelectedProductIdentifier(null);
           try {
-            const url = new URL(window.location.href);
-            url.searchParams.delete('product');
-            const cleanPath = url.pathname + (url.search ? url.search : '');
-            window.history.pushState({}, '', cleanPath || '/');
+            window.history.pushState({}, '', '/');
           } catch (e) {
             window.history.pushState({}, '', window.location.pathname || '/');
           }
@@ -1753,8 +1864,8 @@
         // Listen for browser popstate & hashchange
         useEffect(() => {
           const handleUrlChange = () => {
-            const id = getProductIdFromURL();
-            setSelectedProductId(id);
+            const id = getProductIdentifierFromURL();
+            setSelectedProductIdentifier(id);
           };
           window.addEventListener('popstate', handleUrlChange);
           window.addEventListener('hashchange', handleUrlChange);
@@ -1765,9 +1876,20 @@
         }, []);
 
         const selectedProduct = useMemo(() => {
-          if (!selectedProductId) return null;
-          return products.find(p => p.id === Number(selectedProductId)) || null;
-        }, [selectedProductId, products]);
+          if (!selectedProductIdentifier) return null;
+          if (typeof selectedProductIdentifier === 'number') {
+            return products.find(p => p.id === selectedProductIdentifier) || null;
+          }
+          const raw = String(selectedProductIdentifier).toLowerCase();
+          return products.find(p => {
+            if (String(p.id) === raw) return true;
+            if (getProductSlug(p).toLowerCase() === raw) return true;
+            if (slugify(p.nameFr).toLowerCase() === raw) return true;
+            return false;
+          }) || null;
+        }, [selectedProductIdentifier, products]);
+
+        const selectedProductId = selectedProduct ? selectedProduct.id : null;
 
         // Dynamic Document Title
         useEffect(() => {
@@ -1885,7 +2007,7 @@
 
         // --- Admin Authentication & Token ---
         const [adminToken, setAdminToken] = useState(() => {
-          return sessionStorage.getItem('ettore_admin_token') || '';
+          return sessionStorage.getItem('modanova_admin_token') || sessionStorage.getItem('ettore_admin_token') || '';
         });
         const [adminUser, setAdminUser] = useState('');
         const [adminPass, setAdminPass] = useState('');
@@ -2117,7 +2239,7 @@
             const data = await res.json();
             if (res.ok && data.token) {
               setAdminToken(data.token);
-              sessionStorage.setItem('ettore_admin_token', data.token);
+              sessionStorage.setItem('modanova_admin_token', data.token);
               showToast('Connexion réussie', 'success');
               fetchAdminOrders();
             } else {
@@ -2130,6 +2252,7 @@
 
         const handleAdminLogout = () => {
           setAdminToken('');
+          sessionStorage.removeItem('modanova_admin_token');
           sessionStorage.removeItem('ettore_admin_token');
           setAdminUser('');
           setAdminPass('');
@@ -2671,16 +2794,16 @@
                         key={product.id}
                         className="group flex flex-col bg-card border border-taupe/20 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
                       >
-                        {/* Image Showcase Container */}
+                        {/* Image Showcase Container — Standardized 3:4 Fashion Ratio */}
                         <div
                           onClick={() => navigateToProduct(product.id)}
-                          className="relative aspect-4/3 w-full bg-[#EFECE6] overflow-hidden cursor-pointer"
+                          className="relative aspect-[3/4] w-full bg-[#EFECE6] overflow-hidden cursor-pointer rounded-xs"
                         >
                           <img
                             src={product.images && product.images[0]}
                             alt={title}
                             referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           />
 
                           {/* Top Badges */}
@@ -2713,12 +2836,12 @@
 
                           {/* Top End Actions: Client Link Copy & Wishlist */}
                           <div className="absolute top-3 end-3 flex items-center gap-1.5 z-10">
-                            {/* Copy direct client link */}
+                            {/* Copy direct client link (SEO Slug) */}
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const url = `${window.location.origin}${window.location.pathname}?product=${product.id}`;
+                                const url = `${window.location.origin}/produit/${getProductSlug(product)}`;
                                 try {
                                   navigator.clipboard.writeText(url);
                                   showToast(t.product_link_copied, 'success');
@@ -2838,16 +2961,16 @@
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
                   <div>
                     <span className="text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-3">
-                      HÉRITAGE & MATIÈRES
+                      {cms.storyBadge || "HÉRITAGE & MATIÈRES"}
                     </span>
                     <h2 className="font-serif italic text-3xl sm:text-5xl text-noir font-normal mb-6 leading-tight">
-                      {t.craft_title}
+                      {cms.storyTitle || t.craft_title}
                     </h2>
                     <p className="text-sm sm:text-base text-taupe-dark leading-relaxed mb-4">
-                      {t.craft_desc_1}
+                      {cms.storyText1 || t.craft_desc_1}
                     </p>
                     <p className="text-sm sm:text-base text-taupe-dark leading-relaxed mb-8">
-                      {t.craft_desc_2}
+                      {cms.storyText2 || t.craft_desc_2}
                     </p>
 
                     {/* Stats Strip */}
@@ -2867,26 +2990,36 @@
                     </div>
                   </div>
 
-                  {/* Atelier Illustration visual with Slow Spinning Seal */}
-                  <div className="relative aspect-4/3 bg-[#EAE4DC] border border-taupe/30 overflow-hidden shadow-sm flex items-center justify-center p-8">
-                    <svg className="w-full h-full max-h-80" viewBox="0 0 600 450" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="600" height="450" fill="#EAE4DC" />
-                      <g className="animate-spin-slow" style={{ transformOrigin: '300px 225px' }}>
-                        <circle cx="300" cy="225" r="160" stroke="#9E8C7A" strokeWidth="1.5" strokeDasharray="6 6" />
-                      </g>
-                      <circle cx="300" cy="225" r="130" fill="#FAF9F6" stroke="#9E8C7A" strokeWidth="2" />
-                      <path d="M220 180C250 140 350 140 380 180C400 210 390 270 300 290C210 270 200 210 220 180Z" fill="#3D2B1F" />
-                      <path d="M250 190C270 165 330 165 350 190C360 210 340 240 300 250C260 240 240 210 250 190Z" fill="#634731" />
-                      <text x="300" y="340" font-family="'Cormorant Garamond', serif" font-size="20" fill="#171717" text-anchor="middle" letter-spacing="4">ETTORE ATELIER</text>
-                      <text x="300" y="365" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="#9E8C7A" text-anchor="middle" letter-spacing="3">FEZ & CASABLANCA</text>
-                    </svg>
+                  {/* Atelier Illustration visual or Dynamic Uploaded Photo */}
+                  <div className="relative aspect-4/3 bg-[#EAE4DC] border border-taupe/30 overflow-hidden shadow-sm flex items-center justify-center">
+                    {cms.storyImage && !cms.storyImage.includes('svg') ? (
+                      <img
+                        src={cms.storyImage}
+                        alt="Atelier MODANOVA"
+                        className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                      />
+                    ) : (
+                      <div className="p-8 w-full h-full flex items-center justify-center">
+                        <svg className="w-full h-full max-h-80" viewBox="0 0 600 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <rect width="600" height="450" fill="#EAE4DC" />
+                          <g className="animate-spin-slow" style={{ transformOrigin: '300px 225px' }}>
+                            <circle cx="300" cy="225" r="160" stroke="#9E8C7A" strokeWidth="1.5" strokeDasharray="6 6" />
+                          </g>
+                          <circle cx="300" cy="225" r="130" fill="#FAF9F6" stroke="#9E8C7A" strokeWidth="2" />
+                          <path d="M220 180C250 140 350 140 380 180C400 210 390 270 300 290C210 270 200 210 220 180Z" fill="#3D2B1F" />
+                          <path d="M250 190C270 165 330 165 350 190C360 210 340 240 300 250C260 240 240 210 250 190Z" fill="#634731" />
+                          <text x="300" y="340" font-family="'Cormorant Garamond', serif" font-size="22" fill="#171717" text-anchor="middle" letter-spacing="4">MODANOVA</text>
+                          <text x="300" y="365" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="#9E8C7A" text-anchor="middle" letter-spacing="3">KENITRA & MAROC</text>
+                        </svg>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             </section>
 
             {/* ================================================================ */}
-            {/* 5. TÉMOIGNAGES (Testimonials Section) */}
+            {/* 5. TÉMOIGNAGES (Testimonials Section - Dynamic from CMS) */}
             {/* ================================================================ */}
             <section id="temoignages" className="py-20 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
               <div className="text-center max-w-2xl mx-auto mb-16">
@@ -2902,41 +3035,31 @@
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[
-                  {
-                    name: "Karim Bensouda",
-                    city: "Casablanca",
-                    stars: 5,
-                    text: "Les mules en cuir sont d'une souplesse incroyable dès le premier jour. Reçues en 24h à Gauthier avec le paiement en espèces au livreur, service impeccable.",
-                    textAr: "النعال الجلدية مريحة للغاية وذات جودة استثنائية. تم التوصيل في أقل من 24 ساعة للدار البيضاء والدفع نقداً عند الاستلام بكل سلاسة."
-                  },
-                  {
-                    name: "Mehdi Tazi",
-                    city: "Rabat",
-                    stars: 5,
-                    text: "Le sérum botanique a transformé ma peau après le rasage. Parfum subtil de cèdre et d'argan, zéro film gras. Une vraie fierté de voir une telle marque au Maroc.",
-                    textAr: "السيروم النباتي غير بشرتي تماماً بعد الحلاقة. رائحة الأرز الأطلسي مميزة ولا يترك أي أثر دهني. فخور بوجود علامة مغربية بهذه الفخامة."
-                  },
-                  {
-                    name: "Amine Guessous",
-                    city: "Marrakech",
-                    stars: 5,
-                    text: "Plaid en laine mérinos tout simplement somptueux. La facture détaillée et le contact direct WhatsApp rassurent immédiatement pour le COD.",
-                    textAr: "غطاء صوف الميرينو في غاية النعومة والدفء. الفاتورة الواضحة والتواصل السريع عبر واتساب يعطي ثقة تامة للشراء."
-                  }
-                ].map((item, idx) => (
-                  <div key={idx} className="bg-card border border-taupe/20 p-8 flex flex-col justify-between">
+                {testimonials.map((item, idx) => (
+                  <div key={item.id || idx} className="bg-card border border-taupe/20 p-8 flex flex-col justify-between hover:border-caramel/40 transition-colors shadow-xs">
                     <div>
-                      <div className="flex items-center gap-1 text-caramel text-sm mb-4">
-                        {'★'.repeat(item.stars)}
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-1 text-caramel text-sm">
+                          {'★'.repeat(item.rating || 5)}
+                        </div>
+                        {item.verified !== false && (
+                          <span className="text-[10px] bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] px-2 py-0.5 rounded-xs font-semibold">
+                            ✓ {lang === 'ar' ? 'طلب موثق' : 'Achat vérifié'}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-noir/90 leading-relaxed font-light italic mb-6">
-                        "{lang === 'ar' ? item.textAr : item.text}"
+                        "{item.text}"
                       </p>
                     </div>
-                    <div className="pt-4 border-t border-taupe/20">
-                      <div className="text-sm font-semibold text-noir">{item.name}</div>
-                      <div className="text-xs text-taupe-dark">📍 {item.city}, Maroc</div>
+                    <div className="pt-4 border-t border-taupe/20 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-noir">{item.name}</div>
+                        <div className="text-xs text-taupe-dark">📍 {item.city || 'Maroc'}</div>
+                      </div>
+                      {item.date && (
+                        <div className="text-[10px] text-taupe-dark font-mono">{item.date}</div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -3021,7 +3144,7 @@
                 </div>
 
                 <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-white/40 gap-4">
-                  <div>© {new Date().getFullYear()} ETTORE Men's Essentials. {t.footer_rights}</div>
+                  <div>© {new Date().getFullYear()} MODANOVA Men's Essentials. {t.footer_rights}</div>
                   <div className="flex items-center gap-4">
                     <span>Fait avec exigence au Maroc</span>
                   </div>
@@ -3033,7 +3156,7 @@
             {/* 7. FLOATING WHATSAPP BUTTON (Emerald Green, Beacon Animation) */}
             {/* ================================================================ */}
             <a
-              href="https://wa.me/212600773716?text=Bonjour%20ETTORE,%20j%27aimerais%20avoir%20des%20renseignements"
+              href="https://wa.me/212600773716?text=Bonjour%20MODANOVA,%20j%27aimerais%20avoir%20des%20renseignements"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Contacter sur WhatsApp"
@@ -3233,13 +3356,13 @@
                           >
                             {/* Rigid Thumbnail Container — strictly 80x80px */}
                             <div
-                              className="w-20 h-20 shrink-0 bg-card border border-taupe/20 overflow-hidden relative rounded-xs"
+                              className="w-20 h-20 shrink-0 bg-[#EFECE6] border border-taupe/20 overflow-hidden relative rounded-xs aspect-square"
                               style={{ width: '80px', height: '80px', minWidth: '80px', minHeight: '80px', maxWidth: '80px', maxHeight: '80px' }}
                             >
                               <img
                                 src={item.image}
                                 alt={itemTitle}
-                                className="w-full h-full object-cover block"
+                                className="absolute inset-0 w-full h-full object-cover block"
                                 loading="lazy"
                               />
                             </div>
@@ -3711,7 +3834,9 @@
                   navigateToProduct(prodId);
                 }}
                 onCopyProductLink={(prodId) => {
-                  const url = `${window.location.origin}${window.location.pathname}?product=${prodId}`;
+                  const prod = products.find(p => p.id === prodId);
+                  const slug = prod ? getProductSlug(prod) : `produit-${prodId}`;
+                  const url = `${window.location.origin}/produit/${slug}`;
                   try {
                     navigator.clipboard.writeText(url);
                     showToast(t.product_link_copied, 'success');
@@ -3719,6 +3844,10 @@
                     showToast(url, 'info');
                   }
                 }}
+                cms={cms}
+                onSaveCms={(updatedCms) => setCms(updatedCms)}
+                testimonials={testimonials}
+                onRefreshTestimonials={fetchTestimonials}
               />
             )}
 
@@ -4099,11 +4228,50 @@
         onLogin, onLogout, kpis, activeTab, setActiveTab, products, orders,
         lang, t, onClose, onRefreshOrders, onRefreshProducts, onEditProduct,
         onAddProduct, onViewInvoice, showToast, onViewProductPage, onCopyProductLink,
-        heroSlides, onSaveSlider
+        heroSlides, onSaveSlider, cms, onSaveCms, testimonials, onRefreshTestimonials
       }) {
+        // Slider state
         const [sliderDraft, setSliderDraft] = useState(() => JSON.parse(JSON.stringify(heroSlides || [])));
         const [sliderUploadingIdx, setSliderUploadingIdx] = useState(null);
         const [sliderSaving, setSliderSaving] = useState(false);
+
+        // Product search & filter
+        const [prodSearch, setProdSearch] = useState('');
+        const [prodCat, setProdCat] = useState('ALL');
+
+        // Order filter
+        const [orderFilter, setOrderFilter] = useState('ALL');
+
+        // CMS state
+        const [cmsDraft, setCmsDraft] = useState(() => ({
+          topBannerFr: cms?.topBannerFr || 'Livraison express offerte dans tout le Maroc • Paiement sécurisé à la livraison (COD)',
+          topBannerAr: cms?.topBannerAr || 'توصيل سريع مجاني في جميع أنحاء المغرب • الدفع عند الاستلام',
+          brandName: cms?.brandName || 'MODANOVA',
+          brandTagline: cms?.brandTagline || "Men's Essentials",
+          storyBadge: cms?.storyBadge || 'Maison de Haute Maroquinerie & Confection',
+          storyTitle: cms?.storyTitle || "L'Art de l'Excellence & du Minimalisme Brut",
+          storyText1: cms?.storyText1 || "Fondée avec la volonté de redéfinir l'élégance masculine contemporaine, MODANOVA sélectionne des cuirs pleine fleur d'exception et des toiles techniques robustes pour concevoir des pièces intemporelles.",
+          storyText2: cms?.storyText2 || "Chaque sacoche, veste et soulier est méticuleusement assemblé à la main, garantissant une longévité absolue et un style d'affirmation sobre pensé pour le quotidien de l'homme moderne.",
+          storyImage: cms?.storyImage || '',
+          conciergeAddress: cms?.conciergeAddress || 'Boulevard Mohamed V, Quartier Industriel',
+          conciergeCity: cms?.conciergeCity || 'Kénitra, Maroc',
+          whatsappNumber: cms?.whatsappNumber || '+212600000000'
+        }));
+        const [cmsSaving, setCmsSaving] = useState(false);
+        const [cmsUploadingPhoto, setCmsUploadingPhoto] = useState(false);
+
+        // Testimonial CRUD state
+        const [testimonialModalOpen, setTestimonialModalOpen] = useState(false);
+        const [editingTestimonial, setEditingTestimonial] = useState(null);
+        const [testimonialForm, setTestimonialForm] = useState({
+          author: '',
+          city: 'Casablanca',
+          rating: 5,
+          textFr: '',
+          textAr: '',
+          verified: true
+        });
+        const [testimonialSaving, setTestimonialSaving] = useState(false);
 
         useEffect(() => {
           if (heroSlides && heroSlides.length > 0) {
@@ -4111,6 +4279,26 @@
           }
         }, [heroSlides]);
 
+        useEffect(() => {
+          if (cms) {
+            setCmsDraft({
+              topBannerFr: cms.topBannerFr || '',
+              topBannerAr: cms.topBannerAr || '',
+              brandName: cms.brandName || 'MODANOVA',
+              brandTagline: cms.brandTagline || "Men's Essentials",
+              storyBadge: cms.storyBadge || '',
+              storyTitle: cms.storyTitle || '',
+              storyText1: cms.storyText1 || '',
+              storyText2: cms.storyText2 || '',
+              storyImage: cms.storyImage || '',
+              conciergeAddress: cms.conciergeAddress || '',
+              conciergeCity: cms.conciergeCity || 'Kénitra, Maroc',
+              whatsappNumber: cms.whatsappNumber || '+212600000000'
+            });
+          }
+        }, [cms]);
+
+        // Slider handlers
         const handleSlideFieldChange = (idx, field, val) => {
           setSliderDraft(prev => {
             const copy = [...prev];
@@ -4185,6 +4373,156 @@
           }
         };
 
+        // CMS handlers
+        const handleCmsPhotoUpload = async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          setCmsUploadingPhoto(true);
+
+          try {
+            const base64Data = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                file: base64Data,
+                filename: file.name,
+                folder: 'cms'
+              })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.url) {
+              setCmsDraft(prev => ({ ...prev, storyImage: data.url }));
+              showToast("Photo de présentation du Savoir-Faire uploadée vers Firebase !", 'success');
+            } else {
+              showToast(data.error || "Erreur upload", 'error');
+            }
+          } catch {
+            showToast("Erreur lors de l'upload vers Firebase", 'error');
+          } finally {
+            setCmsUploadingPhoto(false);
+            e.target.value = '';
+          }
+        };
+
+        const handleSaveCms = async () => {
+          setCmsSaving(true);
+          try {
+            const res = await fetch('/api/cms', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(cmsDraft)
+            });
+            const data = await res.json();
+            if (res.ok && data.cms) {
+              if (onSaveCms) onSaveCms(data.cms);
+              showToast("Contenu du site mis à jour et synchronisé sur Firebase !", 'success');
+            } else {
+              showToast(data.error || "Erreur enregistrement CMS", 'error');
+            }
+          } catch {
+            showToast("Erreur de connexion", 'error');
+          } finally {
+            setCmsSaving(false);
+          }
+        };
+
+        // Testimonial handlers
+        const openAddTestimonial = () => {
+          setEditingTestimonial(null);
+          setTestimonialForm({
+            author: '',
+            city: 'Casablanca',
+            rating: 5,
+            textFr: '',
+            textAr: '',
+            verified: true
+          });
+          setTestimonialModalOpen(true);
+        };
+
+        const openEditTestimonial = (item) => {
+          setEditingTestimonial(item);
+          setTestimonialForm({
+            author: item.author || '',
+            city: item.city || 'Casablanca',
+            rating: item.rating || 5,
+            textFr: item.textFr || item.text || '',
+            textAr: item.textAr || '',
+            verified: item.verified !== false
+          });
+          setTestimonialModalOpen(true);
+        };
+
+        const handleSaveTestimonial = async (e) => {
+          e.preventDefault();
+          if (!testimonialForm.author || !testimonialForm.textFr) {
+            showToast("Veuillez renseigner au moins l'auteur et le texte en français.", 'warning');
+            return;
+          }
+          setTestimonialSaving(true);
+          try {
+            const url = editingTestimonial
+              ? `/api/testimonials/${editingTestimonial.id}`
+              : '/api/testimonials';
+            const method = editingTestimonial ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+              method,
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(testimonialForm)
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+              showToast(editingTestimonial ? "Témoignage modifié avec succès !" : "Témoignage ajouté avec succès !", 'success');
+              setTestimonialModalOpen(false);
+              if (onRefreshTestimonials) onRefreshTestimonials();
+            } else {
+              showToast(data.error || "Erreur enregistrement témoignage", 'error');
+            }
+          } catch {
+            showToast("Erreur de connexion", 'error');
+          } finally {
+            setTestimonialSaving(false);
+          }
+        };
+
+        const handleDeleteTestimonial = async (id) => {
+          if (!confirm("Voulez-vous vraiment supprimer ce témoignage client ?")) return;
+          try {
+            const res = await fetch(`/api/testimonials/${id}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+              showToast("Témoignage supprimé avec succès.", 'info');
+              if (onRefreshTestimonials) onRefreshTestimonials();
+            } else {
+              showToast("Erreur lors de la suppression.", 'error');
+            }
+          } catch {
+            showToast("Erreur de connexion", 'error');
+          }
+        };
+
+        // Orders & Products status handlers
         const handleStatusChange = async (orderId, newStatus) => {
           try {
             const res = await fetch(`/api/orders/${orderId}`, {
@@ -4205,7 +4543,7 @@
         };
 
         const handleDeleteProduct = async (id) => {
-          if (!confirm('Supprimer ce produit ?')) return;
+          if (!confirm('Supprimer définitivement ce produit ?')) return;
           try {
             const res = await fetch(`/api/products/${id}`, {
               method: 'DELETE',
@@ -4236,498 +4574,1191 @@
           }
         };
 
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={onClose} />
-            <div className="relative bg-canvas w-full max-w-5xl max-h-[92vh] overflow-hidden z-10 shadow-2xl border border-taupe/30 flex flex-col">
-              
-              {/* Header */}
-              <div className="p-5 bg-noir text-white flex items-center justify-between border-b border-taupe/20">
-                <div className="flex items-center gap-3">
-                  <span className="font-serif text-xl font-bold tracking-wider">ETTORE ADMIN</span>
-                  <span className="text-[10px] bg-caramel text-white px-2 py-0.5 rounded-xs font-mono">D1 BACKEND</span>
+        // Filtered products & orders
+        const filteredProducts = (products || []).filter(p => {
+          const matchSearch = !prodSearch || 
+            (p.nameFr && p.nameFr.toLowerCase().includes(prodSearch.toLowerCase())) ||
+            (p.nameAr && p.nameAr.toLowerCase().includes(prodSearch.toLowerCase())) ||
+            (p.id && String(p.id).toLowerCase().includes(prodSearch.toLowerCase()));
+          const matchCat = prodCat === 'ALL' || p.category === prodCat;
+          return matchSearch && matchCat;
+        });
+
+        const filteredOrders = (orders || []).filter(o => {
+          if (orderFilter === 'ALL') return true;
+          return o.status === orderFilter;
+        });
+
+        // -------------------------------------------------------------
+        // IF NOT AUTHENTICATED: Full-screen Login Portal
+        // -------------------------------------------------------------
+        if (!token) {
+          return (
+            <div className="fixed inset-0 z-50 bg-[#121212] flex items-center justify-center p-4">
+              <div className="w-full max-w-md bg-[#1C1C1C] border border-[#2F2F2F] p-8 shadow-2xl relative text-white rounded-xs">
+                <button
+                  onClick={onClose}
+                  className="absolute top-4 right-4 text-white/50 hover:text-white text-sm"
+                  title="Retourner à la boutique"
+                >
+                  ✕
+                </button>
+                <div className="text-center mb-8">
+                  <div className="font-serif text-3xl font-extrabold tracking-widest text-[#E6C687] mb-1">
+                    MODANOVA
+                  </div>
+                  <div className="text-[10px] uppercase font-mono tracking-widest text-white/50">
+                    PANEL ADMINISTRATEUR SÉCURISÉ
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  {token && (
+
+                <form onSubmit={onLogin} className="space-y-5">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-white/70 mb-2">
+                      Identifiant
+                    </label>
+                    <input
+                      type="text"
+                      value={adminUser}
+                      onChange={(e) => setAdminUser(e.target.value)}
+                      placeholder="admin"
+                      className="w-full bg-[#121212] border border-[#333] px-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:border-[#E6C687] focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-white/70 mb-2">
+                      Mot de passe
+                    </label>
+                    <input
+                      type="password"
+                      value={adminPass}
+                      onChange={(e) => setAdminPass(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full bg-[#121212] border border-[#333] px-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:border-[#E6C687] focus:outline-none"
+                      required
+                    />
+                    <div className="text-[10px] text-white/40 mt-1">
+                      (Code par défaut : <code className="text-[#E6C687]">modanova2025</code>)
+                    </div>
+                  </div>
+
+                  {loginError && (
+                    <div className="p-3 bg-red-950/60 border border-red-800 text-red-200 text-xs">
+                      {loginError}
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex flex-col gap-2">
                     <button
-                      onClick={onLogout}
-                      className="text-xs text-white/60 hover:text-white"
+                      type="submit"
+                      className="w-full py-3 bg-[#E6C687] hover:bg-[#D4B373] text-[#121212] font-bold text-xs uppercase tracking-widest transition-colors shadow-sm"
                     >
-                      {t.admin_logout}
+                      Connexion au Dashboard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="w-full py-2.5 text-white/60 hover:text-white text-xs transition-colors"
+                    >
+                      ← Retour à la Boutique
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          );
+        }
+
+        // -------------------------------------------------------------
+        // AUTHENTICATED: Full-screen Dashboard (Sidebar + Main Workspace)
+        // -------------------------------------------------------------
+        return (
+          <div className="fixed inset-0 z-50 bg-[#141414] flex flex-col md:flex-row w-screen h-screen overflow-hidden text-noir antialiased font-sans">
+            
+            {/* ========================================================= */}
+            {/* 1. LEFT SIDEBAR (Classical Dashboard Navigation)          */}
+            {/* ========================================================= */}
+            <aside className="w-full md:w-64 bg-[#141414] text-white flex flex-col shrink-0 border-b md:border-b-0 md:border-r border-[#262626] h-auto md:h-full z-20">
+              {/* Brand Header */}
+              <div className="p-5 border-b border-[#262626] flex items-center justify-between">
+                <div>
+                  <div className="font-serif text-xl font-bold tracking-widest text-[#E6C687]">
+                    MODANOVA
+                  </div>
+                  <div className="text-[10px] uppercase font-mono tracking-wider text-white/50">
+                    PANEL ADMINISTRATEUR
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="md:hidden text-white/60 hover:text-white text-lg p-1"
+                  title="Fermer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Navigation Menu */}
+              <nav className="flex-1 p-3 space-y-1.5 overflow-x-auto md:overflow-y-auto flex md:flex-col">
+                <button
+                  onClick={() => setActiveTab('products')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
+                    activeTab === 'products'
+                      ? 'bg-[#E6C687] text-[#141414] font-bold shadow-xs'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>📦</span>
+                    <span>Produits</span>
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${activeTab === 'products' ? 'bg-[#141414] text-[#E6C687]' : 'bg-white/10 text-white/80'}`}>
+                    {products.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('orders')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
+                    activeTab === 'orders'
+                      ? 'bg-[#E6C687] text-[#141414] font-bold shadow-xs'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>📋</span>
+                    <span>Commandes</span>
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${activeTab === 'orders' ? 'bg-[#141414] text-[#E6C687]' : 'bg-white/10 text-white/80'}`}>
+                    {orders.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('slider')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
+                    activeTab === 'slider'
+                      ? 'bg-[#E6C687] text-[#141414] font-bold shadow-xs'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>🖼️</span>
+                    <span>Slider Accueil</span>
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${activeTab === 'slider' ? 'bg-[#141414] text-[#E6C687]' : 'bg-white/10 text-white/80'}`}>
+                    3 slides
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('cms')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
+                    activeTab === 'cms'
+                      ? 'bg-[#E6C687] text-[#141414] font-bold shadow-xs'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>📝</span>
+                    <span>Gestion Contenu</span>
+                  </span>
+                  <span className="text-[9px] bg-emerald-600/30 text-emerald-300 px-1.5 py-0.5 rounded-xs font-mono">
+                    CMS
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('testimonials')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
+                    activeTab === 'testimonials'
+                      ? 'bg-[#E6C687] text-[#141414] font-bold shadow-xs'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>⭐</span>
+                    <span>Témoignages</span>
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${activeTab === 'testimonials' ? 'bg-[#141414] text-[#E6C687]' : 'bg-white/10 text-white/80'}`}>
+                    {(testimonials || []).length}
+                  </span>
+                </button>
+              </nav>
+
+              {/* Sidebar Footer */}
+              <div className="p-4 border-t border-[#262626] hidden md:flex flex-col gap-2">
+                <button
+                  onClick={onClose}
+                  className="w-full py-2.5 px-3 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white text-xs font-semibold rounded-xs transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>←</span>
+                  <span>Voir la Boutique</span>
+                </button>
+                <button
+                  onClick={onLogout}
+                  className="w-full py-2 px-3 text-red-400 hover:text-red-300 text-xs font-semibold text-center transition-colors"
+                >
+                  Déconnexion
+                </button>
+              </div>
+            </aside>
+
+            {/* ========================================================= */}
+            {/* 2. MAIN CONTENT WORKSPACE                                 */}
+            {/* ========================================================= */}
+            <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#F5F4F0]">
+              
+              {/* Workspace Top Header Bar */}
+              <header className="px-6 py-4 bg-white border-b border-taupe/20 flex items-center justify-between shadow-xs shrink-0">
+                <div>
+                  <h2 className="font-serif text-xl font-bold text-noir flex items-center gap-2">
+                    {activeTab === 'products' && 'Catalogue & Produits'}
+                    {activeTab === 'orders' && 'Gestion des Commandes'}
+                    {activeTab === 'slider' && "Slider de la Page d'Accueil"}
+                    {activeTab === 'cms' && 'Gestion du Contenu Fixe (CMS)'}
+                    {activeTab === 'testimonials' && 'Avis & Témoignages Clients'}
+                  </h2>
+                  <p className="text-xs text-taupe-dark">
+                    {activeTab === 'products' && 'Gérez vos créations, photos Firebase, prix et stocks.'}
+                    {activeTab === 'orders' && 'Suivez et confirmez les commandes COD des clients via WhatsApp.'}
+                    {activeTab === 'slider' && 'Personnalisez vos 3 bannières et uploadez des fonds haute définition.'}
+                    {activeTab === 'cms' && 'Modifiez les textes et photos du site sans toucher au code source.'}
+                    {activeTab === 'testimonials' && 'Ajoutez, modifiez ou supprimez les retours d’expérience de vos clients.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {activeTab === 'products' && (
+                    <button
+                      onClick={onAddProduct}
+                      className="px-4 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shadow-xs"
+                    >
+                      <span>+</span>
+                      <span>Nouveau Produit</span>
                     </button>
                   )}
-                  <button onClick={onClose} className="text-white/80 hover:text-white text-lg">
+
+                  {activeTab === 'slider' && (
+                    <button
+                      onClick={handleSaveAllSlides}
+                      disabled={sliderSaving}
+                      className="px-4 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shadow-xs"
+                    >
+                      <span>{sliderSaving ? '⏳ Sauvegarde...' : '💾 Enregistrer Slider'}</span>
+                    </button>
+                  )}
+
+                  {activeTab === 'cms' && (
+                    <button
+                      onClick={handleSaveCms}
+                      disabled={cmsSaving}
+                      className="px-4 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shadow-xs"
+                    >
+                      <span>{cmsSaving ? '⏳ Sauvegarde...' : '💾 Enregistrer Contenu'}</span>
+                    </button>
+                  )}
+
+                  {activeTab === 'testimonials' && (
+                    <button
+                      onClick={openAddTestimonial}
+                      className="px-4 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shadow-xs"
+                    >
+                      <span>+</span>
+                      <span>Ajouter Témoignage</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={onClose}
+                    className="p-2 text-taupe-dark hover:text-noir text-lg rounded-xs hover:bg-black/5 transition-colors"
+                    title="Fermer le panel"
+                  >
                     ✕
                   </button>
                 </div>
-              </div>
+              </header>
 
-              {/* Body */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {!token ? (
-                  // Login Screen
-                  <div className="max-w-md mx-auto py-12">
-                    <h3 className="font-serif text-2xl font-bold text-noir mb-2 text-center">
-                      {t.admin_login_title}
-                    </h3>
-                    <p className="text-xs text-taupe-dark text-center mb-6">
-                      Accès sécurisé par variables d'environnement Cloudflare Pages & signature HMAC-SHA256.
-                    </p>
+              {/* Workspace Body (Scrollable) */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+                
+                {/* 4 KPI Summary Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                  <div className="bg-white p-4 border border-taupe/20 shadow-2xs rounded-xs">
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-taupe-dark">
+                      Chiffre d'Affaires
+                    </div>
+                    <div className="font-serif text-2xl font-bold text-caramel mt-1 tabular-nums">
+                      {kpis.revenue.toLocaleString()} MAD
+                    </div>
+                    <div className="text-[11px] text-taupe mt-0.5">Commandes validées & en cours</div>
+                  </div>
 
-                    {loginError && (
-                      <div className="p-3 bg-[#FEE2E2] text-[#991B1B] text-xs border border-[#FCA5A5] mb-4">
-                        {loginError}
-                      </div>
-                    )}
+                  <div className="bg-white p-4 border border-taupe/20 shadow-2xs rounded-xs">
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-taupe-dark">
+                      Total Commandes
+                    </div>
+                    <div className="font-serif text-2xl font-bold text-noir mt-1 tabular-nums">
+                      {kpis.totalOrders}
+                    </div>
+                    <div className="text-[11px] text-taupe mt-0.5">{orders.filter(o => o.status === 'En attente').length} en attente de confirmation</div>
+                  </div>
 
-                    <form onSubmit={onLogin} className="space-y-4 bg-card p-6 border border-taupe/20">
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-noir mb-1">
-                          {t.admin_user_label}
-                        </label>
+                  <div className="bg-white p-4 border border-taupe/20 shadow-2xs rounded-xs">
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-taupe-dark">
+                      Panier Moyen
+                    </div>
+                    <div className="font-serif text-2xl font-bold text-noir mt-1 tabular-nums">
+                      {kpis.avgOrderValue} MAD
+                    </div>
+                    <div className="text-[11px] text-taupe mt-0.5">Moyenne par panier</div>
+                  </div>
+
+                  <div className="bg-white p-4 border border-taupe/20 shadow-2xs rounded-xs">
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-taupe-dark">
+                      Articles en Ligne
+                    </div>
+                    <div className="font-serif text-2xl font-bold text-noir mt-1 tabular-nums">
+                      {products.length}
+                    </div>
+                    <div className="text-[11px] text-taupe mt-0.5">{products.filter(p => p.stock > 0).length} en stock immédiat</div>
+                  </div>
+                </div>
+
+                {/* ======================================================= */}
+                {/* TAB 1: PRODUCTS TABLE (with SEO slug link & Actions)   */}
+                {/* ======================================================= */}
+                {activeTab === 'products' && (
+                  <div className="bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden">
+                    {/* Search & Filter Toolbar */}
+                    <div className="p-4 border-b border-taupe/15 flex flex-col sm:flex-row gap-3 items-center justify-between bg-canvas/40">
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
                         <input
                           type="text"
-                          required
-                          value={adminUser}
-                          onChange={(e) => setAdminUser(e.target.value)}
-                          placeholder="admin"
-                          className="w-full bg-canvas border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                          value={prodSearch}
+                          onChange={(e) => setProdSearch(e.target.value)}
+                          placeholder="Rechercher par nom ou référence..."
+                          className="w-full sm:w-64 bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
                         />
+                        <select
+                          value={prodCat}
+                          onChange={(e) => setProdCat(e.target.value)}
+                          className="bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
+                        >
+                          <option value="ALL">Toutes Catégories</option>
+                          {PRODUCT_CATEGORIES.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-noir mb-1">
-                          {t.admin_pass_label}
-                        </label>
-                        <input
-                          type="password"
-                          required
-                          value={adminPass}
-                          onChange={(e) => setAdminPass(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full bg-canvas border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className="w-full py-3 bg-noir text-white text-xs font-semibold uppercase tracking-wider hover:bg-caramel transition-colors"
-                      >
-                        {t.admin_login_btn}
-                      </button>
-                    </form>
-                  </div>
-                ) : (
-                  // Authenticated Dashboard
-                  <div className="space-y-8">
-                    {/* 4 KPIs */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-card p-4 border border-taupe/20">
-                        <span className="text-[10px] font-bold uppercase text-taupe-dark tracking-wider block mb-1">
-                          {t.admin_kpi_sales}
-                        </span>
-                        <div className="font-serif text-2xl font-bold text-noir tabular-nums">
-                          {kpis.totalSales.toLocaleString()} MAD
-                        </div>
-                      </div>
-                      <div className="bg-card p-4 border border-taupe/20">
-                        <span className="text-[10px] font-bold uppercase text-taupe-dark tracking-wider block mb-1">
-                          {t.admin_kpi_orders}
-                        </span>
-                        <div className="font-serif text-2xl font-bold text-noir tabular-nums">
-                          {kpis.orderCount}
-                        </div>
-                      </div>
-                      <div className="bg-card p-4 border border-taupe/20">
-                        <span className="text-[10px] font-bold uppercase text-taupe-dark tracking-wider block mb-1">
-                          {t.admin_kpi_avg}
-                        </span>
-                        <div className="font-serif text-2xl font-bold text-noir tabular-nums">
-                          {kpis.avgBasket.toLocaleString()} MAD
-                        </div>
-                      </div>
-                      <div className="bg-card p-4 border border-taupe/20">
-                        <span className="text-[10px] font-bold uppercase text-taupe-dark tracking-wider block mb-1">
-                          {t.admin_kpi_out}
-                        </span>
-                        <div className="font-serif text-2xl font-bold text-[#B91C1C] tabular-nums">
-                          {kpis.outOfStockCount}
-                        </div>
+                      <div className="text-xs text-taupe-dark">
+                        {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''} trouvé{filteredProducts.length > 1 ? 's' : ''}
                       </div>
                     </div>
 
-                    {/* Tabs Switcher */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-taupe/20 pb-3">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => setActiveTab('products')}
-                          className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                            activeTab === 'products' ? 'bg-noir text-white' : 'text-taupe-dark hover:text-noir'
-                          }`}
-                        >
-                          {t.admin_tab_products} ({products.length})
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('orders')}
-                          className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                            activeTab === 'orders' ? 'bg-noir text-white' : 'text-taupe-dark hover:text-noir'
-                          }`}
-                        >
-                          {t.admin_tab_orders} ({orders.length})
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('slider')}
-                          className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
-                            activeTab === 'slider' ? 'bg-noir text-white' : 'text-taupe-dark hover:text-noir'
-                          }`}
-                        >
-                          🖼️ Slider / Accueil
-                        </button>
-                      </div>
-
-                      {activeTab === 'products' && (
-                        <button
-                          onClick={onAddProduct}
-                          className="px-4 py-2 bg-caramel text-white text-xs font-semibold uppercase tracking-wider hover:bg-caramel/90 transition-colors"
-                        >
-                          {t.admin_add_product}
-                        </button>
-                      )}
-                      {activeTab === 'slider' && (
-                        <button
-                          onClick={handleSaveAllSlides}
-                          disabled={sliderSaving}
-                          className="px-4 py-2 bg-caramel text-white text-xs font-semibold uppercase tracking-wider hover:bg-caramel/90 transition-colors shadow-xs"
-                        >
-                          {sliderSaving ? 'Enregistrement...' : '💾 Sauvegarder Slider'}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Tab 1: Products */}
-                    {activeTab === 'products' && (
-                      <div className="overflow-x-auto border border-taupe/20 bg-card">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="bg-canvas border-b border-taupe/20 text-taupe-dark uppercase text-[10px] tracking-wider">
-                              <th className="p-3">Visuel</th>
-                              <th className="p-3">Nom</th>
-                              <th className="p-3">Catégorie</th>
-                              <th className="p-3">Prix</th>
-                              <th className="p-3">Stock</th>
-                              <th className="p-3 text-right">Actions</th>
+                    {/* Products Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-canvas border-b border-taupe/20 text-taupe-dark uppercase text-[10px] tracking-wider">
+                            <th className="p-3">Aperçu</th>
+                            <th className="p-3">Désignation</th>
+                            <th className="p-3">Catégorie</th>
+                            <th className="p-3">Prix</th>
+                            <th className="p-3">Stock</th>
+                            <th className="p-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-taupe/15">
+                          {filteredProducts.length === 0 ? (
+                            <tr>
+                              <td colSpan="6" className="p-8 text-center text-taupe-dark">
+                                Aucun produit ne correspond à votre recherche.
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody className="divide-y divide-taupe/15">
-                            {products.map(p => (
-                              <tr key={p.id} className="hover:bg-canvas/50">
-                                <td className="p-3">
-                                  <img src={p.images && p.images[0]} alt="" className="w-10 h-10 object-cover bg-canvas border border-taupe/20" />
-                                </td>
-                                <td className="p-3 font-semibold text-noir">
-                                  {p.nameFr}
-                                  <div className="text-[10px] text-taupe-dark font-normal">{p.nameAr}</div>
-                                </td>
-                                <td className="p-3 capitalize text-taupe-dark">{p.category}</td>
-                                <td className="p-3 font-semibold text-noir tabular-nums">{p.price} MAD</td>
-                                <td className="p-3">
-                                  <span className={`px-2 py-0.5 rounded-xs font-semibold tabular-nums ${p.stock === 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                                    {p.stock}
-                                  </span>
-                                </td>
-                                <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                                  <button
-                                    onClick={() => {
-                                      onClose();
-                                      if (onViewProductPage) onViewProductPage(p.id);
-                                    }}
-                                    className="px-2.5 py-1 bg-noir text-white hover:bg-caramel text-[11px] font-semibold uppercase tracking-wider transition-colors rounded-xs"
-                                    title="Ouvrir la page dédiée du produit"
-                                  >
-                                    👁️ {t.admin_view_product || "Voir"}
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      if (onCopyProductLink) onCopyProductLink(p.id);
-                                    }}
-                                    className="px-2.5 py-1 border border-taupe/30 hover:border-noir text-noir text-[11px] font-semibold uppercase tracking-wider transition-colors rounded-xs"
-                                    title="Copier le lien direct client"
-                                  >
-                                    📋 {t.admin_copy_link || "Lien"}
-                                  </button>
-                                  <button
-                                    onClick={() => onEditProduct(p)}
-                                    className="px-2.5 py-1 border border-taupe/30 hover:border-noir text-noir rounded-xs"
-                                  >
-                                    Modifier
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteProduct(p.id)}
-                                    className="px-2.5 py-1 text-red-600 hover:text-red-800"
-                                  >
-                                    Supprimer
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-
-                    {/* Tab 2: Orders */}
-                    {activeTab === 'orders' && (
-                      <div className="overflow-x-auto border border-taupe/20 bg-card">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="bg-canvas border-b border-taupe/20 text-taupe-dark uppercase text-[10px] tracking-wider">
-                              <th className="p-3">ID</th>
-                              <th className="p-3">Date</th>
-                              <th className="p-3">Client</th>
-                              <th className="p-3">Ville</th>
-                              <th className="p-3">Total</th>
-                              <th className="p-3">Statut</th>
-                              <th className="p-3 text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-taupe/15">
-                            {orders.length === 0 ? (
-                              <tr>
-                                <td colSpan="7" className="p-8 text-center text-taupe-dark">
-                                  Aucune commande enregistrée pour le moment.
-                                </td>
-                              </tr>
-                            ) : (
-                              orders.map(o => (
-                                <tr key={o.id} className="hover:bg-canvas/50">
-                                  <td className="p-3 font-mono font-bold text-noir">{o.id}</td>
-                                  <td className="p-3 text-taupe-dark">{new Date(o.date).toLocaleDateString()}</td>
-                                  <td className="p-3 font-semibold text-noir">
-                                    {o.customerName}
-                                    <div className="text-[10px] text-taupe-dark font-normal">{o.customerPhone}</div>
-                                  </td>
-                                  <td className="p-3">{o.city}</td>
-                                  <td className="p-3 font-bold text-caramel tabular-nums">{o.total} MAD</td>
+                          ) : (
+                            filteredProducts.map(p => {
+                              const thumb = (p.images && p.images[0]) || '';
+                              return (
+                                <tr key={p.id} className="hover:bg-canvas/50">
                                   <td className="p-3">
-                                    <select
-                                      value={o.status}
-                                      onChange={(e) => handleStatusChange(o.id, e.target.value)}
-                                      className="bg-canvas border border-taupe/30 px-2 py-1 text-xs text-noir font-semibold"
-                                    >
-                                      {['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(s => (
-                                        <option key={s} value={s}>{s}</option>
-                                      ))}
-                                    </select>
+                                    <div className="w-12 h-16 bg-[#EFECE6] border border-taupe/20 overflow-hidden relative rounded-xs">
+                                      {thumb ? (
+                                        <img src={thumb} alt={p.nameFr} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-[9px] text-taupe">Sans photo</div>
+                                      )}
+                                    </div>
                                   </td>
-                                  <td className="p-3 text-right space-x-2">
+                                  <td className="p-3">
+                                    <div className="font-semibold text-noir">{p.nameFr}</div>
+                                    <div className="text-[11px] text-taupe-dark font-arabic">{p.nameAr}</div>
+                                    <div className="text-[10px] text-taupe font-mono mt-0.5">REF: {p.id}</div>
+                                  </td>
+                                  <td className="p-3">
+                                    <span className="inline-block px-2 py-0.5 bg-canvas border border-taupe/20 text-[10px] text-noir">
+                                      {p.category}
+                                    </span>
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="font-bold text-noir tabular-nums">{p.price} MAD</div>
+                                    {p.oldPrice && (
+                                      <div className="text-[10px] text-taupe line-through tabular-nums">{p.oldPrice} MAD</div>
+                                    )}
+                                  </td>
+                                  <td className="p-3">
+                                    {p.stock > 0 ? (
+                                      <span className="text-emerald-700 font-semibold">{p.stock} ex.</span>
+                                    ) : (
+                                      <span className="text-red-600 font-semibold">Rupture</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-right">
+                                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                      <button
+                                        onClick={() => onCopyProductLink(p.id)}
+                                        className="px-2 py-1 bg-white border border-taupe/30 hover:border-noir text-noir text-[11px] rounded-xs shadow-2xs"
+                                        title="Copier le lien SEO du produit"
+                                      >
+                                        🔗 Copier Lien
+                                      </button>
+                                      <button
+                                        onClick={() => onViewProductPage(p.id)}
+                                        className="px-2 py-1 bg-white border border-taupe/30 hover:border-noir text-noir text-[11px] rounded-xs shadow-2xs"
+                                        title="Voir la page produit"
+                                      >
+                                        👁️ Voir
+                                      </button>
+                                      <button
+                                        onClick={() => onEditProduct(p)}
+                                        className="px-2 py-1 bg-noir hover:bg-caramel text-white text-[11px] rounded-xs transition-colors"
+                                        title="Modifier"
+                                      >
+                                        ✏️ Modifier
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteProduct(p.id)}
+                                        className="px-2 py-1 text-red-600 hover:text-red-800 text-[11px]"
+                                        title="Supprimer"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ======================================================= */}
+                {/* TAB 2: ORDERS TABLE (WhatsApp Direct to Customer Phone) */}
+                {/* ======================================================= */}
+                {activeTab === 'orders' && (
+                  <div className="bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden">
+                    {/* Status Filter Toolbar */}
+                    <div className="p-4 border-b border-taupe/15 flex flex-col sm:flex-row gap-3 items-center justify-between bg-canvas/40">
+                      <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
+                        {['ALL', 'En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(s => (
+                          <button
+                            key={s}
+                            onClick={() => setOrderFilter(s)}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-xs transition-colors whitespace-nowrap ${
+                              orderFilter === s
+                                ? 'bg-noir text-white'
+                                : 'bg-white border border-taupe/25 text-taupe-dark hover:text-noir'
+                            }`}
+                          >
+                            {s === 'ALL' ? 'Toutes les commandes' : s}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="text-xs text-taupe-dark">
+                        {filteredOrders.length} commande{filteredOrders.length > 1 ? 's' : ''}
+                      </div>
+                    </div>
+
+                    {/* Orders Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-canvas border-b border-taupe/20 text-taupe-dark uppercase text-[10px] tracking-wider">
+                            <th className="p-3">N° Commande</th>
+                            <th className="p-3">Date</th>
+                            <th className="p-3">Client & Téléphone</th>
+                            <th className="p-3">Ville & Adresse</th>
+                            <th className="p-3">Montant (COD)</th>
+                            <th className="p-3">Statut</th>
+                            <th className="p-3 text-right">Actions Rapides</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-taupe/15">
+                          {filteredOrders.length === 0 ? (
+                            <tr>
+                              <td colSpan="7" className="p-8 text-center text-taupe-dark">
+                                Aucune commande trouvée.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredOrders.map(o => (
+                              <tr key={o.id} className="hover:bg-canvas/50">
+                                <td className="p-3 font-mono font-bold text-noir">{o.id}</td>
+                                <td className="p-3 text-taupe-dark whitespace-nowrap">
+                                  {new Date(o.date).toLocaleDateString()}
+                                </td>
+                                <td className="p-3">
+                                  <div className="font-semibold text-noir">{o.customerName}</div>
+                                  <div className="text-[11px] font-mono text-caramel">{o.customerPhone}</div>
+                                </td>
+                                <td className="p-3">
+                                  <div className="font-medium text-noir">{o.city}</div>
+                                  <div className="text-[10px] text-taupe truncate max-w-[200px]" title={o.address}>
+                                    {o.address}
+                                  </div>
+                                </td>
+                                <td className="p-3 font-bold text-noir tabular-nums">
+                                  {o.total} MAD
+                                </td>
+                                <td className="p-3">
+                                  <select
+                                    value={o.status}
+                                    onChange={(e) => handleStatusChange(o.id, e.target.value)}
+                                    className="bg-white border border-taupe/30 px-2 py-1 text-xs text-noir font-semibold rounded-xs"
+                                  >
+                                    {['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(s => (
+                                      <option key={s} value={s}>{s}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="p-3 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {/* WhatsApp Direct Confirmation targeting Customer Phone */}
                                     <a
-                                      href={buildWhatsAppLink(o, lang)}
+                                      href={buildAdminCustomerWhatsAppLink(o, lang)}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-block px-2 py-1 bg-whatsapp text-white rounded-xs"
-                                      title="WhatsApp"
+                                      className="px-2.5 py-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold text-[11px] rounded-xs shadow-2xs flex items-center gap-1 transition-colors"
+                                      title={`Envoyer message de confirmation à ${o.customerPhone}`}
                                     >
-                                      💬
+                                      <span>💬</span>
+                                      <span>Confirmer WhatsApp</span>
                                     </a>
                                     <button
                                       onClick={() => onViewInvoice(o)}
-                                      className="px-2 py-1 border border-taupe/30 hover:border-noir text-noir rounded-xs"
-                                      title="Facture"
+                                      className="px-2 py-1.5 border border-taupe/30 hover:border-noir text-noir text-[11px] rounded-xs bg-white shadow-2xs"
+                                      title="Imprimer la Facture"
                                     >
-                                      🖨️
+                                      🖨️ Facture
                                     </button>
                                     <button
                                       onClick={() => handleDeleteOrder(o.id)}
-                                      className="px-2 py-1 text-red-600 hover:text-red-800"
+                                      className="px-2 py-1.5 text-red-600 hover:text-red-800 text-xs"
                                       title="Supprimer"
                                     >
                                       ✕
                                     </button>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
-                    {/* Tab 3: Dynamic Slider Management */}
-                    {activeTab === 'slider' && (
-                      <div className="space-y-6">
-                        <div className="bg-card border border-taupe/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                {/* ======================================================= */}
+                {/* TAB 3: DYNAMIC SLIDER MANAGEMENT (3 Slides)             */}
+                {/* ======================================================= */}
+                {activeTab === 'slider' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {sliderDraft.map((slide, sIdx) => (
+                        <div key={slide.id || sIdx} className="bg-white border border-taupe/20 p-5 rounded-xs flex flex-col justify-between space-y-4 shadow-2xs">
                           <div>
-                            <h4 className="font-serif text-lg font-bold text-noir">Gestion du Slider Page d'Accueil</h4>
-                            <p className="text-xs text-taupe-dark">
-                              Personnalisez les textes de vos 3 diapositives et uploadez directement de nouvelles photos vers votre Firebase Storage.
-                            </p>
-                          </div>
-                          <button
-                            onClick={handleSaveAllSlides}
-                            disabled={sliderSaving}
-                            className="px-5 py-2.5 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-xs flex items-center gap-2 shrink-0 self-start sm:self-auto"
-                          >
-                            <span>{sliderSaving ? '⏳ Sauvegarde en cours...' : '💾 Enregistrer les 3 Slides (Firebase)'}</span>
-                          </button>
-                        </div>
+                            <div className="flex items-center justify-between pb-3 border-b border-taupe/15 mb-4">
+                              <span className="font-bold text-xs uppercase tracking-wider text-caramel">
+                                Slide 0{sIdx + 1}
+                              </span>
+                              <span className="text-[10px] font-mono bg-noir/5 px-2 py-0.5 text-taupe-dark">
+                                {slide.tag || `0${sIdx + 1}`}
+                              </span>
+                            </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                          {sliderDraft.map((slide, sIdx) => (
-                            <div key={slide.id || sIdx} className="bg-card border border-taupe/20 p-5 flex flex-col justify-between space-y-4 shadow-xs">
-                              <div>
-                                <div className="flex items-center justify-between pb-3 border-b border-taupe/15 mb-4">
-                                  <span className="font-bold text-xs uppercase tracking-wider text-caramel">
-                                    Slide 0{sIdx + 1}
-                                  </span>
-                                  <span className="text-[10px] font-mono bg-noir/5 px-2 py-0.5 text-taupe-dark">
-                                    {slide.tag || `0${sIdx + 1}`}
-                                  </span>
-                                </div>
-
-                                {/* Photo Preview & Upload */}
-                                <div className="mb-4">
-                                  <label className="block text-[11px] font-bold uppercase tracking-wider text-noir mb-1.5">
-                                    Photo de fond (Wallpaper)
+                            {/* Photo Preview & Upload to Firebase */}
+                            <div className="mb-4">
+                              <label className="block text-[11px] font-bold uppercase tracking-wider text-noir mb-1.5">
+                                Photo de fond (Wallpaper)
+                              </label>
+                              <div className="relative aspect-video w-full bg-noir/5 border border-taupe/25 rounded-xs overflow-hidden mb-2 group">
+                                {slide.wallpaper ? (
+                                  <img src={slide.wallpaper} alt={`Slide ${sIdx + 1}`} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-taupe text-xs">Pas d'image</div>
+                                )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
+                                  <label className="px-3 py-1.5 bg-caramel hover:bg-caramel/90 text-white text-xs font-semibold cursor-pointer rounded-xs transition-colors flex items-center gap-1.5 shadow-sm">
+                                    <span>{sliderUploadingIdx === sIdx ? '⏳ Upload...' : '📸 Changer photo'}</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => handleSliderPhotoUpload(sIdx, e)}
+                                      className="hidden"
+                                      disabled={sliderUploadingIdx === sIdx}
+                                    />
                                   </label>
-                                  <div className="relative aspect-video w-full bg-noir/5 border border-taupe/25 rounded-xs overflow-hidden mb-2 group">
-                                    {slide.wallpaper ? (
-                                      <img src={slide.wallpaper} alt={`Slide ${sIdx + 1}`} className="w-full h-full object-cover" />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center text-taupe text-xs">Pas d'image</div>
-                                    )}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
-                                      <label className="px-3 py-1.5 bg-caramel hover:bg-caramel/90 text-white text-xs font-semibold cursor-pointer rounded-xs transition-colors flex items-center gap-1.5 shadow-sm">
-                                        <span>{sliderUploadingIdx === sIdx ? '⏳ Upload...' : '📸 Changer photo'}</span>
-                                        <input
-                                          type="file"
-                                          accept="image/*"
-                                          onChange={(e) => handleSliderPhotoUpload(sIdx, e)}
-                                          className="hidden"
-                                          disabled={sliderUploadingIdx === sIdx}
-                                        />
-                                      </label>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="text"
-                                      value={slide.wallpaper || ''}
-                                      onChange={(e) => handleSlideFieldChange(sIdx, 'wallpaper', e.target.value)}
-                                      placeholder="URL photo Firebase ou chemin..."
-                                      className="flex-1 bg-canvas border border-taupe/30 px-2.5 py-1.5 text-[11px] text-noir focus:border-caramel"
-                                    />
-                                    <label className="px-3 py-1.5 bg-noir hover:bg-caramel text-white text-[11px] font-semibold cursor-pointer rounded-xs transition-colors shrink-0">
-                                      <span>{sliderUploadingIdx === sIdx ? '...' : '📁 Upload'}</span>
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => handleSliderPhotoUpload(sIdx, e)}
-                                        className="hidden"
-                                        disabled={sliderUploadingIdx === sIdx}
-                                      />
-                                    </label>
-                                  </div>
                                 </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={slide.wallpaper || ''}
+                                  onChange={(e) => handleSlideFieldChange(sIdx, 'wallpaper', e.target.value)}
+                                  placeholder="URL Firebase ou chemin..."
+                                  className="flex-1 bg-white border border-taupe/30 px-2.5 py-1.5 text-[11px] text-noir focus:border-caramel"
+                                />
+                                <label className="px-3 py-1.5 bg-noir hover:bg-caramel text-white text-[11px] font-semibold cursor-pointer rounded-xs transition-colors shrink-0">
+                                  <span>{sliderUploadingIdx === sIdx ? '...' : '📁 Upload'}</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handleSliderPhotoUpload(sIdx, e)}
+                                    className="hidden"
+                                    disabled={sliderUploadingIdx === sIdx}
+                                  />
+                                </label>
+                              </div>
+                            </div>
 
-                                {/* Slide Fields */}
-                                <div className="space-y-3 text-xs">
-                                  <div>
-                                    <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
-                                      Onglet Navigation (Tag) *
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={slide.tag || ''}
-                                      onChange={(e) => handleSlideFieldChange(sIdx, 'tag', e.target.value)}
-                                      placeholder={sIdx === 0 ? "01 - Jackets" : sIdx === 1 ? "02 - Accessoires" : "03 - Chaussures"}
-                                      className="w-full bg-canvas border border-taupe/30 px-2.5 py-1.5 text-xs text-noir focus:border-caramel font-mono"
-                                    />
-                                  </div>
+                            {/* Slide Fields */}
+                            <div className="space-y-3 text-xs">
+                              <div>
+                                <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                  Onglet Navigation (Tag) *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={slide.tag || ''}
+                                  onChange={(e) => handleSlideFieldChange(sIdx, 'tag', e.target.value)}
+                                  placeholder={sIdx === 0 ? "01 - Jackets" : sIdx === 1 ? "02 - Accessoires" : "03 - Chaussures"}
+                                  className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs text-noir focus:border-caramel font-mono"
+                                />
+                              </div>
 
-                                  <div>
-                                    <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
-                                      Surtitre (Badge)
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={slide.badge || ''}
-                                      onChange={(e) => handleSlideFieldChange(sIdx, 'badge', e.target.value)}
-                                      placeholder="Maison de maroquinerie..."
-                                      className="w-full bg-canvas border border-taupe/30 px-2.5 py-1.5 text-xs text-noir focus:border-caramel"
-                                    />
-                                  </div>
+                              <div>
+                                <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                  Surtitre (Badge)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={slide.badge || ''}
+                                  onChange={(e) => handleSlideFieldChange(sIdx, 'badge', e.target.value)}
+                                  placeholder="Maison de maroquinerie..."
+                                  className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs text-noir focus:border-caramel"
+                                />
+                              </div>
 
-                                  <div>
-                                    <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
-                                      Titre Principal *
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={slide.title || ''}
-                                      onChange={(e) => handleSlideFieldChange(sIdx, 'title', e.target.value)}
-                                      placeholder="L'Essence du Luxe Brut..."
-                                      className="w-full bg-canvas border border-taupe/30 px-2.5 py-1.5 text-xs text-noir font-serif font-bold focus:border-caramel"
-                                    />
-                                  </div>
+                              <div>
+                                <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                  Titre Principal *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={slide.title || ''}
+                                  onChange={(e) => handleSlideFieldChange(sIdx, 'title', e.target.value)}
+                                  placeholder="L'Essence du Luxe Brut..."
+                                  className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs text-noir font-serif font-bold focus:border-caramel"
+                                />
+                              </div>
 
-                                  <div>
-                                    <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
-                                      Sous-titre / Description
-                                    </label>
-                                    <textarea
-                                      rows="3"
-                                      value={slide.subtitle || ''}
-                                      onChange={(e) => handleSlideFieldChange(sIdx, 'subtitle', e.target.value)}
-                                      placeholder="Pensé pour l'homme contemporain au Maroc..."
-                                      className="w-full bg-canvas border border-taupe/30 px-2.5 py-1.5 text-xs text-noir focus:border-caramel leading-relaxed"
-                                    />
-                                  </div>
+                              <div>
+                                <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                  Sous-titre / Description
+                                </label>
+                                <textarea
+                                  rows="3"
+                                  value={slide.subtitle || ''}
+                                  onChange={(e) => handleSlideFieldChange(sIdx, 'subtitle', e.target.value)}
+                                  placeholder="Pensé pour l'homme contemporain au Maroc..."
+                                  className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs text-noir focus:border-caramel leading-relaxed"
+                                />
+                              </div>
 
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                      <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
-                                        Bouton 1 (CTA)
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={slide.cta1 || ''}
-                                        onChange={(e) => handleSlideFieldChange(sIdx, 'cta1', e.target.value)}
-                                        placeholder="Explorer la Collection"
-                                        className="w-full bg-canvas border border-taupe/30 px-2 py-1 text-xs text-noir focus:border-caramel"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
-                                        Bouton 2 (Story)
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={slide.cta2 || ''}
-                                        onChange={(e) => handleSlideFieldChange(sIdx, 'cta2', e.target.value)}
-                                        placeholder="Notre Savoir-Faire"
-                                        className="w-full bg-canvas border border-taupe/30 px-2 py-1 text-xs text-noir focus:border-caramel"
-                                      />
-                                    </div>
-                                  </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                    Bouton 1 (CTA)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={slide.cta1 || ''}
+                                    onChange={(e) => handleSlideFieldChange(sIdx, 'cta1', e.target.value)}
+                                    placeholder="Explorer la Collection"
+                                    className="w-full bg-white border border-taupe/30 px-2 py-1 text-xs text-noir focus:border-caramel"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block font-bold text-[10px] uppercase text-taupe-dark mb-1">
+                                    Bouton 2 (Story)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={slide.cta2 || ''}
+                                    onChange={(e) => handleSlideFieldChange(sIdx, 'cta2', e.target.value)}
+                                    placeholder="Notre Savoir-Faire"
+                                    className="w-full bg-white border border-taupe/30 px-2 py-1 text-xs text-noir focus:border-caramel"
+                                  />
                                 </div>
                               </div>
                             </div>
-                          ))}
+                          </div>
                         </div>
+                      ))}
+                    </div>
 
-                        <div className="pt-4 flex justify-end">
-                          <button
-                            onClick={handleSaveAllSlides}
-                            disabled={sliderSaving}
-                            className="px-6 py-3 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-sm flex items-center gap-2"
-                          >
-                            <span>{sliderSaving ? '⏳ Sauvegarde en cours...' : '💾 Enregistrer et Synchroniser sur Firebase'}</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    <div className="flex justify-end pt-2">
+                      <button
+                        onClick={handleSaveAllSlides}
+                        disabled={sliderSaving}
+                        className="px-6 py-3 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shadow-sm flex items-center gap-2"
+                      >
+                        <span>{sliderSaving ? '⏳ Sauvegarde en cours...' : '💾 Enregistrer et Synchroniser sur Firebase'}</span>
+                      </button>
+                    </div>
                   </div>
                 )}
+
+                {/* ======================================================= */}
+                {/* TAB 4: CMS CONTENT MANAGEMENT (Dynamic Global Texts)   */}
+                {/* ======================================================= */}
+                {activeTab === 'cms' && (
+                  <div className="space-y-6">
+                    <div className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs space-y-6">
+                      
+                      {/* Section 1: Header & Announcement */}
+                      <div className="border-b border-taupe/15 pb-6">
+                        <h3 className="font-serif text-base font-bold text-noir mb-3 flex items-center gap-2">
+                          <span>📢</span>
+                          <span>Bandeau d'Annonce Supérieur & Marque</span>
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Texte Bandeau (Français)
+                            </label>
+                            <input
+                              type="text"
+                              value={cmsDraft.topBannerFr}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, topBannerFr: e.target.value }))}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Texte Bandeau (Arabe)
+                            </label>
+                            <input
+                              type="text"
+                              value={cmsDraft.topBannerAr}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, topBannerAr: e.target.value }))}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel font-arabic text-right"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Nom de Marque Principal
+                            </label>
+                            <input
+                              type="text"
+                              value={cmsDraft.brandName}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, brandName: e.target.value }))}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir font-bold font-serif focus:border-caramel"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Slogan de Marque (Tagline)
+                            </label>
+                            <input
+                              type="text"
+                              value={cmsDraft.brandTagline}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, brandTagline: e.target.value }))}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Section 2: Story & Savoir-Faire Section */}
+                      <div className="border-b border-taupe/15 pb-6">
+                        <h3 className="font-serif text-base font-bold text-noir mb-3 flex items-center gap-2">
+                          <span>🧵</span>
+                          <span>Section "Notre Savoir-Faire" (Histoire & Atelier)</span>
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Surtitre (Badge)
+                            </label>
+                            <input
+                              type="text"
+                              value={cmsDraft.storyBadge}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, storyBadge: e.target.value }))}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Titre Principal
+                            </label>
+                            <input
+                              type="text"
+                              value={cmsDraft.storyTitle}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, storyTitle: e.target.value }))}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir font-serif font-bold focus:border-caramel"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Paragraphe 1 (Matières & Vision)
+                            </label>
+                            <textarea
+                              rows="3"
+                              value={cmsDraft.storyText1}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, storyText1: e.target.value }))}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel leading-relaxed"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Paragraphe 2 (Confection & Longévité)
+                            </label>
+                            <textarea
+                              rows="3"
+                              value={cmsDraft.storyText2}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, storyText2: e.target.value }))}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel leading-relaxed"
+                            />
+                          </div>
+
+                          {/* Story Image Upload to Firebase */}
+                          <div className="md:col-span-2 pt-2">
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1.5">
+                              Photo Principale de la Section Savoir-Faire (Firebase Storage)
+                            </label>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                              <div className="w-32 h-24 bg-card border border-taupe/25 rounded-xs overflow-hidden shrink-0 relative">
+                                {cmsDraft.storyImage ? (
+                                  <img src={cmsDraft.storyImage} alt="Story" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-[10px] text-taupe">Photo par défaut</div>
+                                )}
+                              </div>
+                              <div className="flex-1 w-full space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={cmsDraft.storyImage}
+                                    onChange={(e) => setCmsDraft(p => ({ ...p, storyImage: e.target.value }))}
+                                    placeholder="URL photo Firebase..."
+                                    className="flex-1 bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                                  />
+                                  <label className="px-4 py-2 bg-noir hover:bg-caramel text-white text-xs font-semibold cursor-pointer rounded-xs transition-colors shrink-0">
+                                    <span>{cmsUploadingPhoto ? '⏳ Upload...' : '📁 Uploader vers Firebase'}</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={handleCmsPhotoUpload}
+                                      className="hidden"
+                                      disabled={cmsUploadingPhoto}
+                                    />
+                                  </label>
+                                </div>
+                                <p className="text-[11px] text-taupe-dark">
+                                  Uploadez une image d'atelier ou de maroquinerie haute définition pour illustrer votre savoir-faire.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Section 3: Conciergerie & Contact */}
+                      <div>
+                        <h3 className="font-serif text-base font-bold text-noir mb-3 flex items-center gap-2">
+                          <span>📍</span>
+                          <span>Coordonnées de l'Atelier & Conciergerie</span>
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Adresse
+                            </label>
+                            <input
+                              type="text"
+                              value={cmsDraft.conciergeAddress}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, conciergeAddress: e.target.value }))}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Ville & Pays
+                            </label>
+                            <input
+                              type="text"
+                              value={cmsDraft.conciergeCity}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, conciergeCity: e.target.value }))}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase text-taupe-dark mb-1">
+                              Numéro WhatsApp Magasin
+                            </label>
+                            <input
+                              type="text"
+                              value={cmsDraft.whatsappNumber}
+                              onChange={(e) => setCmsDraft(p => ({ ...p, whatsappNumber: e.target.value }))}
+                              placeholder="+212600000000"
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Save Action */}
+                      <div className="pt-4 border-t border-taupe/15 flex justify-end">
+                        <button
+                          onClick={handleSaveCms}
+                          disabled={cmsSaving}
+                          className="px-6 py-3 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shadow-sm flex items-center gap-2"
+                        >
+                          <span>{cmsSaving ? '⏳ Sauvegarde en cours...' : '💾 Enregistrer et Publier sur le Site'}</span>
+                        </button>
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+
+                {/* ======================================================= */}
+                {/* TAB 5: TESTIMONIALS CRUD (Avis & Retours Clients)       */}
+                {/* ======================================================= */}
+                {activeTab === 'testimonials' && (
+                  <div className="space-y-4">
+                    <div className="bg-white border border-taupe/20 p-4 rounded-xs shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-serif text-base font-bold text-noir">Avis et Témoignages Clients</h3>
+                        <p className="text-xs text-taupe-dark">
+                          Ces avis s'affichent automatiquement dans la section Témoignages de la page d'accueil avec les étoiles et le badge vérifié.
+                        </p>
+                      </div>
+                      <button
+                        onClick={openAddTestimonial}
+                        className="px-4 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shrink-0 flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <span>+</span>
+                        <span>Ajouter un Témoignage</span>
+                      </button>
+                    </div>
+
+                    {/* Testimonials List */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {(!testimonials || testimonials.length === 0) ? (
+                        <div className="col-span-full bg-white border border-taupe/20 p-12 text-center text-taupe-dark">
+                          Aucun témoignage client enregistré. Cliquez sur "+ Ajouter un Témoignage" pour créer le premier !
+                        </div>
+                      ) : (
+                        testimonials.map(item => (
+                          <div key={item.id} className="bg-white border border-taupe/20 p-5 rounded-xs shadow-2xs flex flex-col justify-between space-y-4">
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-1 text-caramel text-sm">
+                                  {'★'.repeat(item.rating || 5)}
+                                  <span className="text-[11px] font-bold text-noir ml-1">{item.rating || 5}.0</span>
+                                </div>
+                                {item.verified !== false && (
+                                  <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-xs font-semibold">
+                                    ✓ Achat Vérifié
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-noir italic leading-relaxed line-clamp-4">
+                                "{item.textFr || item.text}"
+                              </p>
+                              {item.textAr && (
+                                <p className="text-xs text-taupe-dark font-arabic text-right mt-2 line-clamp-2">
+                                  "{item.textAr}"
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="pt-3 border-t border-taupe/15 flex items-center justify-between">
+                              <div>
+                                <div className="text-xs font-bold text-noir">{item.author}</div>
+                                <div className="text-[10px] text-taupe">{item.city}</div>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => openEditTestimonial(item)}
+                                  className="px-2 py-1 bg-white border border-taupe/30 hover:border-noir text-noir text-[11px] rounded-xs"
+                                  title="Modifier ce témoignage"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTestimonial(item.id)}
+                                  className="px-2 py-1 text-red-600 hover:text-red-800 text-[11px]"
+                                  title="Supprimer ce témoignage"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
               </div>
-            </div>
+            </main>
+
+            {/* ========================================================= */}
+            {/* SUB-MODAL: AJOUTER / MODIFIER UN TÉMOIGNAGE               */}
+            {/* ========================================================= */}
+            {testimonialModalOpen && (
+              <div className="fixed inset-0 z-60 bg-black/70 flex items-center justify-center p-4">
+                <div className="bg-white w-full max-w-lg rounded-xs shadow-2xl border border-taupe/30 overflow-hidden">
+                  <div className="p-4 bg-noir text-white flex items-center justify-between">
+                    <h3 className="font-serif text-sm font-bold tracking-wide">
+                      {editingTestimonial ? 'Modifier le Témoignage' : 'Nouveau Témoignage Client'}
+                    </h3>
+                    <button
+                      onClick={() => setTestimonialModalOpen(false)}
+                      className="text-white/60 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveTestimonial} className="p-5 space-y-4 text-xs">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">
+                          Nom du Client *
+                        </label>
+                        <input
+                          type="text"
+                          value={testimonialForm.author}
+                          onChange={(e) => setTestimonialForm(p => ({ ...p, author: e.target.value }))}
+                          placeholder="Ex: Youssef Bennani"
+                          className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">
+                          Ville *
+                        </label>
+                        <input
+                          type="text"
+                          value={testimonialForm.city}
+                          onChange={(e) => setTestimonialForm(p => ({ ...p, city: e.target.value }))}
+                          placeholder="Ex: Casablanca"
+                          className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">
+                          Note (Étoiles)
+                        </label>
+                        <select
+                          value={testimonialForm.rating}
+                          onChange={(e) => setTestimonialForm(p => ({ ...p, rating: Number(e.target.value) }))}
+                          className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir font-bold focus:border-caramel"
+                        >
+                          <option value={5}>★★★★★ (5/5)</option>
+                          <option value={4}>★★★★☆ (4/5)</option>
+                          <option value={3}>★★★☆☆ (3/5)</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center pt-5">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={testimonialForm.verified}
+                            onChange={(e) => setTestimonialForm(p => ({ ...p, verified: e.target.checked }))}
+                            className="w-4 h-4 accent-noir"
+                          />
+                          <span className="text-[11px] font-semibold text-noir">Badge Achat Vérifié</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">
+                        Avis en Français *
+                      </label>
+                      <textarea
+                        rows="3"
+                        value={testimonialForm.textFr}
+                        onChange={(e) => setTestimonialForm(p => ({ ...p, textFr: e.target.value }))}
+                        placeholder="Ex: Qualité irréprochable du cuir, livraison express le lendemain..."
+                        className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">
+                        Avis en Arabe (Optionnel)
+                      </label>
+                      <textarea
+                        rows="2"
+                        value={testimonialForm.textAr}
+                        onChange={(e) => setTestimonialForm(p => ({ ...p, textAr: e.target.value }))}
+                        placeholder="مثال: جودة ممتازة وسرعة في التوصيل..."
+                        className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel font-arabic text-right"
+                      />
+                    </div>
+
+                    <div className="pt-3 border-t border-taupe/15 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTestimonialModalOpen(false)}
+                        className="px-4 py-2 border border-taupe/30 text-noir hover:bg-canvas text-xs"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={testimonialSaving}
+                        className="px-5 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-2xs"
+                      >
+                        {testimonialSaving ? 'Sauvegarde...' : 'Enregistrer'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
           </div>
         );
       }
