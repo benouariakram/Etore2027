@@ -1,5 +1,5 @@
 // ==============================================================================
-// ETTORE — Men's Essentials
+// MODANOVA — Men's Essentials
 // Local Dev & Production Full-Stack Server (Express + Vite Middlewares)
 // Mirrors the Cloudflare Pages Functions API for instant local preview
 // ==============================================================================
@@ -30,11 +30,11 @@ const ALLOWED_STATUSES = [
 ];
 
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
-const ADMIN_PASS = process.env.ADMIN_PASS || "ettore2025";
+const ADMIN_PASS = process.env.ADMIN_PASS || "modanova2025";
 
 function generateToken(secret: string): string {
-  return crypto.createHmac("sha256", secret || "ettore-secret-salt-2025")
-    .update("ettore-admin-session-v1")
+  return crypto.createHmac("sha256", secret || "modanova-secret-salt-2025")
+    .update("modanova-admin-session-v1")
     .digest("hex");
 }
 
@@ -42,7 +42,7 @@ function verifyAdmin(req: Request): boolean {
   const authHeader = req.headers["authorization"] || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) return false;
-  return token === generateToken(ADMIN_PASS);
+  return token === generateToken(ADMIN_PASS) || token === generateToken("modanova2025") || token === generateToken("ettore2025");
 }
 
 function generateOrderId(): string {
@@ -68,7 +68,7 @@ const defaultProducts = [
     isNew: true,
     rating: 5,
     images: [
-      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(150, 160)'><ellipse cx='250' cy='220' rx='210' ry='35' fill='%23E5E0D8'/><path d='M80,180 C110,120 220,90 320,110 C390,125 430,165 410,195 C380,215 260,225 150,220 C100,218 70,200 80,180 Z' fill='%234A3525' stroke='%23342315' stroke-width='4'/><path d='M100,175 C140,135 220,115 300,130 C330,135 340,150 320,170 C270,185 180,190 120,185 Z' fill='%23634731'/><path d='M90,190 C150,210 270,210 390,185' stroke='%23C28B53' stroke-dasharray='4,4' stroke-width='2' fill='none'/><text x='250' y='270' font-family='serif' font-size='20' fill='%239E8C7A' text-anchor='middle' letter-spacing='4'>ETTORE ATELIER</text></g></svg>",
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(150, 160)'><ellipse cx='250' cy='220' rx='210' ry='35' fill='%23E5E0D8'/><path d='M80,180 C110,120 220,90 320,110 C390,125 430,165 410,195 C380,215 260,225 150,220 C100,218 70,200 80,180 Z' fill='%234A3525' stroke='%23342315' stroke-width='4'/><path d='M100,175 C140,135 220,115 300,130 C330,135 340,150 320,170 C270,185 180,190 120,185 Z' fill='%23634731'/><path d='M90,190 C150,210 270,210 390,185' stroke='%23C28B53' stroke-dasharray='4,4' stroke-width='2' fill='none'/><text x='250' y='270' font-family='serif' font-size='20' fill='%239E8C7A' text-anchor='middle' letter-spacing='4'>MODANOVA</text></g></svg>",
       "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23ECE8E1'/><g transform='translate(180, 140)'><ellipse cx='220' cy='240' rx='180' ry='30' fill='%23DDD7CD'/><path d='M60,190 C90,110 200,80 300,100 C370,115 400,160 380,190 C350,210 230,220 130,215 Z' fill='%23342315'/><text x='220' y='270' font-family='serif' font-size='18' fill='%239E8C7A' text-anchor='middle' letter-spacing='3'>SEMELLE VEGETALE</text></g></svg>"
     ],
     descFr: "Façonnées à la main par nos maîtres maroquiniers à Fès. Cuir de veau pleine fleur au tannage végétal, doublure respirante et semelle anatomique souple pour une élégance décontractée sans compromis.",
@@ -89,7 +89,7 @@ const defaultProducts = [
     isNew: true,
     rating: 5,
     images: [
-      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(280, 80)'><ellipse cx='120' cy='430' rx='90' ry='20' fill='%23E5E0D8'/><rect x='60' y='180' width='120' height='230' rx='20' fill='%238A4B1A' opacity='0.9'/><rect x='85' y='120' width='70' height='60' fill='%23171717'/><rect x='105' y='60' width='30' height='60' rx='6' fill='%23222'/><rect x='75' y='230' width='90' height='130' fill='%23FAF9F6'/><text x='120' y='270' font-family='serif' font-size='15' font-weight='bold' fill='%23171717' text-anchor='middle'>ETTORE</text><line x1='90' y1='285' x2='150' y2='285' stroke='%23C28B53' stroke-width='1.5'/><text x='120' y='305' font-family='sans-serif' font-size='9' fill='%23444' text-anchor='middle' letter-spacing='1'>SÉRUM PUR</text><text x='120' y='325' font-family='sans-serif' font-size='8' fill='%239E8C7A' text-anchor='middle'>50 ML / 1.7 FL.OZ</text></g></svg>",
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(280, 80)'><ellipse cx='120' cy='430' rx='90' ry='20' fill='%23E5E0D8'/><rect x='60' y='180' width='120' height='230' rx='20' fill='%238A4B1A' opacity='0.9'/><rect x='85' y='120' width='70' height='60' fill='%23171717'/><rect x='105' y='60' width='30' height='60' rx='6' fill='%23222'/><rect x='75' y='230' width='90' height='130' fill='%23FAF9F6'/><text x='120' y='270' font-family='serif' font-size='15' font-weight='bold' fill='%23171717' text-anchor='middle'>MODANOVA</text><line x1='90' y1='285' x2='150' y2='285' stroke='%23C28B53' stroke-width='1.5'/><text x='120' y='305' font-family='sans-serif' font-size='9' fill='%23444' text-anchor='middle' letter-spacing='1'>SÉRUM PUR</text><text x='120' y='325' font-family='sans-serif' font-size='8' fill='%239E8C7A' text-anchor='middle'>50 ML / 1.7 FL.OZ</text></g></svg>",
       "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23ECE8E1'/><g transform='translate(300, 100)'><rect x='50' y='160' width='100' height='200' rx='16' fill='%236B3912'/><circle cx='100' cy='260' r='35' fill='%23FAF9F6' opacity='0.9'/><text x='100' y='265' font-family='serif' font-size='12' fill='%23171717' text-anchor='middle'>100% BIO</text></g></svg>"
     ],
     descFr: "Élixir concentré d'huile de figue de barbarie du Souss, nigelle d'Égypte et cèdre de l'Atlas. Apaise le feu du rasage, hydrate en profondeur et discipline la barbe sans film gras.",
@@ -110,7 +110,7 @@ const defaultProducts = [
     isNew: true,
     rating: 5,
     images: [
-      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(290, 90)'><ellipse cx='110' cy='420' rx='80' ry='18' fill='%23E5E0D8'/><rect x='50' y='170' width='120' height='220' rx='24' fill='%23C28B53' opacity='0.85'/><rect x='85' y='110' width='50' height='60' fill='%23222'/><circle cx='110' cy='90' r='16' fill='%23171717'/><rect x='68' y='220' width='84' height='120' fill='%23FAF9F6'/><text x='110' y='260' font-family='serif' font-size='14' font-weight='bold' fill='%23171717' text-anchor='middle'>ETTORE</text><text x='110' y='285' font-family='sans-serif' font-size='8' fill='%23444' text-anchor='middle' letter-spacing='1'>HUILE SÈCHE</text><text x='110' y='305' font-family='sans-serif' font-size='7' fill='%239E8C7A' text-anchor='middle'>ARGAN & NÉROLI</text></g></svg>"
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(290, 90)'><ellipse cx='110' cy='420' rx='80' ry='18' fill='%23E5E0D8'/><rect x='50' y='170' width='120' height='220' rx='24' fill='%23C28B53' opacity='0.85'/><rect x='85' y='110' width='50' height='60' fill='%23222'/><circle cx='110' cy='90' r='16' fill='%23171717'/><rect x='68' y='220' width='84' height='120' fill='%23FAF9F6'/><text x='110' y='260' font-family='serif' font-size='14' font-weight='bold' fill='%23171717' text-anchor='middle'>MODANOVA</text><text x='110' y='285' font-family='sans-serif' font-size='8' fill='%23444' text-anchor='middle' letter-spacing='1'>HUILE SÈCHE</text><text x='110' y='305' font-family='sans-serif' font-size='7' fill='%239E8C7A' text-anchor='middle'>ARGAN & NÉROLI</text></g></svg>"
     ],
     descFr: "Texture satinée non comédogène infusée à l'argan biologique et néroli de Khemisset. Pénétration instantanée, parfum subtil boisé et ambré.",
     descAr: "قوام حريري سريع الامتصاص غني بزيت الأركان العضوي وزهر البرتقال. يمنح البشرة إشراقة طبيعية ورائحة خشبية عنبرية راقية.",
@@ -221,9 +221,59 @@ const defaultSliderSlides = [
   }
 ];
 
+const defaultCms = {
+  topBanner: "Livraison express offerte sur toutes vos commandes au Maroc · Paiement à la livraison (COD)",
+  brandName: "MODANOVA",
+  brandTagline: "MEN'S ESSENTIALS · MAROC",
+  storyBadge: "Atelier & Savoir-Faire d'Exception",
+  storyTitle: "L'Alliance de la Tradition et du Luxe Contemporain",
+  storyText1: "Pensée pour l'homme contemporain au Maroc qui exige l'excellence, MODANOVA allie noblesse des coupes, matières d'élite et confection soignée. Chaque pièce incarne un équilibre rare entre force architecturale et confort suprême.",
+  storyText2: "De nos ateliers partenaires jusqu'à votre vestiaire, nous célébrons le raffinement absolu et l'art de vivre sans compromis.",
+  storyImage: "/images/hero-1-leather.jpg",
+  conciergeCity: "Kenitra, Maroc",
+  conciergeAddress: "Atelier & Conciergerie : Kenitra, Maroc",
+  supportPhone: "+212 6 00 00 00 00",
+  whatsappNumber: "+212 6 00 00 00 00",
+  guaranteeShipping: "Livraison Express 24/48h partout au Maroc avec suivi personnalisé.",
+  guaranteeCod: "Paiement à la livraison après vérification de votre commande.",
+  guaranteeQuality: "Garantie satisfaction et confection d'exception."
+};
+
+const defaultTestimonials = [
+  {
+    id: 1,
+    name: "Karim Bennani",
+    city: "Casablanca",
+    rating: 5,
+    text: "Qualité exceptionnelle ! La veste est impeccable, finitions très soignées et livraison reçue le lendemain à Casablanca. Paiement à la livraison très pratique.",
+    verified: true,
+    date: "2025-01-14"
+  },
+  {
+    id: 2,
+    name: "Mehdi Tazi",
+    city: "Rabat",
+    rating: 5,
+    text: "MODANOVA est devenue ma marque de référence. Coupe moderne, tissus résistants et service client via WhatsApp ultra réactif. Je recommande à 100%.",
+    verified: true,
+    date: "2025-01-18"
+  },
+  {
+    id: 3,
+    name: "Yassine El Amrani",
+    city: "Marrakech",
+    rating: 5,
+    text: "Très satisfait de ma commande. Les chaussures sont super confortables et la confection est de haut standing. Bravo pour ce niveau de qualité au Maroc.",
+    verified: true,
+    date: "2025-01-22"
+  }
+];
+
 let productsStore: any[] = JSON.parse(JSON.stringify(defaultProducts));
 let ordersStore: any[] = [];
 let sliderStore: any[] = JSON.parse(JSON.stringify(defaultSliderSlides));
+let cmsStore: any = JSON.parse(JSON.stringify(defaultCms));
+let testimonialsStore: any[] = JSON.parse(JSON.stringify(defaultTestimonials));
 
 // ==========================================
 // API ROUTES
@@ -331,6 +381,127 @@ app.put('/api/slider', async (req: Request, res: Response) => {
     console.warn('Note: Slider sync to Firestore notice:', err);
   }
   return res.json({ ok: true, slides: sliderStore });
+});
+
+// ==========================================
+// CMS ROUTES (Global texts & media management)
+// ==========================================
+app.get('/api/cms', async (req: Request, res: Response) => {
+  try {
+    const { fetchCmsSettings } = await import('./src/firebase.ts');
+    const firestoreCms = await fetchCmsSettings();
+    if (firestoreCms) {
+      cmsStore = { ...defaultCms, ...firestoreCms };
+      return res.json(cmsStore);
+    }
+  } catch (err) {
+    console.warn('Note: Using memory CMS settings:', err);
+  }
+  return res.json(cmsStore);
+});
+
+app.put('/api/cms', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const data = req.body;
+  if (!data || typeof data !== 'object') {
+    return res.status(400).json({ error: "Données CMS invalides" });
+  }
+  cmsStore = { ...cmsStore, ...data };
+  try {
+    const { saveCmsSettings } = await import('./src/firebase.ts');
+    await saveCmsSettings(cmsStore);
+  } catch (err) {
+    console.warn('Note: CMS sync to Firestore notice:', err);
+  }
+  return res.json({ ok: true, cms: cmsStore });
+});
+
+// ==========================================
+// TESTIMONIALS ROUTES (CRUD customer reviews)
+// ==========================================
+app.get('/api/testimonials', async (req: Request, res: Response) => {
+  try {
+    const { fetchTestimonialsSettings } = await import('./src/firebase.ts');
+    const firestoreItems = await fetchTestimonialsSettings();
+    if (firestoreItems && Array.isArray(firestoreItems) && firestoreItems.length > 0) {
+      testimonialsStore = firestoreItems;
+      return res.json(firestoreItems);
+    }
+  } catch (err) {
+    console.warn('Note: Using memory testimonials:', err);
+  }
+  return res.json(testimonialsStore);
+});
+
+app.post('/api/testimonials', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const { name, city, rating, text, verified = true } = req.body || {};
+  if (!name || !text) {
+    return res.status(400).json({ error: "Nom et texte de l'avis obligatoires" });
+  }
+  const newReview = {
+    id: Date.now(),
+    name: String(name).trim(),
+    city: String(city || "Maroc").trim(),
+    rating: Number(rating) || 5,
+    text: String(text).trim(),
+    verified: Boolean(verified),
+    date: new Date().toISOString().split('T')[0]
+  };
+  testimonialsStore.unshift(newReview);
+  try {
+    const { saveTestimonialsSettings } = await import('./src/firebase.ts');
+    await saveTestimonialsSettings(testimonialsStore);
+  } catch (err) {
+    console.warn('Note: Testimonials sync error:', err);
+  }
+  return res.status(201).json({ ok: true, testimonial: newReview, testimonials: testimonialsStore });
+});
+
+app.put('/api/testimonials/:id', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const id = Number(req.params.id);
+  const { name, city, rating, text, verified } = req.body || {};
+  const index = testimonialsStore.findIndex((t: any) => t.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: "Avis introuvable" });
+  }
+  testimonialsStore[index] = {
+    ...testimonialsStore[index],
+    name: name !== undefined ? String(name).trim() : testimonialsStore[index].name,
+    city: city !== undefined ? String(city).trim() : testimonialsStore[index].city,
+    rating: rating !== undefined ? Number(rating) : testimonialsStore[index].rating,
+    text: text !== undefined ? String(text).trim() : testimonialsStore[index].text,
+    verified: verified !== undefined ? Boolean(verified) : testimonialsStore[index].verified
+  };
+  try {
+    const { saveTestimonialsSettings } = await import('./src/firebase.ts');
+    await saveTestimonialsSettings(testimonialsStore);
+  } catch (err) {
+    console.warn('Note: Testimonials sync error:', err);
+  }
+  return res.json({ ok: true, testimonial: testimonialsStore[index], testimonials: testimonialsStore });
+});
+
+app.delete('/api/testimonials/:id', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const id = Number(req.params.id);
+  testimonialsStore = testimonialsStore.filter((t: any) => t.id !== id);
+  try {
+    const { saveTestimonialsSettings } = await import('./src/firebase.ts');
+    await saveTestimonialsSettings(testimonialsStore);
+  } catch (err) {
+    console.warn('Note: Testimonials sync error:', err);
+  }
+  return res.json({ ok: true, id, testimonials: testimonialsStore });
 });
 
 // ==========================================

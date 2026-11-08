@@ -229,3 +229,55 @@ export async function saveSliderSettings(slides: any[]) {
   }
 }
 
+// 8. CMS Settings in Firestore
+export async function fetchCmsSettings() {
+  const path = 'settings/cms';
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'cms'));
+    if (!snap.exists()) return null;
+    return snap.data() || null;
+  } catch (err) {
+    console.warn('Failed to load CMS from Firestore:', err);
+    return null;
+  }
+}
+
+export async function saveCmsSettings(cmsData: any) {
+  const path = 'settings/cms';
+  try {
+    await setDoc(doc(db, 'settings', 'cms'), {
+      ...cmsData,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+// 9. Testimonials in Firestore
+export async function fetchTestimonialsSettings() {
+  const path = 'settings/testimonials';
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'testimonials'));
+    if (!snap.exists()) return null;
+    return snap.data()?.items || null;
+  } catch (err) {
+    console.warn('Failed to load testimonials from Firestore:', err);
+    return null;
+  }
+}
+
+export async function saveTestimonialsSettings(items: any[]) {
+  const path = 'settings/testimonials';
+  try {
+    await setDoc(doc(db, 'settings', 'testimonials'), {
+      items,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
