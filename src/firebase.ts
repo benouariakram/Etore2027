@@ -25,7 +25,7 @@ import {
   uploadString,
   getDownloadURL
 } from 'firebase/storage';
-import firebaseConfig from '../firebase-applet-config.json';
+import firebaseConfig from '../firebase-applet-config.json' with { type: 'json' };
 
 // 1. Initialize Firebase App and Services
 export const app = initializeApp(firebaseConfig);
@@ -48,14 +48,15 @@ export async function testConnection() {
 testConnection();
 
 // 3. Structured Firestore Error Handling
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
+export const OperationType = {
+  CREATE: 'create',
+  UPDATE: 'update',
+  DELETE: 'delete',
+  LIST: 'list',
+  GET: 'get',
+  WRITE: 'write',
+} as const;
+export type OperationType = typeof OperationType[keyof typeof OperationType];
 
 export interface FirestoreErrorInfo {
   error: string;

@@ -10,6 +10,11 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 
+    <!-- Favicon MODANOVA (Luxury Monogram Crest) -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
     <!-- Google Fonts: Cormorant Garamond, Plus Jakarta Sans, Cairo -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -921,15 +926,22 @@
         const address = escapeHTML(order.address || '');
         const notes = escapeHTML(order.notes || '');
 
-        const subtotal = Number(order.subtotal || 0).toLocaleString(isAr ? 'ar-MA' : 'fr-FR');
+        const subtotal = Number(order.subtotal || order.total || 0).toLocaleString(isAr ? 'ar-MA' : 'fr-FR');
         const discount = Number(order.discount || 0);
         const total = Number(order.total || 0).toLocaleString(isAr ? 'ar-MA' : 'fr-FR');
 
-        const itemsRows = (order.items || []).map((item, idx) => {
-          const name = escapeHTML(isAr ? (item.nameAr || item.nameFr) : item.nameFr);
+        let parsedItems = [];
+        if (Array.isArray(order.items)) {
+          parsedItems = order.items;
+        } else if (typeof order.items === 'string') {
+          try { parsedItems = JSON.parse(order.items); } catch { parsedItems = []; }
+        }
+
+        const itemsRows = (parsedItems || []).map((item, idx) => {
+          const name = escapeHTML(isAr ? (item.nameAr || item.nameFr || item.name || 'Article') : (item.nameFr || item.name || 'Article'));
           const size = escapeHTML(item.size || '-');
           const color = escapeHTML(item.color || '');
-          const qty = Number(item.quantity || 1);
+          const qty = Number(item.quantity || item.qty || 1);
           const price = Number(item.price || 0).toLocaleString(isAr ? 'ar-MA' : 'fr-FR');
           const lineTotal = (Number(item.price || 0) * qty).toLocaleString(isAr ? 'ar-MA' : 'fr-FR');
 
@@ -1050,23 +1062,62 @@
       }
 
       // ========================================================================
-      // Robust Print Handler
+      // Robust Print & Download Handlers
       // ========================================================================
       function printInvoice(order, lang) {
+        if (!order) return;
         const printArea = document.getElementById('print-area');
-        if (!printArea) return;
+        if (printArea) {
+          printArea.innerHTML = buildInvoiceHTML(order, lang);
 
-        printArea.innerHTML = buildInvoiceHTML(order, lang);
+          const handleAfterPrint = () => {
+            printArea.innerHTML = '';
+            window.removeEventListener('afterprint', handleAfterPrint);
+          };
+          window.addEventListener('afterprint', handleAfterPrint);
 
-        const handleAfterPrint = () => {
-          printArea.innerHTML = '';
-          window.removeEventListener('afterprint', handleAfterPrint);
-        };
-        window.addEventListener('afterprint', handleAfterPrint);
-
-        setTimeout(() => {
+          setTimeout(() => {
+            window.print();
+          }, 150);
+        } else {
           window.print();
-        }, 150);
+        }
+      }
+
+      function downloadInvoice(order, lang = 'fr') {
+        if (!order) return;
+        const invoiceBody = buildInvoiceHTML(order, lang);
+        const fullHtml = `<!doctype html>
+<html lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Facture MODANOVA — ${order.id || 'Commande'}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Cormorant+Garamond:wght@600;700&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { margin: 0; padding: 24px; background: #FAF9F6; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .toolbar { max-width: 780px; margin: 0 auto 16px auto; display: flex; justify-content: flex-end; gap: 10px; }
+    .btn { background: #171717; color: #fff; border: none; padding: 10px 18px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; }
+    .btn:hover { background: #C28B53; }
+    @media print { .toolbar { display: none !important; } body { background: #fff; padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="btn" onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+  </div>
+  ${invoiceBody}
+</body>
+</html>`;
+        const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Facture-MODANOVA-${order.id || 'CMD'}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
       }
 
       // ========================================================================
@@ -3758,53 +3809,6 @@
             )}
 
             {/* ================================================================ */}
-            {/* 13. INVOICE MODAL (Print & WhatsApp Actions) */}
-            {/* ================================================================ */}
-            {currentInvoiceOrder && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div
-                  className="fixed inset-0 bg-black/60 backdrop-blur-xs"
-                  onClick={() => setCurrentInvoiceOrder(null)}
-                />
-                <div className="relative bg-white w-full max-w-3xl max-h-[92vh] overflow-hidden z-10 shadow-2xl flex flex-col border border-taupe/30 animate-modal-pop">
-                  {/* Modal Action Bar */}
-                  <div className="p-4 bg-noir text-white flex items-center justify-between">
-                    <span className="font-serif text-lg font-bold">{t.invoice_modal_title}</span>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => printInvoice(currentInvoiceOrder, lang)}
-                        className="px-3.5 py-1.5 bg-caramel text-white text-xs font-semibold rounded hover:bg-caramel/90 transition-colors"
-                      >
-                        {t.print_invoice_btn}
-                      </button>
-                      <a
-                        href={buildWhatsAppLink(currentInvoiceOrder, lang)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3.5 py-1.5 bg-whatsapp text-white text-xs font-semibold rounded hover:bg-whatsapp/90 transition-colors"
-                      >
-                        {t.whatsapp_confirm_btn}
-                      </a>
-                      <button
-                        onClick={() => setCurrentInvoiceOrder(null)}
-                        className="text-white/70 hover:text-white text-lg p-1"
-                        aria-label="Fermer"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Rendered Invoice Preview */}
-                  <div
-                    className="flex-1 overflow-y-auto p-4 bg-[#F8F7F4]"
-                    dangerouslySetInnerHTML={{ __html: buildInvoiceHTML(currentInvoiceOrder, lang) }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* ================================================================ */}
             {/* 14. ORDER TRACKING MODAL */}
             {/* ================================================================ */}
             {trackingOpen && (
@@ -3912,6 +3916,68 @@
                 }}
                 onError={(err) => showToast(err || 'Erreur enregistrement', 'error')}
               />
+            )}
+
+            {/* ================================================================ */}
+            {/* 17. INVOICE MODAL (Rendered Above All Modals including Admin)    */}
+            {/* ================================================================ */}
+            {currentInvoiceOrder && (
+              <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4">
+                <div
+                  className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+                  onClick={() => setCurrentInvoiceOrder(null)}
+                />
+                <div className="relative bg-white w-full max-w-3xl max-h-[92vh] overflow-hidden z-10 shadow-2xl flex flex-col border border-taupe/30 animate-modal-pop">
+                  {/* Modal Action Bar */}
+                  <div className="p-3 sm:p-4 bg-noir text-white flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-serif text-base sm:text-lg font-bold">
+                      {t.invoice_modal_title} — <span className="text-[#E6C687]">{currentInvoiceOrder.id}</span>
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => printInvoice(currentInvoiceOrder, lang)}
+                        className="px-3 py-1.5 bg-caramel text-white text-xs font-semibold rounded-xs hover:bg-caramel/90 transition-colors flex items-center gap-1"
+                      >
+                        <span>🖨️</span>
+                        <span>{t.print_invoice_btn || 'Imprimer'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadInvoice(currentInvoiceOrder, lang)}
+                        className="px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded-xs transition-colors flex items-center gap-1"
+                        title="Télécharger la facture"
+                      >
+                        <span>⬇️</span>
+                        <span>Télécharger</span>
+                      </button>
+                      <a
+                        href={adminOpen ? buildAdminCustomerWhatsAppLink(currentInvoiceOrder, lang) : buildWhatsAppLink(currentInvoiceOrder, lang)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 bg-whatsapp text-white text-xs font-semibold rounded-xs hover:bg-whatsapp/90 transition-colors flex items-center gap-1"
+                      >
+                        <span>💬</span>
+                        <span>{adminOpen ? 'WhatsApp Client' : t.whatsapp_confirm_btn}</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentInvoiceOrder(null)}
+                        className="text-white/70 hover:text-white text-lg px-2 py-0.5"
+                        aria-label="Fermer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Rendered Invoice Preview */}
+                  <div
+                    className="flex-1 overflow-y-auto p-3 sm:p-6 bg-[#F8F7F4]"
+                    dangerouslySetInnerHTML={{ __html: buildInvoiceHTML(currentInvoiceOrder, lang) }}
+                  />
+                </div>
+              </div>
             )}
 
           </div>
