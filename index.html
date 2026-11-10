@@ -2463,12 +2463,16 @@
         const fetchAdminOrders = useCallback(async () => {
           if (!adminToken) return;
           try {
-            const res = await fetch('/api/orders', {
-              headers: { Authorization: `Bearer ${adminToken}` }
+            const res = await fetch(`/api/orders?_t=${Date.now()}`, {
+              cache: 'no-store',
+              headers: {
+                Authorization: `Bearer ${adminToken}`,
+                'Cache-Control': 'no-cache'
+              }
             });
             if (res.ok) {
               const list = await res.json();
-              setOrders(list || []);
+              setOrders(Array.isArray(list) ? list : []);
             }
           } catch (err) {
             console.error('Erreur chargement commandes admin:', err);
@@ -4221,6 +4225,10 @@
                 t={t}
                 onClose={handleCloseAdmin}
                 onRefreshOrders={fetchAdminOrders}
+                onDeleteOrderLocal={(deletedId) => {
+                  const cleanId = String(deletedId || '').trim().toUpperCase();
+                  setOrders(prev => (prev || []).filter(o => String(o?.id || '').trim().toUpperCase() !== cleanId));
+                }}
                 onRefreshProducts={fetchProducts}
                 onEditProduct={(p) => setProductFormModal(p)}
                 onAddProduct={() => setProductFormModal({
@@ -4708,7 +4716,7 @@
       function AdminModal({
         token, adminUser, setAdminUser, adminPass, setAdminPass, loginError,
         onLogin, onLogout, kpis, activeTab, setActiveTab, products, orders,
-        lang, t, onClose, onRefreshOrders, onRefreshProducts, onEditProduct,
+        lang, t, onClose, onRefreshOrders, onDeleteOrderLocal, onRefreshProducts, onEditProduct,
         onAddProduct, onViewInvoice, showToast, onViewProductPage, onCopyProductLink,
         heroSlides, onSaveSlider, cms, onSaveCms, testimonials, onRefreshTestimonials
       }) {
@@ -4721,8 +4729,13 @@
         const [prodSearch, setProdSearch] = useState('');
         const [prodCat, setProdCat] = useState('ALL');
 
-        // Order filter
+        // Order filter, search & pagination (10 orders per page)
         const [orderFilter, setOrderFilter] = useState('ALL');
+        const [orderSearch, setOrderSearch] = useState('');
+        const [orderPage, setOrderPage] = useState(1);
+        const [confirmDeleteOrderId, setConfirmDeleteOrderId] = useState(null);
+        const [deletingOrderId, setDeletingOrderId] = useState(null);
+        const ORDERS_PER_PAGE = 10;
 
         // CMS state
         const [cmsDraft, setCmsDraft] = useState(() => ({
@@ -5032,18 +5045,30 @@
         };
 
         const handleDeleteOrder = async (id) => {
-          if (!confirm(`Supprimer la commande ${id} ?`)) return;
+          const cleanId = String(id || '').trim().toUpperCase();
+          if (!cleanId) return;
+          setDeletingOrderId(cleanId);
+          setConfirmDeleteOrderId(null);
+          // Immediately update local state so Total Commandes KPI and table update right away
+          if (onDeleteOrderLocal) {
+            onDeleteOrderLocal(cleanId);
+          }
           try {
-            const res = await fetch(`/api/orders/${id}`, {
+            const res = await fetch(`/api/orders/${encodeURIComponent(cleanId)}`, {
               method: 'DELETE',
               headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
-              onRefreshOrders();
-              showToast('Commande supprimée', 'info');
+              await onRefreshOrders();
+              showToast(`Commande ${cleanId} supprimée définitivement`, 'info');
+            } else {
+              await onRefreshOrders();
+              showToast('Erreur lors de la suppression de la commande', 'error');
             }
           } catch {
             showToast('Erreur suppression', 'error');
+          } finally {
+            setDeletingOrderId(null);
           }
         };
 
@@ -5058,9 +5083,21 @@
         });
 
         const filteredOrders = (orders || []).filter(o => {
-          if (orderFilter === 'ALL') return true;
-          return o.status === orderFilter;
+          if (!o) return false;
+          const matchStatus = orderFilter === 'ALL' || o.status === orderFilter;
+          const q = (orderSearch || '').trim().toLowerCase();
+          const matchSearch = !q ||
+            String(o.id || '').toLowerCase().includes(q) ||
+            String(o.customerName || '').toLowerCase().includes(q) ||
+            String(o.customerPhone || '').toLowerCase().includes(q) ||
+            String(o.city || '').toLowerCase().includes(q);
+          return matchStatus && matchSearch;
         });
+
+        const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
+        const safeOrderPage = Math.min(Math.max(1, orderPage), totalOrderPages);
+        const startOrderIdx = (safeOrderPage - 1) * ORDERS_PER_PAGE;
+        const paginatedOrders = filteredOrders.slice(startOrderIdx, startOrderIdx + ORDERS_PER_PAGE);
 
         // -------------------------------------------------------------
         // IF NOT AUTHENTICATED: Full-screen Login Portal
@@ -5376,9 +5413,18 @@
                     <div className="text-[11px] text-taupe mt-0.5">Commandes validées & en cours</div>
                   </div>
 
-                  <div className="bg-white p-4 border border-taupe/20 shadow-2xs rounded-xs">
-                    <div className="text-[10px] uppercase font-bold tracking-wider text-taupe-dark">
-                      Total Commandes
+                  <div
+                    onClick={() => setActiveTab('orders')}
+                    className="bg-white p-4 border border-taupe/20 hover:border-caramel shadow-2xs rounded-xs cursor-pointer transition-colors group"
+                    title="Cliquez pour afficher toutes les commandes"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] uppercase font-bold tracking-wider text-taupe-dark group-hover:text-noir">
+                        Total Commandes
+                      </div>
+                      <span className="text-[10px] font-semibold text-caramel group-hover:underline">
+                        Voir tout →
+                      </span>
                     </div>
                     <div className="font-serif text-2xl font-bold text-noir mt-1 tabular-nums">
                       {(kpis && (kpis.totalOrders != null ? kpis.totalOrders : kpis.orderCount)) ?? ((orders && orders.length) || 0)}
@@ -5542,25 +5588,42 @@
                 {/* ======================================================= */}
                 {activeTab === 'orders' && (
                   <div className="bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden">
-                    {/* Status Filter Toolbar */}
-                    <div className="p-4 border-b border-taupe/15 flex flex-col sm:flex-row gap-3 items-center justify-between bg-canvas/40">
-                      <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
+                    {/* Status Filter & Search Toolbar */}
+                    <div className="p-4 border-b border-taupe/15 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between bg-canvas/40">
+                      <div className="flex flex-wrap items-center gap-2">
                         {['ALL', 'En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(s => (
                           <button
                             key={s}
-                            onClick={() => setOrderFilter(s)}
+                            onClick={() => {
+                              setOrderFilter(s);
+                              setOrderPage(1);
+                            }}
                             className={`px-3 py-1.5 text-xs font-semibold rounded-xs transition-colors whitespace-nowrap ${
                               orderFilter === s
                                 ? 'bg-noir text-white'
                                 : 'bg-white border border-taupe/25 text-taupe-dark hover:text-noir'
                             }`}
                           >
-                            {s === 'ALL' ? 'Toutes les commandes' : s}
+                            {s === 'ALL' ? `Toutes (${(orders || []).length})` : `${s} (${(orders || []).filter(o => o && o.status === s).length})`}
                           </button>
                         ))}
                       </div>
-                      <div className="text-xs text-taupe-dark">
-                        {filteredOrders.length} commande{filteredOrders.length > 1 ? 's' : ''}
+                      <div className="flex items-center gap-3 justify-between lg:justify-end">
+                        <input
+                          type="text"
+                          value={orderSearch}
+                          onChange={(e) => {
+                            setOrderSearch(e.target.value);
+                            setOrderPage(1);
+                          }}
+                          placeholder="Rechercher N°, client, tél, ville..."
+                          className="w-full sm:w-60 bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel rounded-xs"
+                        />
+                        <div className="text-xs font-semibold text-taupe-dark whitespace-nowrap">
+                          {filteredOrders.length === 0
+                            ? '0 commande'
+                            : `Commandes ${startOrderIdx + 1}–${Math.min(startOrderIdx + ORDERS_PER_PAGE, filteredOrders.length)} sur ${filteredOrders.length}`}
+                        </div>
                       </div>
                     </div>
 
@@ -5569,6 +5632,7 @@
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
                           <tr className="bg-canvas border-b border-taupe/20 text-taupe-dark uppercase text-[10px] tracking-wider">
+                            <th className="p-3 text-center w-12">#</th>
                             <th className="p-3">N° Commande</th>
                             <th className="p-3">Date</th>
                             <th className="p-3">Client & Téléphone</th>
@@ -5579,78 +5643,165 @@
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-taupe/15">
-                          {filteredOrders.length === 0 ? (
+                          {paginatedOrders.length === 0 ? (
                             <tr>
-                              <td colSpan="7" className="p-8 text-center text-taupe-dark">
+                              <td colSpan="8" className="p-8 text-center text-taupe-dark">
                                 Aucune commande trouvée.
                               </td>
                             </tr>
                           ) : (
-                            filteredOrders.map(o => (
-                              <tr key={o.id} className="hover:bg-canvas/50">
-                                <td className="p-3 font-mono font-bold text-noir">{o.id}</td>
-                                <td className="p-3 text-taupe-dark whitespace-nowrap">
-                                  {new Date(o.date).toLocaleDateString()}
-                                </td>
-                                <td className="p-3">
-                                  <div className="font-semibold text-noir">{o.customerName}</div>
-                                  <div className="text-[11px] font-mono text-caramel">{o.customerPhone}</div>
-                                </td>
-                                <td className="p-3">
-                                  <div className="font-medium text-noir">{o.city}</div>
-                                  <div className="text-[10px] text-taupe truncate max-w-[200px]" title={o.address}>
-                                    {o.address}
-                                  </div>
-                                </td>
-                                <td className="p-3 font-bold text-noir tabular-nums">
-                                  {o.total} MAD
-                                </td>
-                                <td className="p-3">
-                                  <select
-                                    value={o.status}
-                                    onChange={(e) => handleStatusChange(o.id, e.target.value)}
-                                    className="bg-white border border-taupe/30 px-2 py-1 text-xs text-noir font-semibold rounded-xs"
-                                  >
-                                    {['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(s => (
-                                      <option key={s} value={s}>{s}</option>
-                                    ))}
-                                  </select>
-                                </td>
-                                <td className="p-3 text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    {/* WhatsApp Direct Confirmation targeting Customer Phone */}
-                                    <a
-                                      href={buildAdminCustomerWhatsAppLink(o, lang)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="px-2.5 py-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold text-[11px] rounded-xs shadow-2xs flex items-center gap-1 transition-colors"
-                                      title={`Envoyer message de confirmation à ${o.customerPhone}`}
+                            paginatedOrders.map((o, idx) => {
+                              const orderNum = startOrderIdx + idx + 1;
+                              const parsedDate = o.date ? new Date(o.date) : null;
+                              const formattedDate = parsedDate && !isNaN(parsedDate.getTime())
+                                ? parsedDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                : '—';
+                              const isConfirmingDelete = confirmDeleteOrderId === o.id;
+                              const isDeleting = deletingOrderId === o.id;
+
+                              return (
+                                <tr key={o.id || orderNum} className="hover:bg-canvas/50 transition-colors">
+                                  <td className="p-3 text-center">
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-xs bg-noir/5 border border-taupe/25 font-mono text-[11px] font-bold text-noir tabular-nums">
+                                      {orderNum}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 font-mono font-bold text-noir whitespace-nowrap">{o.id}</td>
+                                  <td className="p-3 text-taupe-dark whitespace-nowrap">
+                                    {formattedDate}
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="font-semibold text-noir">{o.customerName || '—'}</div>
+                                    <div className="text-[11px] font-mono text-caramel">{o.customerPhone || '—'}</div>
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="font-medium text-noir">{o.city || '—'}</div>
+                                    <div className="text-[10px] text-taupe truncate max-w-[200px]" title={o.address}>
+                                      {o.address || '—'}
+                                    </div>
+                                  </td>
+                                  <td className="p-3 font-bold text-noir tabular-nums whitespace-nowrap">
+                                    {o.total != null ? `${o.total} MAD` : '—'}
+                                  </td>
+                                  <td className="p-3">
+                                    <select
+                                      value={o.status || 'En attente'}
+                                      onChange={(e) => handleStatusChange(o.id, e.target.value)}
+                                      className="bg-white border border-taupe/30 px-2 py-1 text-xs text-noir font-semibold rounded-xs"
                                     >
-                                      <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
-                                      <span>Confirmer WhatsApp</span>
-                                    </a>
-                                    <button
-                                      onClick={() => onViewInvoice(o)}
-                                      className="px-2 py-1.5 border border-taupe/30 hover:border-noir text-noir text-[11px] rounded-xs bg-white shadow-2xs"
-                                      title="Imprimer la Facture"
-                                    >
-                                      🖨️ Facture
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteOrder(o.id)}
-                                      className="px-2 py-1.5 text-red-600 hover:text-red-800 text-xs"
-                                      title="Supprimer"
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))
+                                      {['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(s => (
+                                        <option key={s} value={s}>{s}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td className="p-3 text-right">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      {/* WhatsApp Direct Confirmation targeting Customer Phone */}
+                                      <a
+                                        href={buildAdminCustomerWhatsAppLink(o, lang)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-2.5 py-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold text-[11px] rounded-xs shadow-2xs flex items-center gap-1 transition-colors whitespace-nowrap"
+                                        title={`Envoyer message de confirmation à ${o.customerPhone}`}
+                                      >
+                                        <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
+                                        <span>Confirmer WhatsApp</span>
+                                      </a>
+                                      <button
+                                        onClick={() => onViewInvoice(o)}
+                                        className="px-2 py-1.5 border border-taupe/30 hover:border-noir text-noir text-[11px] rounded-xs bg-white shadow-2xs whitespace-nowrap"
+                                        title="Imprimer la Facture"
+                                      >
+                                        🖨️ Facture
+                                      </button>
+                                      {isConfirmingDelete ? (
+                                        <div className="flex items-center gap-1 bg-red-50 border border-red-200 px-1.5 py-1 rounded-xs">
+                                          <button
+                                            onClick={() => handleDeleteOrder(o.id)}
+                                            disabled={isDeleting}
+                                            className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xs transition-colors whitespace-nowrap"
+                                            title="Confirmer la suppression définitive"
+                                          >
+                                            {isDeleting ? '...' : 'Supprimer'}
+                                          </button>
+                                          <button
+                                            onClick={() => setConfirmDeleteOrderId(null)}
+                                            className="px-1.5 py-1 text-taupe-dark hover:text-noir text-[10px] font-semibold"
+                                            title="Annuler"
+                                          >
+                                            Annuler
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={() => setConfirmDeleteOrderId(o.id)}
+                                          disabled={isDeleting}
+                                          className="px-2.5 py-1.5 border border-red-200 hover:border-red-600 bg-red-50/50 hover:bg-red-600 text-red-600 hover:text-white text-xs font-bold rounded-xs transition-colors"
+                                          title="Supprimer cette commande"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
                           )}
                         </tbody>
                       </table>
                     </div>
+
+                    {/* Pagination Footer (10 orders per page: 1-10, 11-20, etc.) */}
+                    {filteredOrders.length > 0 && (
+                      <div className="p-4 border-t border-taupe/15 bg-canvas/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="text-xs text-taupe-dark">
+                          Affichage des commandes <span className="font-bold text-noir">{startOrderIdx + 1}</span> à{' '}
+                          <span className="font-bold text-noir">{Math.min(startOrderIdx + ORDERS_PER_PAGE, filteredOrders.length)}</span> sur{' '}
+                          <span className="font-bold text-noir">{filteredOrders.length}</span> (Page {safeOrderPage} sur {totalOrderPages})
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                          <button
+                            onClick={() => setOrderPage(Math.max(1, safeOrderPage - 1))}
+                            disabled={safeOrderPage <= 1}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-xs border transition-colors ${
+                              safeOrderPage <= 1
+                                ? 'bg-canvas text-taupe border-taupe/20 cursor-not-allowed opacity-60'
+                                : 'bg-white text-noir border-taupe/30 hover:border-noir'
+                            }`}
+                          >
+                            ← Précédent
+                          </button>
+
+                          {Array.from({ length: totalOrderPages }, (_, i) => i + 1).map(pageNum => (
+                            <button
+                              key={pageNum}
+                              onClick={() => setOrderPage(pageNum)}
+                              className={`w-8 h-8 text-xs font-bold rounded-xs border transition-colors tabular-nums ${
+                                safeOrderPage === pageNum
+                                  ? 'bg-noir text-white border-noir shadow-2xs'
+                                  : 'bg-white text-noir border-taupe/30 hover:border-caramel hover:text-caramel'
+                              }`}
+                              title={`Page ${pageNum} (Commandes ${(pageNum - 1) * ORDERS_PER_PAGE + 1} à ${Math.min(pageNum * ORDERS_PER_PAGE, filteredOrders.length)})`}
+                            >
+                              {pageNum}
+                            </button>
+                          ))}
+
+                          <button
+                            onClick={() => setOrderPage(Math.min(totalOrderPages, safeOrderPage + 1))}
+                            disabled={safeOrderPage >= totalOrderPages}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-xs border transition-colors ${
+                              safeOrderPage >= totalOrderPages
+                                ? 'bg-canvas text-taupe border-taupe/20 cursor-not-allowed opacity-60'
+                                : 'bg-white text-noir border-taupe/30 hover:border-noir'
+                            }`}
+                          >
+                            Suivant →
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

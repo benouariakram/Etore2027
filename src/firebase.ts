@@ -162,7 +162,12 @@ export async function fetchFirestoreOrders() {
     const snap = await getDocs(collection(db, path));
     const list: any[] = [];
     snap.forEach(docSnap => {
-      list.push(docSnap.data());
+      const data = docSnap.data();
+      list.push({
+        ...data,
+        id: data.id || docSnap.id,
+        _docId: docSnap.id
+      });
     });
     return list.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   } catch (err) {
@@ -184,9 +189,24 @@ export async function updateFirestoreOrderStatus(orderId: string, status: string
 }
 
 export async function deleteFirestoreOrder(orderId: string) {
-  const path = `orders/${orderId}`;
+  const normalizedId = String(orderId || '').trim().toUpperCase();
+  const path = `orders/${normalizedId}`;
   try {
-    await deleteDoc(doc(db, 'orders', orderId));
+    // 1. Direct delete by canonical order ID
+    await deleteDoc(doc(db, 'orders', normalizedId));
+    // 2. Also scan collection for any document whose doc.id or data.id matches case-insensitively
+    const snap = await getDocs(collection(db, 'orders'));
+    const deletions: Promise<void>[] = [];
+    snap.forEach(docSnap => {
+      const docKey = String(docSnap.id || '').trim().toUpperCase();
+      const fieldId = String(docSnap.data()?.id || '').trim().toUpperCase();
+      if (docKey === normalizedId || fieldId === normalizedId) {
+        deletions.push(deleteDoc(doc(db, 'orders', docSnap.id)));
+      }
+    });
+    if (deletions.length > 0) {
+      await Promise.all(deletions);
+    }
     return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, path);

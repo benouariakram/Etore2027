@@ -388,6 +388,7 @@ const STORE_FILE = path.join(DATA_DIR, 'store.json');
 
 let productsStore: any[] = JSON.parse(JSON.stringify(defaultProducts));
 let ordersStore: any[] = [];
+let deletedOrderIds = new Set<string>();
 let sliderStore: any[] = JSON.parse(JSON.stringify(defaultSliderSlides));
 let cmsStore: any = JSON.parse(JSON.stringify(defaultCms));
 let testimonialsStore: any[] = JSON.parse(JSON.stringify(defaultTestimonials));
@@ -400,8 +401,13 @@ function loadPersistedStore() {
       if (Array.isArray(parsed.products) && parsed.products.length > 0) {
         productsStore = parsed.products;
       }
+      if (Array.isArray(parsed.deletedOrderIds)) {
+        deletedOrderIds = new Set(parsed.deletedOrderIds.map((id: any) => String(id).trim().toUpperCase()));
+      }
       if (Array.isArray(parsed.orders)) {
-        ordersStore = parsed.orders;
+        ordersStore = parsed.orders.filter(
+          (o: any) => o && o.id && !deletedOrderIds.has(String(o.id).trim().toUpperCase())
+        );
       }
       if (Array.isArray(parsed.slider) && parsed.slider.length > 0) {
         sliderStore = parsed.slider;
@@ -429,6 +435,7 @@ function savePersistedStore() {
         {
           products: productsStore,
           orders: ordersStore,
+          deletedOrderIds: Array.from(deletedOrderIds),
           slider: sliderStore,
           cms: cmsStore,
           testimonials: testimonialsStore
@@ -452,7 +459,6 @@ async function syncWithFirestoreOnBoot() {
       fetchFirestoreProducts,
       saveFirestoreProduct,
       fetchFirestoreOrders,
-      createFirestoreOrder,
       fetchSliderSettings,
       saveSliderSettings,
       fetchCmsSettings,
@@ -479,28 +485,13 @@ async function syncWithFirestoreOnBoot() {
       }
     }
 
-    // 2. Orders sync (Merge Firestore orders + local orders)
+    // 2. Orders sync (Firebase Firestore is the single source of truth; never re-upload deleted local orders)
     const remoteOrders = await fetchFirestoreOrders();
-    const orderMap = new Map<string, any>();
-    for (const o of ordersStore) {
-      if (o && o.id) orderMap.set(o.id, o);
+    if (Array.isArray(remoteOrders)) {
+      ordersStore = remoteOrders
+        .filter((o: any) => o && o.id && !deletedOrderIds.has(String(o.id).trim().toUpperCase()))
+        .sort((a: any, b: any) => String(b.date || '').localeCompare(String(a.date || '')));
     }
-    if (remoteOrders && remoteOrders.length > 0) {
-      for (const ro of remoteOrders) {
-        if (ro && ro.id) orderMap.set(ro.id, ro);
-      }
-    }
-    // Ensure any local-only order is pushed to Firestore
-    for (const [id, locOrder] of orderMap.entries()) {
-      if (!remoteOrders?.some((ro: any) => ro.id === id)) {
-        try {
-          await createFirestoreOrder(locOrder);
-        } catch {}
-      }
-    }
-    ordersStore = Array.from(orderMap.values()).sort((a, b) =>
-      String(b.date || '').localeCompare(String(a.date || ''))
-    );
     console.log(`[Firestore] Loaded ${ordersStore.length} orders from Firebase.`);
 
     // 3. Slider sync
@@ -1042,20 +1033,14 @@ app.get('/api/orders', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
     return res.status(401).json({ error: "Non autorisé" });
   }
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   try {
     const { fetchFirestoreOrders } = await import('./src/firebase.ts');
     const remoteOrders = await fetchFirestoreOrders();
-    if (remoteOrders && remoteOrders.length > 0) {
-      const map = new Map<string, any>();
-      for (const o of ordersStore) {
-        if (o && o.id) map.set(o.id, o);
-      }
-      for (const ro of remoteOrders) {
-        if (ro && ro.id) map.set(ro.id, ro);
-      }
-      ordersStore = Array.from(map.values()).sort((a, b) =>
-        String(b.date || '').localeCompare(String(a.date || ''))
-      );
+    if (Array.isArray(remoteOrders)) {
+      ordersStore = remoteOrders
+        .filter((o: any) => o && o.id && !deletedOrderIds.has(String(o.id).trim().toUpperCase()))
+        .sort((a: any, b: any) => String(b.date || '').localeCompare(String(a.date || '')));
       savePersistedStore();
     }
   } catch (err) {
@@ -1074,7 +1059,7 @@ app.patch('/api/orders/:id', async (req: Request, res: Response) => {
   if (!ALLOWED_STATUSES.includes(status)) {
     return res.status(400).json({ error: "Statut invalide" });
   }
-  let order = ordersStore.find(o => o.id === orderId);
+  let order = ordersStore.find(o => String(o.id || '').trim().toUpperCase() === orderId);
   if (!order) {
     try {
       const { getFirestoreOrder } = await import('./src/firebase.ts');
@@ -1105,7 +1090,8 @@ app.delete('/api/orders/:id', async (req: Request, res: Response) => {
     return res.status(401).json({ error: "Non autorisé" });
   }
   const orderId = String(req.params.id).trim().toUpperCase();
-  ordersStore = ordersStore.filter(o => o.id !== orderId);
+  deletedOrderIds.add(orderId);
+  ordersStore = ordersStore.filter(o => String(o.id || '').trim().toUpperCase() !== orderId);
   savePersistedStore();
 
   try {
@@ -1115,7 +1101,7 @@ app.delete('/api/orders/:id', async (req: Request, res: Response) => {
     console.error('Error deleting order from Firestore:', err);
   }
 
-  return res.json({ ok: true, id: orderId });
+  return res.json({ ok: true, id: orderId, remaining: ordersStore.length });
 });
 
 // Setup Vite in Dev or serve static in Prod
