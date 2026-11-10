@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { transformSync } from 'esbuild';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,8 +18,51 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// ==========================================
+// SECURITY HEADERS (Protection against Hackers)
+// ==========================================
+app.use((req: Request, res: Response, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('X-DNS-Prefetch-Control', 'off');
+  res.setHeader('X-Download-Options', 'noopen');
+  next();
+});
+
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+
+// Rate Limiters (In-memory protection against brute-force and DDoS spam)
+interface RateLimitRecord {
+  count: number;
+  resetTime: number;
+}
+const loginAttempts = new Map<string, RateLimitRecord>();
+const orderAttempts = new Map<string, RateLimitRecord>();
+
+function getClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket.remoteAddress || '127.0.0.1';
+}
+
+function checkRateLimit(map: Map<string, RateLimitRecord>, ip: string, maxAttempts: number, windowMs: number): boolean {
+  const now = Date.now();
+  const record = map.get(ip);
+  if (!record || now > record.resetTime) {
+    map.set(ip, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  if (record.count >= maxAttempts) {
+    return false;
+  }
+  record.count += 1;
+  return true;
+}
 
 // In-memory data store for local development preview
 const ALLOWED_STATUSES = [
@@ -32,6 +76,21 @@ const ALLOWED_STATUSES = [
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "modanova2025";
 
+// Timing-safe string comparison to protect against side-channel timing attacks
+function timingSafeCompare(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(String(a || ''));
+    const bufB = Buffer.from(String(b || ''));
+    if (bufA.length !== bufB.length) {
+      crypto.timingSafeEqual(bufA, bufA);
+      return false;
+    }
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
 function generateToken(secret: string): string {
   return crypto.createHmac("sha256", secret || "modanova-secret-salt-2025")
     .update("modanova-admin-session-v1")
@@ -42,7 +101,62 @@ function verifyAdmin(req: Request): boolean {
   const authHeader = req.headers["authorization"] || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) return false;
-  return token === generateToken(ADMIN_PASS) || token === generateToken("modanova2025") || token === generateToken("ettore2025");
+  return (
+    timingSafeCompare(token, generateToken(ADMIN_PASS)) ||
+    timingSafeCompare(token, generateToken("modanova2025")) ||
+    timingSafeCompare(token, generateToken("ettore2025"))
+  );
+}
+
+// High-speed JSX bundle compiler with in-memory caching
+let cachedBundle: string = '';
+let bundleEtag = `W/"modanova-${Date.now()}"`;
+let bundleMtime = 0;
+
+function getOrBuildBundle(): string {
+  const publicBundlePath = path.resolve(__dirname, 'public/app-bundle.js');
+  try {
+    const htmlPath = path.resolve(__dirname, 'index.html');
+    if (!fs.existsSync(htmlPath)) {
+      if (fs.existsSync(publicBundlePath)) {
+        return fs.readFileSync(publicBundlePath, 'utf8');
+      }
+      return '';
+    }
+    const stat = fs.statSync(htmlPath);
+    if (cachedBundle && stat.mtimeMs <= bundleMtime) {
+      return cachedBundle;
+    }
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const match = html.match(/<script type="text\/babel">([\s\S]*?)<\/script>/);
+    if (!match) {
+      if (fs.existsSync(publicBundlePath)) {
+        return fs.readFileSync(publicBundlePath, 'utf8');
+      }
+      return '';
+    }
+    const result = transformSync(match[1], {
+      loader: 'jsx',
+      jsx: 'transform',
+      jsxFactory: 'React.createElement',
+      jsxFragment: 'React.Fragment',
+      target: 'es2020',
+      minify: true,
+    });
+    cachedBundle = result.code;
+    bundleMtime = stat.mtimeMs;
+    bundleEtag = `W/"modanova-${stat.mtimeMs}"`;
+    fs.writeFileSync(publicBundlePath, cachedBundle, 'utf8');
+    fs.writeFileSync(path.resolve(__dirname, 'public/app-bundle.v2.js'), cachedBundle, 'utf8');
+    console.log(`[Performance] Precompiled app-bundle.v2.js in ${(result.code.length / 1024).toFixed(1)} KB`);
+    return cachedBundle;
+  } catch (err) {
+    console.warn('[Performance] Bundle compiler fallback:', err);
+    if (!cachedBundle && fs.existsSync(publicBundlePath)) {
+      cachedBundle = fs.readFileSync(publicBundlePath, 'utf8');
+    }
+    return cachedBundle || '';
+  }
 }
 
 function generateOrderId(): string {
@@ -231,7 +345,7 @@ const defaultCms = {
   storyText2: "De nos ateliers partenaires jusqu'à votre vestiaire, nous célébrons le raffinement absolu et l'art de vivre sans compromis.",
   storyImage: "/images/hero-1-leather.jpg",
   conciergeCity: "Kenitra, Maroc",
-  conciergeAddress: "Atelier & Conciergerie : Kenitra, Maroc",
+  conciergeAddress: "Atelier & Support : Kenitra, Maroc",
   supportPhone: "+212 6 00 00 00 00",
   whatsappNumber: "+212 6 00 00 00 00",
   guaranteeShipping: "Livraison Express 24/48h partout au Maroc avec suivi personnalisé.",
@@ -335,13 +449,29 @@ loadPersistedStore();
 // API ROUTES
 // ==========================================
 
-// Login
+// Login with Brute-Force Rate Limiting & Constant-Time Protection
 app.post('/api/login', (req: Request, res: Response) => {
+  const ip = getClientIp(req);
+  if (!checkRateLimit(loginAttempts, ip, 5, 15 * 60 * 1000)) {
+    return res.status(429).json({
+      error: "Trop de tentatives de connexion échouées. Compte temporairement verrouillé pour 15 minutes par mesure de sécurité."
+    });
+  }
+
   const { user, pass } = req.body || {};
-  if (user === ADMIN_USER && (pass === ADMIN_PASS || pass === "modanova2025" || pass === "ettore2025")) {
+  const isUserValid = timingSafeCompare(String(user || ''), ADMIN_USER);
+  const isPassValid =
+    timingSafeCompare(String(pass || ''), ADMIN_PASS) ||
+    timingSafeCompare(String(pass || ''), "modanova2025") ||
+    timingSafeCompare(String(pass || ''), "ettore2025");
+
+  if (isUserValid && isPassValid) {
+    // Reset rate limit on success
+    loginAttempts.delete(ip);
     const token = generateToken(ADMIN_PASS);
     return res.json({ ok: true, token, user: ADMIN_USER });
   }
+
   return res.status(401).json({ error: "Identifiants incorrects" });
 });
 
@@ -634,8 +764,15 @@ app.post('/api/upload', async (req: Request, res: Response) => {
 });
 
 
-// Create Order (Public COD Checkout)
+// Create Order (Public COD Checkout with Anti-Bot Flood Protection)
 app.post('/api/orders', async (req: Request, res: Response) => {
+  const ip = getClientIp(req);
+  if (!checkRateLimit(orderAttempts, ip, 10, 10 * 60 * 1000)) {
+    return res.status(429).json({
+      error: "Trop de requêtes de commande soumises en peu de temps. Veuillez patienter quelques minutes."
+    });
+  }
+
   const { customerName, customerPhone, city, address, notes, items, promoCode } = req.body || {};
 
   if (!customerName || !customerPhone || !city || !address) {
@@ -803,9 +940,25 @@ async function startServer() {
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
-  app.use('/uploads', express.static(uploadsDir));
-  app.use('/images', express.static(path.resolve(__dirname, 'public/images')));
-  app.use(express.static(path.resolve(__dirname, 'public')));
+
+  // Precompile app bundle once on boot for instant first launch
+  getOrBuildBundle();
+
+  // Optimized bundle routes with cache-busting support
+  const serveBundle = (req: Request, res: Response) => {
+    const code = getOrBuildBundle();
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('ETag', bundleEtag);
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.send(code);
+  };
+  app.get('/app-bundle.js', serveBundle);
+  app.get('/app-bundle.v2.js', serveBundle);
+
+  // Static assets caching
+  app.use('/uploads', express.static(uploadsDir, { maxAge: '7d' }));
+  app.use('/images', express.static(path.resolve(__dirname, 'public/images'), { maxAge: '7d' }));
+  app.use(express.static(path.resolve(__dirname, 'public'), { maxAge: '1d' }));
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');

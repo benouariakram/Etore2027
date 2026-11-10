@@ -24,8 +24,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 
-    <!-- Babel Standalone (Pinned 7.26.4) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
+    <!-- High-Performance Precompiled Client Bundle (Instant Launch) -->
+    <script defer src="/app-bundle.v2.js"></script>
 
     <!-- Tailwind CSS CDN (Pinned 3.4.17) -->
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
@@ -40,7 +40,7 @@
               'taupe-dark': '#7A6C5D',
               noir: '#171717',
               caramel: '#C28B53',
-              whatsapp: '#10B981',
+              whatsapp: '#25D366',
             },
             fontFamily: {
               serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
@@ -232,20 +232,34 @@
         transform-origin: center;
       }
 
-      /* Floating beacon pulse for WhatsApp */
+      /* Floating beacon pulse for official WhatsApp (#25D366) */
       @keyframes beacon-pulse {
         0% {
-          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+          box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.65);
         }
         70% {
-          box-shadow: 0 0 0 16px rgba(16, 185, 129, 0);
+          box-shadow: 0 0 0 16px rgba(37, 211, 102, 0);
         }
         100% {
-          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+          box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
         }
       }
       .animate-beacon {
-        animation: beacon-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        animation: beacon-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      /* Luxury Continuous Ticker Marquee */
+      @keyframes marquee-scroll {
+        0% { transform: translateX(0%); }
+        100% { transform: translateX(-50%); }
+      }
+      .animate-marquee {
+        display: flex;
+        width: 200%;
+        animation: marquee-scroll 32s linear infinite;
+      }
+      .animate-marquee:hover {
+        animation-play-state: paused;
       }
 
       /* Staggered entrance animations */
@@ -366,15 +380,60 @@
     </style>
   </head>
   <body class="min-h-screen text-noir bg-canvas selection:bg-caramel selection:text-white">
+    <!-- Instant Luxury Skeleton Loader (Eliminates white screen on first load) -->
+    <div id="initial-loader" class="fixed inset-0 z-[999] bg-[#FAF9F6] flex flex-col items-center justify-center transition-opacity duration-300">
+      <div class="flex flex-col items-center">
+        <div class="w-14 h-14 mb-4 rounded-xl bg-[#171717] border border-[#C28B53]/50 flex items-center justify-center shadow-lg animate-pulse">
+          <span class="font-serif text-2xl font-bold text-[#E6C687]">M</span>
+        </div>
+        <div class="font-serif tracking-[0.25em] text-xl font-bold text-[#171717] uppercase">MODANOVA</div>
+        <div class="text-[10px] tracking-[0.3em] uppercase text-[#9E8C7A] mt-1 font-semibold">Men's Essentials · Maroc</div>
+        <div class="w-36 h-[2px] bg-[#9E8C7A]/20 mt-6 relative overflow-hidden rounded-full">
+          <div class="absolute inset-0 bg-gradient-to-r from-transparent via-[#C28B53] to-transparent animate-slide-progress"></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function() {
+        var interval = setInterval(function() {
+          var root = document.getElementById('root');
+          if (root && root.children.length > 0) {
+            clearInterval(interval);
+            var l = document.getElementById('initial-loader');
+            if (l) {
+              l.style.opacity = '0';
+              setTimeout(function() { l.remove(); }, 350);
+            }
+          }
+        }, 30);
+        setTimeout(function() {
+          clearInterval(interval);
+          var l = document.getElementById('initial-loader');
+          if (l) { l.style.opacity = '0'; setTimeout(function() { l.remove(); }, 350); }
+        }, 3500);
+      })();
+    </script>
+
     <!-- Mount point for React single-file application -->
     <div id="root"></div>
 
     <!-- Print container (Direct child of body, strictly OUTSIDE React root) -->
     <div id="print-area" style="display: none;"></div>
 
-    <!-- Application Script (React 18 + Babel Standalone) -->
+    <!-- Application Script Source (React 18 + Precompiled Bundle) -->
     <script type="text/babel">
       const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+      // ========================================================================
+      // Official Authentic WhatsApp SVG Icon (#25D366)
+      // ========================================================================
+      function WhatsAppIcon({ className = "w-5 h-5", fill = "currentColor" }) {
+        return (
+          <svg viewBox="0 0 24 24" className={className} fill={fill} xmlns="http://www.w3.org/2000/svg">
+            <path fillRule="evenodd" clipRule="evenodd" d="M20.52 3.48A11.93 11.93 0 0012.04 0C5.43 0 .07 5.36.07 11.97c0 2.11.55 4.17 1.6 6l-1.7 6.2 6.35-1.66a11.9 11.9 0 005.72 1.45h.01c6.61 0 11.97-5.36 11.97-11.97 0-3.2-1.25-6.21-3.5-8.51zM12.05 21.92h-.01a9.92 9.92 0 01-5.06-1.39l-.36-.21-3.77.99 1-3.67-.23-.38a9.9 9.9 0 01-1.52-5.29c0-5.48 4.46-9.94 9.95-9.94 2.66 0 5.16 1.03 7.03 2.91a9.88 9.88 0 012.91 7.03c0 5.49-4.46 9.95-9.96 9.95zm5.45-7.46c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.14-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.09 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.88.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z" />
+          </svg>
+        );
+      }
 
       // ========================================================================
       // XSS Prevention Utility
@@ -734,7 +793,7 @@
           testim_subtitle: "Des hommes exigeants à travers tout le Royaume partagent leur expérience.",
           footer_desc: "Maison de maroquinerie, soins et essentiels masculins intemporels au Maroc.",
           footer_nav: "Navigation",
-          footer_contact: "Contact & Conciergerie",
+          footer_contact: "Contact & Support",
           footer_terms: "Paiement à la livraison en espèces partout au Maroc. Échange sous 7 jours.",
           footer_rights: "Tous droits réservés.",
           toast_added: "Ajouté à votre panier",
@@ -1052,7 +1111,7 @@
               <div style="font-weight: 600; color: #171717; margin-bottom: 4px;">
                 ${isAr ? 'شكراً لثقتكم في مودانوفا — دار الأناقة الرجالية بالمغرب' : 'Merci pour votre confiance en MODANOVA — Maison Marocaine des Essentiels'}
               </div>
-              <div>Atelier & Conciergerie : Kenitra, Maroc | WhatsApp : +212 600-773716</div>
+              <div>Atelier & Support : Kenitra, Maroc | WhatsApp : +212 600-773716</div>
               <div style="font-size: 10px; color: #999; margin-top: 2px;">
                 ${isAr ? 'يرجى تحضير المبلغ نقداً عند قدوم مندوب التوصيل.' : 'Veuillez préparer le montant exact en espèces à la livraison.'}
               </div>
@@ -1158,7 +1217,7 @@
 
         const message = isAr
           ? `مرحباً ${order.customerName} 👋\nمعك خدمة عملاء مودانوفا (MODANOVA).\nنشكركم على اختياركم متجرنا! نود تأكيد طلبكم رقم *${order.id}* :\n\n📦 *المنتجات :*\n${itemsSummary}\n\n💰 *المبلغ الإجمالي :* ${order.total} درهم (الدفع نقداً عند الاستلام)\n📍 *عنوان التوصيل :* ${order.address}، ${order.city}\n\nيرجى الرد لتأكيد هذا الطلب لنباشر الشحن الفوري إليكم. شكراً جزيلاً!`
-          : `Bonjour ${order.customerName} 👋\nC'est la conciergerie MODANOVA.\nNous vous remercions pour votre confiance ! Nous souhaitons confirmer avec vous votre commande N° *${order.id}* :\n\n📦 *Articles commandés :*\n${itemsSummary}\n\n💰 *Total à régler :* ${order.total} MAD (Paiement à la livraison)\n📍 *Adresse de livraison :* ${order.address}, ${order.city}\n\nPourriez-vous s'il vous plaît nous confirmer cette commande afin que nous puissions lancer l'expédition express immédiatement ? Merci !`;
+          : `Bonjour ${order.customerName} 👋\nC'est le support MODANOVA.\nNous vous remercions pour votre confiance ! Nous souhaitons confirmer avec vous votre commande N° *${order.id}* :\n\n📦 *Articles commandés :*\n${itemsSummary}\n\n💰 *Total à régler :* ${order.total} MAD (Paiement à la livraison)\n📍 *Adresse de livraison :* ${order.address}, ${order.city}\n\nPourriez-vous s'il vous plaît nous confirmer cette commande afin que nous puissions lancer l'expédition express immédiatement ? Merci !`;
 
         return `https://wa.me/${clientPhone}?text=${encodeURIComponent(message)}`;
       }
@@ -1202,6 +1261,36 @@
         const [selectedColor, setSelectedColor] = useState((product.colors && product.colors[0]) || '');
         const [qty, setQty] = useState(1);
         const [copied, setCopied] = useState(false);
+        const [imageFit, setImageFit] = useState('contain');
+        const [zoomModalOpen, setZoomModalOpen] = useState(false);
+        const [zoomLevel, setZoomLevel] = useState(1.5);
+        const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+
+        // Dynamic countdown to 17:00 same-day dispatch
+        const [countdown, setCountdown] = useState(() => {
+          const now = new Date();
+          const cutoff = new Date();
+          cutoff.setHours(17, 0, 0, 0);
+          if (now > cutoff) cutoff.setDate(cutoff.getDate() + 1);
+          const diff = Math.max(0, cutoff - now);
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          return { hours, mins };
+        });
+
+        useEffect(() => {
+          const timer = setInterval(() => {
+            const now = new Date();
+            const cutoff = new Date();
+            cutoff.setHours(17, 0, 0, 0);
+            if (now > cutoff) cutoff.setDate(cutoff.getDate() + 1);
+            const diff = Math.max(0, cutoff - now);
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            setCountdown({ hours, mins });
+          }, 60000);
+          return () => clearInterval(timer);
+        }, []);
 
         // Reset state if product changes
         useEffect(() => {
@@ -1210,6 +1299,7 @@
           setSelectedColor((product.colors && product.colors[0]) || '');
           setQty(1);
           setCopied(false);
+          setImageFit('contain');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }, [product.id]);
 
@@ -1255,6 +1345,13 @@
           onDirectCheckout(checkoutItem);
         };
 
+        const orderViaWhatsApp = () => {
+          const text = lang === 'ar'
+            ? `السلام عليكم دار مودانوفا 👋\nأرغب في تأكيد طلب هذه القطعة الفاخرة (الدفع عند الاستلام):\n\n*${title}*\n- السعر: ${product.price} درهم مغربي\n- المقاس / الخيار: ${selectedSize || 'قياسي'}\n- اللون: ${selectedColor || 'قياسي'}\n- الكمية: ${qty}\n\nالرابط: ${currentUrl}\n\nيرجى التواصل معي لتأكيد موعد التوصيل والعنوان.`
+            : `Bonjour Maison MODANOVA 👋\nJe souhaite commander cette pièce en paiement à la livraison (COD) :\n\n*${title}*\n- Prix : ${product.price} MAD\n- Taille / Option : ${selectedSize || 'Standard'}\n- Couleur : ${selectedColor || 'Standard'}\n- Quantité : ${qty}\n\nLien : ${currentUrl}\n\nMerci de confirmer la disponibilité et le créneau de livraison.`;
+          window.open(`https://wa.me/212600773716?text=${encodeURIComponent(text)}`, '_blank');
+        };
+
         // 3 Related products from catalog
         const related = useMemo(() => {
           const others = allProducts.filter(p => p.id !== product.id);
@@ -1293,7 +1390,7 @@
                     onClick={copyLink}
                     className={`px-3 py-1.5 border rounded-xs flex items-center gap-1.5 font-semibold tracking-wider transition-all duration-200 shadow-xs ${
                       copied
-                        ? 'border-[#10B981] bg-[#ECFDF5] text-[#065F46]'
+                        ? 'border-[#25D366] bg-[#ECFDF5] text-[#065F46]'
                         : 'border-taupe/30 hover:border-noir bg-canvas text-noir hover:bg-card'
                     }`}
                     title="Copier le lien direct pour vos clients"
@@ -1307,12 +1404,10 @@
                   <button
                     type="button"
                     onClick={shareWhatsApp}
-                    className="px-3 py-1.5 bg-[#10B981] hover:bg-[#059669] text-white rounded-xs flex items-center gap-1.5 font-semibold tracking-wider transition-colors shadow-xs"
+                    className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xs flex items-center gap-1.5 font-semibold tracking-wider transition-colors shadow-xs"
                     title="Envoyer le produit directement au client via WhatsApp"
                   >
-                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.969.586 1.777.947 2.796.947 3.179 0 5.765-2.587 5.765-5.766 0-3.18-2.586-5.734-5.765-5.734zm9.969 5.766c0 5.516-4.484 10-10 10-1.748 0-3.393-.453-4.836-1.246l-5.164 1.354 1.379-5.029c-.879-1.488-1.379-3.224-1.379-5.079 0-5.516 4.484-10 10-10s10 4.484 10 10z"/>
-                    </svg>
+                    <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
                     <span className="hidden sm:inline">{t.product_share_whatsapp}</span>
                     <span className="sm:hidden">WhatsApp</span>
                   </button>
@@ -1326,13 +1421,36 @@
                 
                 {/* Left: Interactive Media Showcase (Col 1-7) */}
                 <div className="lg:col-span-7 flex flex-col gap-4">
-                  {/* Hero Showcase Frame — Standardized 3:4 Luxury Ratio */}
-                  <div className="relative aspect-[3/4] w-full max-h-[580px] bg-[#EFECE6] border border-taupe/20 overflow-hidden shadow-sm group">
+                  {/* Hero Showcase Frame — Perfect Luxury Fit without Aggressive Zoom */}
+                  <div className="relative aspect-[3/4] w-full max-h-[580px] bg-[#F7F5F0] border border-taupe/20 overflow-hidden shadow-sm flex items-center justify-center p-4 sm:p-6 group select-none rounded-xs">
                     <img
                       src={(product.images && product.images[activeImageIdx]) || (product.images && product.images[0])}
                       alt={title}
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 cursor-zoom-in"
+                      className={`w-full h-full transition-all duration-300 ${
+                        imageFit === 'contain' ? 'object-contain' : 'object-cover'
+                      } cursor-zoom-in`}
+                      onClick={() => setZoomModalOpen(true)}
                     />
+
+                    {/* Image Mode & Fullscreen Zoom Controls Overlay */}
+                    <div className="absolute bottom-3 end-3 flex items-center gap-1.5 z-10">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setImageFit(f => f === 'contain' ? 'cover' : 'contain'); }}
+                        className="px-2.5 py-1.5 bg-white/90 hover:bg-white text-noir text-[11px] font-semibold rounded-xs shadow-xs border border-taupe/30 flex items-center gap-1 transition-colors backdrop-blur-xs"
+                        title={imageFit === 'contain' ? 'Afficher en plein cadre' : 'Afficher la pièce entière'}
+                      >
+                        <span>{imageFit === 'contain' ? '🔍 Plein cadre' : '👁️ Vue complète'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setZoomModalOpen(true); }}
+                        className="px-2.5 py-1.5 bg-noir hover:bg-caramel text-white text-[11px] font-semibold rounded-xs shadow-xs flex items-center gap-1 transition-colors"
+                        title="Ouvrir la photo en haute résolution"
+                      >
+                        <span>🔍 Zoom HD</span>
+                      </button>
+                    </div>
 
                     {/* Top Badges */}
                     <div className="absolute top-4 start-4 flex flex-col gap-1 z-10">
@@ -1381,13 +1499,13 @@
                           key={i}
                           type="button"
                           onClick={() => setActiveImageIdx(i)}
-                          className={`w-20 h-24 sm:w-24 sm:h-28 shrink-0 border-2 overflow-hidden bg-card transition-all duration-200 relative ${
+                          className={`w-20 h-24 sm:w-24 sm:h-28 shrink-0 border-2 overflow-hidden bg-[#F7F5F0] p-1.5 transition-all duration-200 relative rounded-xs flex items-center justify-center ${
                             activeImageIdx === i
-                              ? 'border-caramel scale-102 shadow-sm'
+                              ? 'border-caramel scale-102 shadow-sm ring-1 ring-caramel/30'
                               : 'border-taupe/20 opacity-70 hover:opacity-100 hover:border-noir/40'
                           }`}
                         >
-                          <img src={img} alt="" className="w-full h-full object-cover block" />
+                          <img src={img} alt="" className="w-full h-full object-contain block" />
                         </button>
                       ))}
                     </div>
@@ -1442,6 +1560,20 @@
                     )}
                   </div>
 
+                  {/* Dynamic Dispatch Countdown & Delivery Guarantee Notice */}
+                  <div className="p-3.5 bg-[#FAF7F2] border border-[#C28B53]/30 rounded-xs mb-6">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-noir mb-1">
+                      <span className="text-[#C28B53] animate-pulse">⚡</span>
+                      <span>
+                        Commandez dans les prochaines <strong className="text-[#C28B53] font-mono">{String(countdown.hours).padStart(2, '0')}h {String(countdown.mins).padStart(2, '0')}m</strong> pour une expédition le jour même !
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-taupe-dark flex items-center gap-1.5">
+                      <span>🚚</span>
+                      <span>Livraison express à domicile partout au Maroc · Paiement après ouverture & vérification (COD).</span>
+                    </div>
+                  </div>
+
                   {/* Live Stock Notification */}
                   <div className="mb-6">
                     {isOut ? (
@@ -1456,7 +1588,7 @@
                       </div>
                     ) : (
                       <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#065F46]">
-                        <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+                        <span className="w-2 h-2 rounded-full bg-[#25D366]" />
                         <span>{t.product_in_stock_msg}</span>
                       </div>
                     )}
@@ -1467,14 +1599,23 @@
                     {desc}
                   </p>
 
-                  {/* Size Selector */}
+                  {/* Size Selector with Size Guide Button */}
                   {product.sizes && product.sizes.length > 0 && (
                     <div className="mb-5">
                       <div className="flex justify-between items-center mb-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-noir">
                           {t.options_size}
                         </label>
-                        <span className="text-[11px] text-taupe font-mono">{selectedSize}</span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setSizeGuideOpen(true)}
+                            className="text-[11px] text-caramel hover:underline font-semibold flex items-center gap-1"
+                          >
+                            <span>📏 Guide des Tailles</span>
+                          </button>
+                          <span className="text-[11px] text-taupe font-mono">{selectedSize}</span>
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {product.sizes.map(size => (
@@ -1482,7 +1623,7 @@
                             key={size}
                             type="button"
                             onClick={() => setSelectedSize(size)}
-                            className={`min-w-10 px-3 py-2 text-xs font-semibold border transition-all duration-200 ${
+                            className={`min-w-10 px-3.5 py-2 text-xs font-semibold border transition-all duration-200 ${
                               selectedSize === size
                                 ? 'border-noir bg-noir text-white shadow-xs'
                                 : 'border-taupe/30 hover:border-noir text-noir bg-canvas'
@@ -1576,6 +1717,17 @@
                     >
                       {isOut ? t.out_of_stock : t.product_buy_now_cod}
                     </button>
+
+                    {/* 1-Click WhatsApp Direct Order Button (Official WhatsApp Brand Green) */}
+                    <button
+                      type="button"
+                      disabled={isOut}
+                      onClick={orderViaWhatsApp}
+                      className="w-full py-3.5 px-4 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold uppercase tracking-[0.14em] transition-all duration-200 shadow-md flex items-center justify-center gap-2 rounded-xs active:scale-98"
+                    >
+                      <WhatsAppIcon className="w-5 h-5 fill-white shrink-0" />
+                      <span>Commander directement par WhatsApp</span>
+                    </button>
                   </div>
 
                   {/* Moroccan Trust Guarantees List */}
@@ -1597,6 +1749,148 @@
 
               </div>
             </div>
+
+            {/* Sticky Mobile Purchase Bar (Appears on product view for quick action on phones) */}
+            <div className="lg:hidden fixed bottom-0 start-0 end-0 z-30 bg-white/95 backdrop-blur-md border-t border-taupe/25 px-4 py-2.5 shadow-2xl flex items-center justify-between gap-3 animate-slide-up">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-11 h-11 shrink-0 bg-[#F7F5F0] border border-taupe/20 rounded-xs overflow-hidden flex items-center justify-center p-1">
+                  <img src={(product.images && product.images[0]) || ''} alt="" className="w-full h-full object-contain" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-noir truncate">{title}</div>
+                  <div className="text-xs font-bold text-caramel">{Number(product.price).toLocaleString()} MAD</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={orderViaWhatsApp}
+                  className="p-2.5 bg-[#25D366] text-white rounded-xs flex items-center justify-center shadow-xs"
+                  aria-label="Commander via WhatsApp"
+                >
+                  <WhatsAppIcon className="w-4 h-4 fill-white" />
+                </button>
+                <button
+                  type="button"
+                  disabled={isOut}
+                  onClick={handleDirectOrder}
+                  className="px-4 py-2.5 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shadow-xs"
+                >
+                  {isOut ? t.out_of_stock : 'Commander'}
+                </button>
+              </div>
+            </div>
+
+            {/* Full-Screen High-Definition Lightbox Zoom Modal */}
+            {zoomModalOpen && (
+              <div className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-2 sm:p-6 animate-fade-in">
+                {/* Modal Bar */}
+                <div className="absolute top-4 start-4 end-4 flex items-center justify-between text-white z-20">
+                  <div className="flex items-center gap-3">
+                    <span className="font-serif text-lg font-bold text-white">{title}</span>
+                    <span className="text-xs text-taupe font-mono">Photo {activeImageIdx + 1} / {product.images ? product.images.length : 1}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setZoomLevel(z => z === 1 ? 1.75 : z === 1.75 ? 2.5 : 1)}
+                      className="px-3 py-1 bg-white/20 hover:bg-white/30 text-xs font-semibold rounded text-white transition-colors"
+                    >
+                      Zoom: {zoomLevel}x
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setZoomModalOpen(false); setZoomLevel(1); }}
+                      className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-lg transition-colors"
+                      aria-label="Fermer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {/* Main Zoomed Image Container */}
+                <div
+                  className="relative w-full max-w-4xl max-h-[80vh] flex items-center justify-center overflow-auto p-4 cursor-zoom-out"
+                  onClick={() => setZoomModalOpen(false)}
+                >
+                  <img
+                    src={(product.images && product.images[activeImageIdx]) || (product.images && product.images[0])}
+                    alt={title}
+                    style={{ transform: `scale(${zoomLevel})` }}
+                    className="max-w-full max-h-[75vh] object-contain transition-transform duration-300 drop-shadow-2xl"
+                    onClick={(e) => { e.stopPropagation(); setZoomLevel(z => z === 1 ? 1.75 : z === 1.75 ? 2.5 : 1); }}
+                  />
+                </div>
+
+                {/* Nav Arrows if multiple images */}
+                {product.images && product.images.length > 1 && (
+                  <div className="absolute bottom-6 flex items-center gap-3 z-20">
+                    <button
+                      type="button"
+                      onClick={() => setActiveImageIdx(i => (i - 1 + product.images.length) % product.images.length)}
+                      className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded transition-colors"
+                    >
+                      ← Précédent
+                    </button>
+                    <div className="flex gap-2">
+                      {product.images.map((img, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setActiveImageIdx(idx)}
+                          className={`w-10 h-10 rounded border-2 overflow-hidden bg-black/40 p-0.5 ${activeImageIdx === idx ? 'border-caramel scale-110' : 'border-white/30 opacity-60'}`}
+                        >
+                          <img src={img} alt="" className="w-full h-full object-contain" />
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveImageIdx(i => (i + 1) % product.images.length)}
+                      className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded transition-colors"
+                    >
+                      Suivant →
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Size Guide Modal */}
+            {sizeGuideOpen && (
+              <div className="fixed inset-0 z-[140] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-modal-pop">
+                <div className="bg-canvas border border-taupe/30 max-w-lg w-full p-6 shadow-2xl relative rounded-xs">
+                  <div className="flex items-center justify-between pb-3 border-b border-taupe/20 mb-4">
+                    <h3 className="font-serif text-xl font-bold text-noir">Guide des Tailles — MODANOVA</h3>
+                    <button type="button" onClick={() => setSizeGuideOpen(false)} className="text-noir/60 hover:text-noir text-lg">✕</button>
+                  </div>
+                  <p className="text-xs text-taupe-dark mb-4">
+                    Toutes nos créations sont taillées selon les normes européennes et marocaines artisanales avec une coupe précise et confortable.
+                  </p>
+                  <table className="w-full text-xs text-left border-collapse border border-taupe/25 mb-4">
+                    <thead>
+                      <tr className="bg-card font-bold text-noir">
+                        <th className="p-2.5 border border-taupe/20">Pointure / Taille</th>
+                        <th className="p-2.5 border border-taupe/20">Maroc / UE</th>
+                        <th className="p-2.5 border border-taupe/20">Longueur (cm)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-taupe/15 text-taupe-dark">
+                      <tr><td className="p-2 border border-taupe/20 font-semibold text-noir">40</td><td className="p-2 border border-taupe/20">40</td><td className="p-2 border border-taupe/20">25.5 cm</td></tr>
+                      <tr><td className="p-2 border border-taupe/20 font-semibold text-noir">41</td><td className="p-2 border border-taupe/20">41</td><td className="p-2 border border-taupe/20">26.2 cm</td></tr>
+                      <tr><td className="p-2 border border-taupe/20 font-semibold text-noir">42</td><td className="p-2 border border-taupe/20">42</td><td className="p-2 border border-taupe/20">27.0 cm</td></tr>
+                      <tr><td className="p-2 border border-taupe/20 font-semibold text-noir">43</td><td className="p-2 border border-taupe/20">43</td><td className="p-2 border border-taupe/20">27.7 cm</td></tr>
+                      <tr><td className="p-2 border border-taupe/20 font-semibold text-noir">44</td><td className="p-2 border border-taupe/20">44</td><td className="p-2 border border-taupe/20">28.5 cm</td></tr>
+                      <tr><td className="p-2 border border-taupe/20 font-semibold text-noir">45</td><td className="p-2 border border-taupe/20">45</td><td className="p-2 border border-taupe/20">29.2 cm</td></tr>
+                    </tbody>
+                  </table>
+                  <div className="p-3 bg-card/60 text-[11px] text-taupe-dark border border-taupe/20 rounded-xs flex items-center justify-between">
+                    <span>💡 En cas de doute entre deux pointures, nous vous conseillons de choisir la pointure au-dessus. Échange gratuit sous 7 jours partout au Maroc.</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Related Creations Section */}
             {related.length > 0 && (
@@ -1629,11 +1923,11 @@
                           onClick={() => onSelectProduct(p.id)}
                           className="group cursor-pointer bg-card border border-taupe/20 p-4 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
                         >
-                          <div className="relative aspect-[3/4] w-full bg-[#EFECE6] overflow-hidden mb-3 rounded-xs">
+                          <div className="relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden mb-3 rounded-xs p-3 flex items-center justify-center">
                             <img
                               src={p.images && p.images[0]}
                               alt={relTitle}
-                              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                             />
                           </div>
                           <div className="text-[10px] text-taupe-dark uppercase tracking-wider mb-1">{p.category}</div>
@@ -1692,7 +1986,7 @@
           storyText2: "De nos ateliers partenaires jusqu'à votre vestiaire, nous célébrons le raffinement absolu et l'art de vivre sans compromis.",
           storyImage: "/images/hero-1-leather.jpg",
           conciergeCity: "Kenitra, Maroc",
-          conciergeAddress: "Atelier & Conciergerie : Kenitra, Maroc",
+          conciergeAddress: "Atelier & Support : Kenitra, Maroc",
           supportPhone: "+212 6 00 00 00 00",
           whatsappNumber: "+212 6 00 00 00 00",
           guaranteeShipping: "Livraison Express 24/48h partout au Maroc avec suivi personnalisé.",
@@ -2352,6 +2646,33 @@
 
         return (
           <div className="min-h-screen flex flex-col bg-canvas text-noir w-full max-w-full overflow-x-hidden relative">
+            {/* Top Luxury Announcement Ticker */}
+            <div className="bg-[#141210] text-[#EFECE6] py-1.5 border-b border-caramel/30 overflow-hidden text-[11px] tracking-wider font-medium select-none shadow-xs">
+              <div className="animate-marquee whitespace-nowrap flex items-center gap-8">
+                <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>LIVRAISON GRATUITE SUR TOUT LE MAROC</span></span>
+                <span className="text-caramel/60">•</span>
+                <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>PAIEMENT À LA LIVRAISON (COD)</span></span>
+                <span className="text-caramel/60">•</span>
+                <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>ESSAYEZ AVANT D'ACHETER</span></span>
+                <span className="text-caramel/60">•</span>
+                <span className="flex items-center gap-2"><WhatsAppIcon className="w-3.5 h-3.5 fill-[#25D366] shrink-0" /> <span className="text-white font-semibold">SUPPORT WHATSAPP : +212 600-773716</span></span>
+                <span className="text-caramel/60">•</span>
+                <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>NOUVELLE COLLECTION HOMME 2026</span></span>
+                <span className="text-caramel/60">•</span>
+                {/* Seamless loop duplicate */}
+                <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>LIVRAISON GRATUITE SUR TOUT LE MAROC</span></span>
+                <span className="text-caramel/60">•</span>
+                <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>PAIEMENT À LA LIVRAISON (COD)</span></span>
+                <span className="text-caramel/60">•</span>
+                <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>ESSAYEZ AVANT D'ACHETER</span></span>
+                <span className="text-caramel/60">•</span>
+                <span className="flex items-center gap-2"><WhatsAppIcon className="w-3.5 h-3.5 fill-[#25D366] shrink-0" /> <span className="text-white font-semibold">SUPPORT WHATSAPP : +212 600-773716</span></span>
+                <span className="text-caramel/60">•</span>
+                <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>NOUVELLE COLLECTION HOMME 2026</span></span>
+                <span className="text-caramel/60">•</span>
+              </div>
+            </div>
+
             {/* ================================================================ */}
             {/* 1. HEADER STICKY & TOP BAR (Luxury Mashrabiya BG & Gold Line) */}
             {/* ================================================================ */}
@@ -2885,16 +3206,16 @@
                         key={product.id}
                         className="group flex flex-col bg-card border border-taupe/20 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
                       >
-                        {/* Image Showcase Container — Standardized 3:4 Fashion Ratio */}
+                        {/* Image Showcase Container — Standardized 3:4 Fashion Ratio with Uncropped Contain */}
                         <div
                           onClick={() => navigateToProduct(product.id)}
-                          className="relative aspect-[3/4] w-full bg-[#EFECE6] overflow-hidden cursor-pointer rounded-xs"
+                          className="relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden cursor-pointer rounded-xs p-3 flex items-center justify-center"
                         >
                           <img
                             src={product.images && product.images[0]}
                             alt={title}
                             referrerPolicy="no-referrer"
-                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                           />
 
                           {/* Top Badges */}
@@ -3206,15 +3527,16 @@
                       {t.footer_contact}
                     </h4>
                     <p className="text-xs text-white/70 leading-relaxed mb-3">
-                      Atelier & Conciergerie : Kenitra, Maroc
+                      Atelier & Support : Kenitra, Maroc
                     </p>
                     <a
                       href="https://wa.me/212600773716"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-xs text-whatsapp hover:underline font-medium"
+                      className="inline-flex items-center gap-2 text-xs text-white/90 hover:text-whatsapp font-medium transition-colors"
                     >
-                      <span>💬 WhatsApp : +212 600-773716</span>
+                      <WhatsAppIcon className="w-4 h-4 fill-[#25D366] shrink-0" />
+                      <span>WhatsApp Support : +212 600-773716</span>
                     </a>
                   </div>
 
@@ -3244,19 +3566,32 @@
             </footer>
 
             {/* ================================================================ */}
-            {/* 7. FLOATING WHATSAPP BUTTON (Emerald Green, Beacon Animation) */}
+            {/* 7. FLOATING WHATSAPP BUTTON (Official WhatsApp Brand Green & Authentic Vector) */}
             {/* ================================================================ */}
-            <a
-              href="https://wa.me/212600773716?text=Bonjour%20MODANOVA,%20j%27aimerais%20avoir%20des%20renseignements"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Contacter sur WhatsApp"
-              className="fixed bottom-6 end-6 z-40 bg-[#10B981] text-white p-3.5 rounded-full shadow-lg hover:scale-110 active:scale-95 transition-transform duration-200 flex items-center justify-center group animate-beacon"
-            >
-              <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24">
-                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.969.586 1.777.947 2.796.947 3.179 0 5.765-2.587 5.765-5.766 0-3.18-2.586-5.734-5.765-5.734zm9.969 5.766c0 5.516-4.484 10-10 10-1.748 0-3.393-.453-4.836-1.246l-5.164 1.354 1.379-5.029c-.879-1.488-1.379-3.224-1.379-5.079 0-5.516 4.484-10 10-10s10 4.484 10 10z"/>
-              </svg>
-            </a>
+            <div className="fixed bottom-6 end-6 z-40 flex items-center gap-2.5">
+              {/* Desktop Luxury Concierge Pill */}
+              <a
+                href="https://wa.me/212600773716?text=Bonjour%20MODANOVA,%20j%27aimerais%20avoir%20des%20renseignements"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-2 bg-[#141210]/95 backdrop-blur-md text-white text-xs font-medium py-2.5 px-4 rounded-full border border-caramel/30 shadow-xl hover:border-whatsapp/60 transition-all duration-300 hover:scale-105 active:scale-95 group"
+              >
+                <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse" />
+                <span className="tracking-wide text-[11px] uppercase text-white/90 group-hover:text-white">Support WhatsApp</span>
+              </a>
+
+              {/* Official Floating WhatsApp Button */}
+              <a
+                href="https://wa.me/212600773716?text=Bonjour%20MODANOVA,%20j%27aimerais%20avoir%20des%20renseignements"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Discuter directement sur WhatsApp"
+                title="Contacter le support MODANOVA sur WhatsApp"
+                className="bg-[#25D366] hover:bg-[#20ba5a] text-white p-3.5 rounded-full shadow-[0_4px_24px_rgba(37,211,102,0.45)] hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center animate-beacon"
+              >
+                <WhatsAppIcon className="w-7 h-7 fill-white shrink-0" />
+              </a>
+            </div>
 
             {/* ================================================================ */}
             {/* 8. TOAST NOTIFICATIONS (Auto-dismiss, bottom-start/end) */}
@@ -3376,9 +3711,10 @@
                       href="https://wa.me/212600773716"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full py-3 bg-[#10B981] text-white text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 rounded-none"
+                      className="w-full py-3 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 rounded-xs shadow-xs transition-colors"
                     >
-                      <span>💬 WhatsApp Conciergerie</span>
+                      <WhatsAppIcon className="w-4 h-4 fill-white shrink-0" />
+                      <span>WhatsApp Support</span>
                     </a>
                   </div>
                 </div>
@@ -3447,13 +3783,13 @@
                           >
                             {/* Rigid Thumbnail Container — strictly 80x80px */}
                             <div
-                              className="w-20 h-20 shrink-0 bg-[#EFECE6] border border-taupe/20 overflow-hidden relative rounded-xs aspect-square"
+                              className="w-20 h-20 shrink-0 bg-[#F7F5F0] border border-taupe/20 overflow-hidden relative rounded-xs aspect-square p-1 flex items-center justify-center"
                               style={{ width: '80px', height: '80px', minWidth: '80px', minHeight: '80px', maxWidth: '80px', maxHeight: '80px' }}
                             >
                               <img
                                 src={item.image}
                                 alt={itemTitle}
-                                className="absolute inset-0 w-full h-full object-cover block"
+                                className="w-full h-full object-contain block"
                                 loading="lazy"
                               />
                             </div>
@@ -3632,11 +3968,11 @@
 
                   {/* Left: Gallery */}
                   <div className="md:w-1/2 p-6 flex flex-col items-center bg-card">
-                    <div className="w-full aspect-square bg-[#EAE5DE] border border-taupe/20 overflow-hidden mb-4">
+                    <div className="w-full aspect-square bg-[#F7F5F0] border border-taupe/20 overflow-hidden mb-4 p-4 flex items-center justify-center">
                       <img
                         src={(quickViewProduct.images && quickViewProduct.images[quickViewImageIdx]) || (quickViewProduct.images && quickViewProduct.images[0])}
                         alt={quickViewProduct.nameFr}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain transition-all duration-300"
                       />
                     </div>
                     {/* Thumbnails */}
@@ -3646,11 +3982,11 @@
                           <button
                             key={i}
                             onClick={() => setQuickViewImageIdx(i)}
-                            className={`w-14 h-14 border-2 overflow-hidden transition-all ${
+                            className={`w-14 h-14 border-2 overflow-hidden transition-all p-1 bg-[#F7F5F0] flex items-center justify-center ${
                               quickViewImageIdx === i ? 'border-caramel scale-105' : 'border-taupe/20 opacity-70 hover:opacity-100'
                             }`}
                           >
-                            <img src={img} alt="miniature" className="w-full h-full object-cover" />
+                            <img src={img} alt="miniature" className="w-full h-full object-contain" />
                           </button>
                         ))}
                       </div>
@@ -3955,9 +4291,9 @@
                         href={adminOpen ? buildAdminCustomerWhatsAppLink(currentInvoiceOrder, lang) : buildWhatsAppLink(currentInvoiceOrder, lang)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1.5 bg-whatsapp text-white text-xs font-semibold rounded-xs hover:bg-whatsapp/90 transition-colors flex items-center gap-1"
+                        className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-semibold rounded-xs transition-colors flex items-center gap-1.5 shadow-2xs"
                       >
-                        <span>💬</span>
+                        <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
                         <span>{adminOpen ? 'WhatsApp Client' : t.whatsapp_confirm_btn}</span>
                       </a>
                       <button
@@ -5098,9 +5434,9 @@
                               return (
                                 <tr key={p.id} className="hover:bg-canvas/50">
                                   <td className="p-3">
-                                    <div className="w-12 h-16 bg-[#EFECE6] border border-taupe/20 overflow-hidden relative rounded-xs">
+                                    <div className="w-12 h-16 bg-[#F7F5F0] border border-taupe/20 overflow-hidden relative rounded-xs p-1 flex items-center justify-center">
                                       {thumb ? (
-                                        <img src={thumb} alt={p.nameFr} className="w-full h-full object-cover" />
+                                        <img src={thumb} alt={p.nameFr} className="w-full h-full object-contain" />
                                       ) : (
                                         <div className="w-full h-full flex items-center justify-center text-[9px] text-taupe">Sans photo</div>
                                       )}
@@ -5260,7 +5596,7 @@
                                       className="px-2.5 py-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold text-[11px] rounded-xs shadow-2xs flex items-center gap-1 transition-colors"
                                       title={`Envoyer message de confirmation à ${o.customerPhone}`}
                                     >
-                                      <span>💬</span>
+                                      <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
                                       <span>Confirmer WhatsApp</span>
                                     </a>
                                     <button
@@ -5606,11 +5942,11 @@
                         </div>
                       </div>
 
-                      {/* Section 3: Conciergerie & Contact */}
+                      {/* Section 3: Support & Contact */}
                       <div>
                         <h3 className="font-serif text-base font-bold text-noir mb-3 flex items-center gap-2">
                           <span>📍</span>
-                          <span>Coordonnées de l'Atelier & Conciergerie</span>
+                          <span>Coordonnées de l'Atelier & Support</span>
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
