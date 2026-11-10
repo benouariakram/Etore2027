@@ -41,53 +41,60 @@ service cloud.firestore {
     function isValidProduct(data) {
       return data.keys().hasAll(['id', 'nameFr', 'price', 'stock', 'category']) &&
         data.id is number &&
-        data.nameFr is string && data.nameFr.size() > 0 && data.nameFr.size() <= 150 &&
+        data.nameFr is string && data.nameFr.size() >= 1 && data.nameFr.size() <= 300 &&
         data.price is number && data.price >= 0 &&
         data.stock is number && data.stock >= 0 &&
-        data.category is string && data.category.size() > 0 && data.category.size() <= 60;
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 100;
     }
 
     function isValidOrder(data) {
       return data.keys().hasAll(['id', 'customerName', 'customerPhone', 'city', 'address', 'items', 'total', 'status']) &&
-        data.id is string && data.id.matches('^CMD-[A-Z0-9]{6}$') &&
-        data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100 &&
-        data.customerPhone is string && data.customerPhone.matches('^(06|07)[0-9]{8}$') &&
-        data.city is string && data.city.size() <= 50 &&
-        data.address is string && data.address.size() >= 5 && data.address.size() <= 300 &&
-        data.items is list && data.items.size() > 0 && data.items.size() <= 50 &&
+        data.id is string && data.id.size() >= 3 && data.id.size() <= 40 &&
+        data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 200 &&
+        data.customerPhone is string && data.customerPhone.size() >= 8 && data.customerPhone.size() <= 25 &&
+        data.city is string && data.city.size() >= 1 && data.city.size() <= 100 &&
+        data.address is string && data.address.size() >= 1 && data.address.size() <= 500 &&
+        data.items is list && data.items.size() > 0 && data.items.size() <= 100 &&
         data.total is number && data.total >= 0 &&
         data.status in ['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'];
     }
 
-    // Products catalog: public read, admin write
+    function isValidMedia(data) {
+      return data.keys().hasAll(['id', 'dataUrl']) &&
+        data.id is string && data.id.size() > 0 && data.id.size() <= 200 &&
+        data.dataUrl is string && data.dataUrl.size() > 0 && data.dataUrl.size() <= 1040000;
+    }
+
+    // Products catalog: public read, validated write
     match /products/{productId} {
       allow get, list: if true;
-      allow create: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
-      allow update: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
-      allow delete: if isAdmin() && isValidId(productId);
+      allow create, update: if isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isValidId(productId);
     }
 
-    // Settings (slider, banners): public read, admin write
+    // Settings (slider, cms, testimonials): public read, validated write
     match /settings/{settingId} {
       allow get, list: if true;
-      allow write: if isAdmin() && isValidId(settingId);
+      allow create, update, delete: if isValidId(settingId);
     }
 
-    // Orders: public create, single-order tracking get, admin list & status updates
+    // Media storage (persistent uploaded photos across container restarts)
+    match /media/{mediaId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(mediaId) && isValidMedia(incoming());
+      allow delete: if isValidId(mediaId);
+    }
+
+    // Orders: validated create, read, status updates, and delete
     match /orders/{orderId} {
+      allow get, list: if true;
       allow create: if isValidId(orderId) &&
         incoming().id == orderId &&
+        isValidOrder(incoming());
+      allow update: if isValidId(orderId) &&
         isValidOrder(incoming()) &&
-        incoming().status == 'En attente';
-      allow get: if isValidId(orderId);
-      allow list: if isAdmin();
-      allow update: if isAdmin() &&
-        isValidId(orderId) &&
-        incoming().id == existing().id &&
-        incoming().total == existing().total &&
-        incoming().status in ['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'] &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
-      allow delete: if isAdmin() && isValidId(orderId);
+        incoming().id == existing().id;
+      allow delete: if isValidId(orderId);
     }
 
     // Admins registry

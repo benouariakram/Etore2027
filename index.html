@@ -425,6 +425,46 @@
       const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
       // ========================================================================
+      // Smart Image Compression for Firebase Firestore Persistence (< 300KB)
+      // ========================================================================
+      function compressImageFile(file, maxDim = 1100, quality = 0.82) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = reject;
+          reader.onload = () => {
+            const dataUrl = reader.result;
+            if (typeof dataUrl !== 'string' || file.type === 'image/svg+xml') {
+              return resolve(dataUrl);
+            }
+            const img = new Image();
+            img.onerror = () => resolve(dataUrl);
+            img.onload = () => {
+              let { width, height } = img;
+              if (width > maxDim || height > maxDim) {
+                if (width >= height) {
+                  height = Math.round((height * maxDim) / width);
+                  width = maxDim;
+                } else {
+                  width = Math.round((width * maxDim) / height);
+                  height = maxDim;
+                }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return resolve(dataUrl);
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressed = canvas.toDataURL('image/jpeg', quality);
+              resolve(compressed.length < dataUrl.length ? compressed : dataUrl);
+            };
+            img.src = dataUrl;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // ========================================================================
       // Official Authentic WhatsApp SVG Icon (#25D366)
       // ========================================================================
       function WhatsAppIcon({ className = "w-5 h-5", fill = "currentColor" }) {
@@ -4756,12 +4796,7 @@
           setSliderUploadingIdx(idx);
 
           try {
-            const base64Data = await new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result);
-              reader.onerror = reject;
-              reader.readAsDataURL(file);
-            });
+            const base64Data = await compressImageFile(file, 1400, 0.82);
 
             const res = await fetch('/api/upload', {
               method: 'POST',
@@ -4823,12 +4858,7 @@
           setCmsUploadingPhoto(true);
 
           try {
-            const base64Data = await new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result);
-              reader.onerror = reject;
-              reader.readAsDataURL(file);
-            });
+            const base64Data = await compressImageFile(file, 1200, 0.82);
 
             const res = await fetch('/api/upload', {
               method: 'POST',
@@ -6241,12 +6271,7 @@
 
           try {
             for (const file of files) {
-              const base64Data = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-              });
+              const base64Data = await compressImageFile(file, 1100, 0.82);
 
               const res = await fetch('/api/upload', {
                 method: 'POST',

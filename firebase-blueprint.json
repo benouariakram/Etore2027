@@ -176,6 +176,43 @@
         }
       },
       "required": ["uid", "email"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Storefront configuration settings (heroSlider, cms, testimonials, catalogMeta)",
+      "type": "object",
+      "properties": {
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last setting update"
+        }
+      }
+    },
+    "Media": {
+      "title": "Media",
+      "description": "Persistent uploaded image data stored in Firestore across container restarts",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Filename identifier of the uploaded image",
+          "maxLength": 200
+        },
+        "dataUrl": {
+          "type": "string",
+          "description": "Base64 Data URL of the optimized image",
+          "maxLength": 1040000
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the image"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of upload"
+        }
+      },
+      "required": ["id", "dataUrl"]
     }
   },
   "firestore": {
@@ -186,6 +223,14 @@
     "/orders/{orderId}": {
       "schema": "Order",
       "description": "Customer COD orders creatable by customers, readable for tracking by ID, manageable by admin"
+    },
+    "/settings/{settingId}": {
+      "schema": "Setting",
+      "description": "Storefront settings (heroSlider, cms, testimonials)"
+    },
+    "/media/{mediaId}": {
+      "schema": "Media",
+      "description": "Persistent uploaded images stored in Firestore"
     },
     "/admins/{adminId}": {
       "schema": "Admin",

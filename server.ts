@@ -445,6 +445,94 @@ function savePersistedStore() {
 
 loadPersistedStore();
 
+// Synchronize state with Firebase Firestore on startup so container restarts never lose data
+async function syncWithFirestoreOnBoot() {
+  try {
+    const {
+      fetchFirestoreProducts,
+      saveFirestoreProduct,
+      fetchFirestoreOrders,
+      createFirestoreOrder,
+      fetchSliderSettings,
+      saveSliderSettings,
+      fetchCmsSettings,
+      saveCmsSettings,
+      fetchTestimonialsSettings,
+      saveTestimonialsSettings,
+      isCatalogInitialized,
+      markCatalogInitialized
+    } = await import('./src/firebase.ts');
+
+    // 1. Products sync
+    const remoteProducts = await fetchFirestoreProducts();
+    if (remoteProducts && remoteProducts.length > 0) {
+      productsStore = remoteProducts;
+      console.log(`[Firestore] Loaded ${remoteProducts.length} products from Firebase.`);
+    } else {
+      const initialized = await isCatalogInitialized();
+      if (!initialized && productsStore.length > 0) {
+        console.log(`[Firestore] Seeding ${productsStore.length} initial products to Firebase...`);
+        for (const prod of productsStore) {
+          await saveFirestoreProduct(prod);
+        }
+        await markCatalogInitialized();
+      }
+    }
+
+    // 2. Orders sync (Merge Firestore orders + local orders)
+    const remoteOrders = await fetchFirestoreOrders();
+    const orderMap = new Map<string, any>();
+    for (const o of ordersStore) {
+      if (o && o.id) orderMap.set(o.id, o);
+    }
+    if (remoteOrders && remoteOrders.length > 0) {
+      for (const ro of remoteOrders) {
+        if (ro && ro.id) orderMap.set(ro.id, ro);
+      }
+    }
+    // Ensure any local-only order is pushed to Firestore
+    for (const [id, locOrder] of orderMap.entries()) {
+      if (!remoteOrders?.some((ro: any) => ro.id === id)) {
+        try {
+          await createFirestoreOrder(locOrder);
+        } catch {}
+      }
+    }
+    ordersStore = Array.from(orderMap.values()).sort((a, b) =>
+      String(b.date || '').localeCompare(String(a.date || ''))
+    );
+    console.log(`[Firestore] Loaded ${ordersStore.length} orders from Firebase.`);
+
+    // 3. Slider sync
+    const remoteSlider = await fetchSliderSettings();
+    if (remoteSlider && Array.isArray(remoteSlider) && remoteSlider.length > 0) {
+      sliderStore = remoteSlider;
+    } else {
+      await saveSliderSettings(sliderStore);
+    }
+
+    // 4. CMS sync
+    const remoteCms = await fetchCmsSettings();
+    if (remoteCms) {
+      cmsStore = { ...defaultCms, ...remoteCms };
+    } else {
+      await saveCmsSettings(cmsStore);
+    }
+
+    // 5. Testimonials sync
+    const remoteTestimonials = await fetchTestimonialsSettings();
+    if (remoteTestimonials && Array.isArray(remoteTestimonials) && remoteTestimonials.length > 0) {
+      testimonialsStore = remoteTestimonials;
+    } else {
+      await saveTestimonialsSettings(testimonialsStore);
+    }
+
+    savePersistedStore();
+  } catch (err) {
+    console.warn('[Firestore] Initial sync notice:', err);
+  }
+}
+
 // ==========================================
 // API ROUTES
 // ==========================================
@@ -476,45 +564,80 @@ app.post('/api/login', (req: Request, res: Response) => {
 });
 
 // Seed
-app.post('/api/seed', (req: Request, res: Response) => {
-  if (productsStore.length > 0) {
-    return res.json({ ok: true, seeded: false, count: productsStore.length, message: "Les produits sont déjà initialisés." });
+app.post('/api/seed', async (req: Request, res: Response) => {
+  try {
+    const { fetchFirestoreProducts, saveFirestoreProduct, markCatalogInitialized } = await import('./src/firebase.ts');
+    const remoteProducts = await fetchFirestoreProducts();
+    if (remoteProducts && remoteProducts.length > 0) {
+      productsStore = remoteProducts;
+      savePersistedStore();
+      return res.json({ ok: true, seeded: false, count: productsStore.length, message: "Les produits sont déjà initialisés sur Firebase." });
+    }
+    productsStore = JSON.parse(JSON.stringify(defaultProducts));
+    for (const prod of productsStore) {
+      await saveFirestoreProduct(prod);
+    }
+    await markCatalogInitialized();
+    savePersistedStore();
+    return res.json({ ok: true, seeded: true, count: productsStore.length, products: productsStore });
+  } catch (err) {
+    console.warn('Seed error:', err);
+    return res.json({ ok: true, seeded: false, count: productsStore.length, products: productsStore });
   }
-  productsStore = JSON.parse(JSON.stringify(defaultProducts));
-  savePersistedStore();
-  return res.json({ ok: true, seeded: true, count: productsStore.length, products: productsStore });
 });
 
-// Get products
-app.get('/api/products', (req: Request, res: Response) => {
+// Get products (Always synced with Firebase Firestore)
+app.get('/api/products', async (req: Request, res: Response) => {
+  try {
+    const { fetchFirestoreProducts } = await import('./src/firebase.ts');
+    const remoteProducts = await fetchFirestoreProducts();
+    if (remoteProducts && remoteProducts.length > 0) {
+      productsStore = remoteProducts;
+      savePersistedStore();
+    }
+  } catch (err) {
+    console.warn('Note: Using cached productsStore:', err);
+  }
   return res.json(productsStore);
 });
 
 // Get single product by id
-app.get('/api/products/:id', (req: Request, res: Response) => {
+app.get('/api/products/:id', async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const product = productsStore.find((p: any) => p.id === id);
+  let product = productsStore.find((p: any) => p.id === id);
+  if (!product) {
+    try {
+      const { fetchFirestoreProducts } = await import('./src/firebase.ts');
+      const remoteProducts = await fetchFirestoreProducts();
+      if (remoteProducts && remoteProducts.length > 0) {
+        productsStore = remoteProducts;
+        product = productsStore.find((p: any) => p.id === id);
+      }
+    } catch {}
+  }
   if (!product) {
     return res.status(404).json({ error: "Produit introuvable" });
   }
   return res.json(product);
 });
 
-// Upsert product (Admin)
-app.put('/api/products', (req: Request, res: Response) => {
+// Upsert product (Admin — Persisted to Firebase Firestore)
+app.put('/api/products', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
     return res.status(401).json({ error: "Non autorisé" });
   }
   const product = req.body;
-  if (!product || !product.nameFr || !product.price) {
+  if (!product || !product.nameFr || product.price === undefined) {
     return res.status(400).json({ error: "Champs produit obligatoires manquants" });
   }
   const id = product.id ? Number(product.id) : Date.now();
   const payload = {
     ...product,
     id,
+    price: Number(product.price) || 0,
     stock: Number(product.stock) || 0,
-    inStock: Number(product.stock) > 0
+    inStock: Number(product.stock) > 0,
+    updatedAt: new Date().toISOString()
   };
   const idx = productsStore.findIndex((p: any) => p.id === id);
   if (idx >= 0) {
@@ -523,17 +646,35 @@ app.put('/api/products', (req: Request, res: Response) => {
     productsStore.push(payload);
   }
   savePersistedStore();
+
+  try {
+    const { saveFirestoreProduct, markCatalogInitialized } = await import('./src/firebase.ts');
+    await saveFirestoreProduct(payload);
+    await markCatalogInitialized();
+  } catch (err) {
+    console.error('Error saving product to Firestore:', err);
+  }
+
   return res.json({ ok: true, product: payload });
 });
 
-// Delete product (Admin)
-app.delete('/api/products/:id', (req: Request, res: Response) => {
+// Delete product (Admin — Deleted from Firebase Firestore)
+app.delete('/api/products/:id', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
     return res.status(401).json({ error: "Non autorisé" });
   }
   const id = Number(req.params.id);
   productsStore = productsStore.filter((p: any) => p.id !== id);
   savePersistedStore();
+
+  try {
+    const { deleteFirestoreProduct, markCatalogInitialized } = await import('./src/firebase.ts');
+    await deleteFirestoreProduct(id);
+    await markCatalogInitialized();
+  } catch (err) {
+    console.error('Error deleting product from Firestore:', err);
+  }
+
   return res.json({ ok: true, id });
 });
 
@@ -711,58 +852,58 @@ app.delete('/api/testimonials/:id', async (req: Request, res: Response) => {
 });
 
 // ==========================================
-// FILE UPLOAD ROUTE (Firebase Storage + Server Cache)
+// FILE UPLOAD ROUTE (Firebase Firestore Media + Local Disk Cache)
 // ==========================================
 app.post('/api/upload', async (req: Request, res: Response) => {
   try {
     const { file, filename, folder = 'products' } = req.body || {};
-    if (!file) {
+    if (!file || typeof file !== 'string') {
       return res.status(400).json({ error: "Aucun fichier reçu" });
     }
 
-    let downloadUrl = '';
-    // 1. Attempt upload directly to Firebase Storage
-    try {
-      const { uploadImageToFirebase } = await import('./src/firebase.ts');
-      downloadUrl = await uploadImageToFirebase(file, folder, filename);
-    } catch (fbErr) {
-      console.warn('Firebase Storage upload notice (using fallback):', fbErr);
-    }
-
-    // 2. Also save to /public/uploads directory as resilient fallback
     const uploadsDir = path.resolve(__dirname, 'public/uploads');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    const matches = typeof file === 'string' ? file.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/) : null;
+    const matches = file.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    let mimeType = 'image/jpeg';
     let extension = 'jpg';
     if (matches && matches[1]) {
-      if (matches[1].includes('png')) extension = 'png';
-      else if (matches[1].includes('webp')) extension = 'webp';
-      else if (matches[1].includes('svg')) extension = 'svg';
-      else if (matches[1].includes('gif')) extension = 'gif';
+      mimeType = matches[1];
+      if (mimeType.includes('png')) extension = 'png';
+      else if (mimeType.includes('webp')) extension = 'webp';
+      else if (mimeType.includes('svg')) extension = 'svg';
+      else if (mimeType.includes('gif')) extension = 'gif';
     } else if (filename && filename.includes('.')) {
       extension = filename.split('.').pop() || 'jpg';
     }
 
-    const safeBase = (filename ? filename.replace(/\.[^/.]+$/, "") : 'image').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeBase = (filename ? filename.replace(/\.[^/.]+$/, "") : 'image').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
     const safeFilename = `${folder}_${Date.now()}_${safeBase}.${extension}`;
     const localFilePath = path.join(uploadsDir, safeFilename);
 
+    // 1. Write binary to local disk cache for fast serving
     if (matches && matches[2]) {
       const buffer = Buffer.from(matches[2], 'base64');
       fs.writeFileSync(localFilePath, buffer);
     }
 
-    const finalUrl = downloadUrl || `/uploads/${safeFilename}`;
-    return res.json({ ok: true, url: finalUrl, storage: Boolean(downloadUrl) ? 'firebase' : 'local' });
+    // 2. Persist permanently in Firebase Firestore 'media' collection so container restarts never lose the image
+    try {
+      const { saveFirestoreMedia } = await import('./src/firebase.ts');
+      await saveFirestoreMedia(safeFilename, file, mimeType);
+    } catch (fbMediaErr) {
+      console.warn('Firestore media persistence notice:', fbMediaErr);
+    }
+
+    const finalUrl = `/uploads/${safeFilename}`;
+    return res.json({ ok: true, url: finalUrl, storage: 'firebase-firestore' });
   } catch (error: any) {
     console.error('Upload handler error:', error);
     return res.status(500).json({ error: error.message || "Erreur lors du traitement de l'image" });
   }
 });
-
 
 // Create Order (Public COD Checkout with Anti-Bot Flood Protection)
 app.post('/api/orders', async (req: Request, res: Response) => {
@@ -860,13 +1001,15 @@ app.post('/api/orders', async (req: Request, res: Response) => {
   ordersStore.unshift(newOrder);
   savePersistedStore();
 
-  // Sync to Firestore database
+  // Sync Order and updated Product Stock to Firestore database
   try {
-    const { setDoc, doc } = await import('firebase/firestore');
-    const { db } = await import('./src/firebase.ts');
-    await setDoc(doc(db, 'orders', orderId), newOrder);
+    const { createFirestoreOrder, saveFirestoreProduct } = await import('./src/firebase.ts');
+    await createFirestoreOrder(newOrder);
+    for (const { prod } of stockChanges) {
+      await saveFirestoreProduct(prod);
+    }
   } catch (err) {
-    console.warn('Firestore sync note:', err);
+    console.warn('Firestore order sync note:', err);
   }
 
   return res.status(201).json({ ok: true, order: newOrder });
@@ -877,14 +1020,13 @@ app.get('/api/orders/:id', async (req: Request, res: Response) => {
   const orderId = String(req.params.id).trim().toUpperCase();
   let order = ordersStore.find(o => o.id === orderId);
 
-  // If not found in local memory, check Firestore
+  // Always check Firestore if not in memory
   if (!order) {
     try {
-      const { getDoc, doc } = await import('firebase/firestore');
-      const { db } = await import('./src/firebase.ts');
-      const snap = await getDoc(doc(db, 'orders', orderId));
-      if (snap.exists()) {
-        order = snap.data();
+      const { getFirestoreOrder } = await import('./src/firebase.ts');
+      const remoteOrder = await getFirestoreOrder(orderId);
+      if (remoteOrder) {
+        order = remoteOrder;
       }
     } catch {}
   }
@@ -895,16 +1037,35 @@ app.get('/api/orders/:id', async (req: Request, res: Response) => {
   return res.json(order);
 });
 
-// Orders list (Admin)
-app.get('/api/orders', (req: Request, res: Response) => {
+// Orders list (Admin — Live from Firebase Firestore)
+app.get('/api/orders', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
     return res.status(401).json({ error: "Non autorisé" });
+  }
+  try {
+    const { fetchFirestoreOrders } = await import('./src/firebase.ts');
+    const remoteOrders = await fetchFirestoreOrders();
+    if (remoteOrders && remoteOrders.length > 0) {
+      const map = new Map<string, any>();
+      for (const o of ordersStore) {
+        if (o && o.id) map.set(o.id, o);
+      }
+      for (const ro of remoteOrders) {
+        if (ro && ro.id) map.set(ro.id, ro);
+      }
+      ordersStore = Array.from(map.values()).sort((a, b) =>
+        String(b.date || '').localeCompare(String(a.date || ''))
+      );
+      savePersistedStore();
+    }
+  } catch (err) {
+    console.warn('Error fetching orders from Firestore:', err);
   }
   return res.json(ordersStore);
 });
 
-// Update order status (Admin)
-app.patch('/api/orders/:id', (req: Request, res: Response) => {
+// Update order status (Admin — Persisted in Firebase Firestore)
+app.patch('/api/orders/:id', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
     return res.status(401).json({ error: "Non autorisé" });
   }
@@ -913,24 +1074,47 @@ app.patch('/api/orders/:id', (req: Request, res: Response) => {
   if (!ALLOWED_STATUSES.includes(status)) {
     return res.status(400).json({ error: "Statut invalide" });
   }
-  const order = ordersStore.find(o => o.id === orderId);
+  let order = ordersStore.find(o => o.id === orderId);
+  if (!order) {
+    try {
+      const { getFirestoreOrder } = await import('./src/firebase.ts');
+      order = await getFirestoreOrder(orderId);
+      if (order) ordersStore.unshift(order);
+    } catch {}
+  }
   if (!order) {
     return res.status(404).json({ error: "Commande introuvable" });
   }
   order.status = status;
   order.updatedAt = new Date().toISOString();
   savePersistedStore();
+
+  try {
+    const { updateFirestoreOrderStatus } = await import('./src/firebase.ts');
+    await updateFirestoreOrderStatus(orderId, status);
+  } catch (err) {
+    console.error('Error updating order status in Firestore:', err);
+  }
+
   return res.json({ ok: true, order });
 });
 
-// Delete order (Admin)
-app.delete('/api/orders/:id', (req: Request, res: Response) => {
+// Delete order (Admin — Deleted from Firebase Firestore)
+app.delete('/api/orders/:id', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
     return res.status(401).json({ error: "Non autorisé" });
   }
   const orderId = String(req.params.id).trim().toUpperCase();
   ordersStore = ordersStore.filter(o => o.id !== orderId);
   savePersistedStore();
+
+  try {
+    const { deleteFirestoreOrder } = await import('./src/firebase.ts');
+    await deleteFirestoreOrder(orderId);
+  } catch (err) {
+    console.error('Error deleting order from Firestore:', err);
+  }
+
   return res.json({ ok: true, id: orderId });
 });
 
@@ -940,6 +1124,9 @@ async function startServer() {
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
+
+  // Sync all products, orders, slider, CMS, and testimonials with Firebase Firestore on boot
+  await syncWithFirestoreOnBoot();
 
   // Precompile app bundle once on boot for instant first launch
   getOrBuildBundle();
@@ -954,6 +1141,42 @@ async function startServer() {
   };
   app.get('/app-bundle.js', serveBundle);
   app.get('/app-bundle.v2.js', serveBundle);
+
+  // Dynamic Firestore-backed /uploads/:filename handler (Restores uploaded images after container restart)
+  app.get('/uploads/:filename', async (req: Request, res: Response) => {
+    const filename = path.basename(req.params.filename);
+    const localFilePath = path.join(uploadsDir, filename);
+
+    // 1. Serve from local disk if cached
+    if (fs.existsSync(localFilePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+      return res.sendFile(localFilePath);
+    }
+
+    // 2. Otherwise restore from Firebase Firestore 'media' collection
+    try {
+      const { getFirestoreMedia } = await import('./src/firebase.ts');
+      const mediaDoc = await getFirestoreMedia(filename);
+      if (mediaDoc && typeof mediaDoc.dataUrl === 'string') {
+        const matches = mediaDoc.dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches[2]) {
+          const mimeType = matches[1] || mediaDoc.mimeType || 'image/jpeg';
+          const buffer = Buffer.from(matches[2], 'base64');
+          // Re-populate local disk cache
+          try {
+            fs.writeFileSync(localFilePath, buffer);
+          } catch {}
+          res.setHeader('Content-Type', mimeType);
+          res.setHeader('Cache-Control', 'public, max-age=604800');
+          return res.send(buffer);
+        }
+      }
+    } catch (err) {
+      console.warn('Error restoring image from Firestore media:', err);
+    }
+
+    return res.status(404).end();
+  });
 
   // Static assets caching
   app.use('/uploads', express.static(uploadsDir, { maxAge: '7d' }));

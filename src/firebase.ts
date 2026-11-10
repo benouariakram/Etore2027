@@ -159,13 +159,12 @@ export async function getFirestoreOrder(orderId: string) {
 export async function fetchFirestoreOrders() {
   const path = 'orders';
   try {
-    const q = query(collection(db, path), orderBy('date', 'desc'));
-    const snap = await getDocs(q);
+    const snap = await getDocs(collection(db, path));
     const list: any[] = [];
     snap.forEach(docSnap => {
       list.push(docSnap.data());
     });
-    return list;
+    return list.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, path);
   }
@@ -194,7 +193,59 @@ export async function deleteFirestoreOrder(orderId: string) {
   }
 }
 
-// 6. Firebase Storage Upload Helper
+// 6. Persistent Media Storage in Firestore (Survives Container Restarts)
+export async function saveFirestoreMedia(mediaId: string, dataUrl: string, mimeType: string = 'image/jpeg') {
+  const safeId = mediaId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const path = `media/${safeId}`;
+  try {
+    await setDoc(doc(db, 'media', safeId), {
+      id: safeId,
+      dataUrl,
+      mimeType,
+      createdAt: new Date().toISOString()
+    });
+    return safeId;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+export async function getFirestoreMedia(mediaId: string) {
+  const safeId = mediaId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const path = `media/${safeId}`;
+  try {
+    const snap = await getDoc(doc(db, 'media', safeId));
+    if (!snap.exists()) return null;
+    return snap.data();
+  } catch (err) {
+    console.warn('Failed to load media from Firestore:', err);
+    return null;
+  }
+}
+
+// Catalog Initialization State in Firestore
+export async function isCatalogInitialized(): Promise<boolean> {
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'catalogMeta'));
+    return snap.exists() && Boolean(snap.data()?.initialized);
+  } catch {
+    return false;
+  }
+}
+
+export async function markCatalogInitialized() {
+  const path = 'settings/catalogMeta';
+  try {
+    await setDoc(doc(db, 'settings', 'catalogMeta'), {
+      initialized: true,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+// Firebase Storage Upload Helper (Optional fallback)
 export async function uploadImageToFirebase(dataUrl: string, folder: string = 'products', filename?: string): Promise<string> {
   const safeName = (filename || 'image.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
   const path = `${folder}/${Date.now()}_${safeName}`;
