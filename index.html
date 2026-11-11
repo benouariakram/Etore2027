@@ -1305,6 +1305,33 @@
         const [zoomModalOpen, setZoomModalOpen] = useState(false);
         const [zoomLevel, setZoomLevel] = useState(1.5);
         const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+        const prodTouchStartX = useRef(null);
+
+        const imgList = Array.isArray(product.images) && product.images.length > 0 ? product.images : [''];
+        const imgCount = imgList.length;
+
+        const prevProdImage = useCallback((e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          if (imgCount <= 1) return;
+          setActiveImageIdx(prev => (prev - 1 + imgCount) % imgCount);
+        }, [imgCount]);
+
+        const nextProdImage = useCallback((e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          if (imgCount <= 1) return;
+          setActiveImageIdx(prev => (prev + 1) % imgCount);
+        }, [imgCount]);
+
+        // Keyboard left/right arrow support for product photo slider
+        useEffect(() => {
+          if (imgCount <= 1) return;
+          const handleKey = (e) => {
+            if (e.key === 'ArrowLeft') prevProdImage();
+            if (e.key === 'ArrowRight') nextProdImage();
+          };
+          window.addEventListener('keydown', handleKey);
+          return () => window.removeEventListener('keydown', handleKey);
+        }, [imgCount, prevProdImage, nextProdImage]);
 
         // Dynamic countdown to 17:00 same-day dispatch
         const [countdown, setCountdown] = useState(() => {
@@ -1459,18 +1486,85 @@
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
                 
-                {/* Left: Interactive Media Showcase (Col 1-7) */}
+                {/* Left: Interactive Media Showcase with Left/Right Slider & Swipe (Col 1-7) */}
                 <div className="lg:col-span-7 flex flex-col gap-4">
-                  {/* Hero Showcase Frame — Perfect Luxury Fit without Aggressive Zoom */}
-                  <div className="relative aspect-[3/4] w-full max-h-[580px] bg-[#F7F5F0] border border-taupe/20 overflow-hidden shadow-sm flex items-center justify-center p-4 sm:p-6 group select-none rounded-xs">
+                  {/* Hero Showcase Frame — Left/Right Slider + Touch Swipe */}
+                  <div
+                    className="relative aspect-[3/4] w-full max-h-[580px] bg-[#F7F5F0] border border-taupe/20 overflow-hidden shadow-sm flex items-center justify-center p-4 sm:p-6 group select-none rounded-xs"
+                    onTouchStart={(e) => {
+                      if (e.touches && e.touches[0]) {
+                        prodTouchStartX.current = e.touches[0].clientX;
+                      }
+                    }}
+                    onTouchEnd={(e) => {
+                      if (prodTouchStartX.current == null || !e.changedTouches || !e.changedTouches[0]) return;
+                      const deltaX = e.changedTouches[0].clientX - prodTouchStartX.current;
+                      prodTouchStartX.current = null;
+                      if (Math.abs(deltaX) > 35) {
+                        if (deltaX > 0) prevProdImage();
+                        else nextProdImage();
+                      }
+                    }}
+                  >
                     <img
-                      src={(product.images && product.images[activeImageIdx]) || (product.images && product.images[0])}
+                      src={imgList[activeImageIdx] || imgList[0]}
                       alt={title}
                       className={`w-full h-full transition-all duration-300 ${
                         imageFit === 'contain' ? 'object-contain' : 'object-cover'
                       } cursor-zoom-in`}
                       onClick={() => setZoomModalOpen(true)}
                     />
+
+                    {/* Left & Right Slider Arrows (Visible when product has >1 photo) */}
+                    {imgCount > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={prevProdImage}
+                          className="absolute start-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+                          title="Photo précédente (Glisser à gauche)"
+                          aria-label="Photo précédente"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={nextProdImage}
+                          className="absolute end-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+                          title="Photo suivante (Glisser à droite)"
+                          aria-label="Photo suivante"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+
+                        {/* Bottom Start Photo Counter & Dots */}
+                        <div className="absolute bottom-3 start-3 z-20 flex items-center gap-2 bg-noir/75 backdrop-blur-xs text-white px-2.5 py-1 rounded-xs">
+                          <span className="font-mono text-[11px] font-bold tabular-nums">
+                            {activeImageIdx + 1} / {imgCount}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {imgList.map((_, dotIdx) => (
+                              <button
+                                key={dotIdx}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveImageIdx(dotIdx);
+                                }}
+                                className={`h-1.5 rounded-full transition-all ${
+                                  activeImageIdx === dotIdx ? 'w-4 bg-caramel' : 'w-1.5 bg-white/50 hover:bg-white'
+                                }`}
+                                aria-label={`Aller à la photo ${dotIdx + 1}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     {/* Image Mode & Fullscreen Zoom Controls Overlay */}
                     <div className="absolute bottom-3 end-3 flex items-center gap-1.5 z-10">
@@ -1531,23 +1625,43 @@
                     </button>
                   </div>
 
-                  {/* Thumbnail Row (if multiple images) */}
-                  {product.images && product.images.length > 1 && (
-                    <div className="flex gap-3 overflow-x-auto pb-2">
-                      {product.images.map((img, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setActiveImageIdx(i)}
-                          className={`w-20 h-24 sm:w-24 sm:h-28 shrink-0 border-2 overflow-hidden bg-[#F7F5F0] p-1.5 transition-all duration-200 relative rounded-xs flex items-center justify-center ${
-                            activeImageIdx === i
-                              ? 'border-caramel scale-102 shadow-sm ring-1 ring-caramel/30'
-                              : 'border-taupe/20 opacity-70 hover:opacity-100 hover:border-noir/40'
-                          }`}
-                        >
-                          <img src={img} alt="" className="w-full h-full object-contain block" />
-                        </button>
-                      ))}
+                  {/* Thumbnail Row with Left/Right navigation (if multiple images) */}
+                  {imgCount > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={prevProdImage}
+                        className="w-8 h-24 shrink-0 bg-card hover:bg-noir text-noir hover:text-white border border-taupe/25 rounded-xs flex items-center justify-center transition-colors shadow-2xs"
+                        title="Photo précédente"
+                        aria-label="Photo précédente"
+                      >
+                        ‹
+                      </button>
+                      <div className="flex gap-3 overflow-x-auto pb-1 flex-1">
+                        {imgList.map((img, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setActiveImageIdx(i)}
+                            className={`w-20 h-24 sm:w-24 sm:h-28 shrink-0 border-2 overflow-hidden bg-[#F7F5F0] p-1.5 transition-all duration-200 relative rounded-xs flex items-center justify-center ${
+                              activeImageIdx === i
+                                ? 'border-caramel scale-102 shadow-sm ring-1 ring-caramel/30'
+                                : 'border-taupe/20 opacity-70 hover:opacity-100 hover:border-noir/40'
+                            }`}
+                          >
+                            <img src={img} alt="" className="w-full h-full object-contain block" />
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={nextProdImage}
+                        className="w-8 h-24 shrink-0 bg-card hover:bg-noir text-noir hover:text-white border border-taupe/25 rounded-xs flex items-center justify-center transition-colors shadow-2xs"
+                        title="Photo suivante"
+                        aria-label="Photo suivante"
+                      >
+                        ›
+                      </button>
                     </div>
                   )}
 
@@ -2173,6 +2287,11 @@
         const [onlyInStock, setOnlyInStock] = useState(false);
         const [sortOrder, setSortOrder] = useState('default');
         const [gridCols, setGridCols] = useState(3);
+        const [catalogPage, setCatalogPage] = useState(1);
+        const CATALOG_PER_PAGE = 10;
+        const [cardImageIdxMap, setCardImageIdxMap] = useState({});
+        const cardTouchStartX = useRef({});
+        const quickViewTouchStartX = useRef(null);
 
         // --- Modals & Drawers ---
         const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -2427,11 +2546,11 @@
         const [adminLoginError, setAdminLoginError] = useState('');
         const [adminActiveTab, setAdminActiveTab] = useState('products');
 
-        // --- Load Products from API or Seed ---
+        // --- Load Products from API or Seed (Newest products first) ---
         const fetchProducts = useCallback(async () => {
           setLoadingProducts(true);
           try {
-            const res = await fetch('/api/products');
+            const res = await fetch(`/api/products?_t=${Date.now()}`, { cache: 'no-store' });
             if (res.ok) {
               const data = await res.json();
               if (Array.isArray(data) && data.length > 0) {
@@ -2439,7 +2558,7 @@
               } else {
                 // Seed if empty
                 await fetch('/api/seed', { method: 'POST' });
-                const seedRes = await fetch('/api/products');
+                const seedRes = await fetch(`/api/products?_t=${Date.now()}`, { cache: 'no-store' });
                 if (seedRes.ok) {
                   const seedData = await seedRes.json();
                   if (Array.isArray(seedData) && seedData.length > 0) {
@@ -2611,9 +2730,9 @@
           setQuickViewColor((product.colors && product.colors[0]) || '');
         };
 
-        // --- Filtered and Sorted Products ---
+        // --- Filtered and Sorted Products (Newest products first by default) ---
         const filteredProducts = useMemo(() => {
-          return products.filter(p => {
+          const list = products.filter(p => {
             // Category
             if (selectedCategory !== 'all' && String(p.category || '').trim().toLowerCase() !== String(selectedCategory).trim().toLowerCase()) return false;
             // Stock only
@@ -2626,12 +2745,16 @@
               if (!matchFr && !matchAr) return false;
             }
             return true;
-          }).sort((a, b) => {
-            if (sortOrder === 'asc') return a.price - b.price;
-            if (sortOrder === 'desc') return b.price - a.price;
-            return a.id - b.id;
           });
+          if (sortOrder === 'asc') return [...list].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+          if (sortOrder === 'desc') return [...list].sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+          return list;
         }, [products, selectedCategory, onlyInStock, searchQuery, sortOrder]);
+
+        const totalCatalogPages = Math.max(1, Math.ceil(filteredProducts.length / CATALOG_PER_PAGE));
+        const safeCatalogPage = Math.min(Math.max(1, catalogPage), totalCatalogPages);
+        const startCatalogIdx = (safeCatalogPage - 1) * CATALOG_PER_PAGE;
+        const paginatedCatalogProducts = filteredProducts.slice(startCatalogIdx, startCatalogIdx + CATALOG_PER_PAGE);
 
         // --- Admin KPI Stats ---
         const adminKPIs = useMemo(() => {
@@ -3229,183 +3352,327 @@
                   </button>
                 </div>
               ) : (
-                <div
-                  className={`grid gap-8 ${
-                    gridCols === 1
-                      ? 'grid-cols-1 max-w-xl mx-auto'
-                      : gridCols === 2
-                      ? 'grid-cols-1 md:grid-cols-2'
-                      : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-                  }`}
-                >
-                  {filteredProducts.map(product => {
-                    const isWish = wishlist.includes(product.id);
-                    const isOut = !product.inStock || product.stock <= 0;
-                    const isLow = product.stock > 0 && product.stock < 5;
-                    const title = lang === 'ar' ? (product.nameAr || product.nameFr) : product.nameFr;
-                    const desc = lang === 'ar' ? (product.descAr || product.descFr) : product.descFr;
+                <>
+                  <div
+                    className={`grid gap-8 ${
+                      gridCols === 1
+                        ? 'grid-cols-1 max-w-xl mx-auto'
+                        : gridCols === 2
+                        ? 'grid-cols-1 md:grid-cols-2'
+                        : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                    }`}
+                  >
+                    {paginatedCatalogProducts.map((product, idx) => {
+                      const prodNumber = startCatalogIdx + idx + 1;
+                      const isWish = wishlist.includes(product.id);
+                      const isOut = !product.inStock || product.stock <= 0;
+                      const isLow = product.stock > 0 && product.stock < 5;
+                      const title = lang === 'ar' ? (product.nameAr || product.nameFr) : product.nameFr;
+                      const desc = lang === 'ar' ? (product.descAr || product.descFr) : product.descFr;
+                      const imagesArr = Array.isArray(product.images) && product.images.length > 0 ? product.images : [''];
+                      const activeCardImgIdx = (cardImageIdxMap[product.id] || 0) % imagesArr.length;
 
-                    return (
-                      <div
-                        key={product.id}
-                        className="group flex flex-col bg-card border border-taupe/20 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
-                      >
-                        {/* Image Showcase Container — Standardized 3:4 Fashion Ratio with Uncropped Contain */}
+                      const stepCardImage = (e, dir) => {
+                        if (e && e.stopPropagation) e.stopPropagation();
+                        if (imagesArr.length <= 1) return;
+                        setCardImageIdxMap(prev => {
+                          const cur = prev[product.id] || 0;
+                          const next = (cur + dir + imagesArr.length) % imagesArr.length;
+                          return { ...prev, [product.id]: next };
+                        });
+                      };
+
+                      return (
                         <div
-                          onClick={() => navigateToProduct(product.id)}
-                          className="relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden cursor-pointer rounded-xs p-3 flex items-center justify-center"
+                          key={product.id}
+                          className="group flex flex-col bg-card border border-taupe/20 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
                         >
-                          <img
-                            src={product.images && product.images[0]}
-                            alt={title}
-                            referrerPolicy="no-referrer"
-                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
-                          />
-
-                          {/* Top Badges */}
-                          <div className="absolute top-3 start-3 flex flex-col gap-1 z-10 pointer-events-none">
-                            {isOut ? (
-                              <span className="bg-noir/90 text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
-                                {t.badge_out}
-                              </span>
-                            ) : product.badge === 'exclusive' ? (
-                              <span className="bg-caramel text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
-                                {t.badge_exclusive}
-                              </span>
-                            ) : product.badge === 'luxury' ? (
-                              <span className="bg-[#4A3525] text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
-                                {t.badge_luxury}
-                              </span>
-                            ) : product.isNew ? (
-                              <span className="bg-noir text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
-                                {t.badge_new}
-                              </span>
-                            ) : null}
-                          </div>
-
-                          {/* Photos Indicator */}
-                          {product.images && product.images.length > 1 && (
-                            <span className="absolute bottom-3 end-3 bg-black/60 text-white text-[10px] px-2 py-0.5 backdrop-blur-xs font-mono pointer-events-none">
-                              +{product.images.length - 1} photos
-                            </span>
-                          )}
-
-                          {/* Top End Actions: Client Link Copy & Wishlist */}
-                          <div className="absolute top-3 end-3 flex items-center gap-1.5 z-10">
-                            {/* Copy direct client link (SEO Slug) */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const url = `${window.location.origin}/produit/${getProductSlug(product)}`;
-                                try {
-                                  navigator.clipboard.writeText(url);
-                                  showToast(t.product_link_copied, 'success');
-                                } catch {
-                                  showToast(url, 'info');
-                                }
-                              }}
-                              className="w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90 text-noir/70 hover:text-caramel"
-                              title="Copier le lien direct client"
-                              aria-label="Copier le lien client"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                              </svg>
-                            </button>
-
-                            {/* Wishlist Heart */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleWishlist(product.id);
-                              }}
-                              className="w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90"
-                              aria-label="Wishlist"
-                            >
-                              <svg
-                                className={`w-4 h-4 transition-colors ${isWish ? 'fill-caramel text-caramel animate-heart-pop' : 'text-noir/60 hover:text-noir'}`}
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth="1.75"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Product Info */}
-                        <div className="p-6 flex flex-col flex-1">
-                          {/* Category and Rating */}
-                          <div className="flex items-center justify-between text-[11px] text-taupe-dark uppercase tracking-wider mb-2">
-                            <span>{product.category}</span>
-                            <span className="text-caramel font-semibold">★ {product.rating || 5}.0</span>
-                          </div>
-
-                          {/* Title */}
-                          <h3
+                          {/* Image Showcase Container — Standardized 3:4 Fashion Ratio with Left/Right Photo Slider */}
+                          <div
                             onClick={() => navigateToProduct(product.id)}
-                            className="font-serif text-xl font-semibold text-noir mb-2 group-hover:text-caramel transition-colors cursor-pointer"
+                            onTouchStart={(e) => {
+                              if (e.touches && e.touches[0]) {
+                                cardTouchStartX.current[product.id] = e.touches[0].clientX;
+                              }
+                            }}
+                            onTouchEnd={(e) => {
+                              const startX = cardTouchStartX.current[product.id];
+                              if (startX == null || !e.changedTouches || !e.changedTouches[0]) return;
+                              const deltaX = e.changedTouches[0].clientX - startX;
+                              cardTouchStartX.current[product.id] = null;
+                              if (Math.abs(deltaX) > 35 && imagesArr.length > 1) {
+                                e.stopPropagation();
+                                stepCardImage(null, deltaX > 0 ? -1 : 1);
+                              }
+                            }}
+                            className="relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden cursor-pointer rounded-xs p-3 flex items-center justify-center select-none"
                           >
-                            {title}
-                          </h3>
+                            <img
+                              src={imagesArr[activeCardImgIdx] || imagesArr[0]}
+                              alt={title}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                            />
 
-                          {/* Description (2 lines clamp) */}
-                          <p className="text-xs text-taupe-dark line-clamp-2 leading-relaxed mb-4 flex-1">
-                            {desc}
-                          </p>
-
-                          {/* Stock Warning if low with Flame Pulse */}
-                          {isLow && (
-                            <p className="text-[11px] font-semibold text-[#B91C1C] mb-3 flex items-center">
-                              <span className="animate-flame me-1 inline-block">🔥</span>
-                              <span>{t.low_stock_alert.replace('🔥 ', '').replace('{n}', product.stock)}</span>
-                            </p>
-                          )}
-
-                          {/* Price & Old Price */}
-                          <div className="flex items-baseline gap-2.5 mb-5 pt-2 border-t border-taupe/15">
-                            <span className="font-semibold text-lg text-noir tabular-nums">
-                              {Number(product.price).toLocaleString()} MAD
-                            </span>
-                            {product.oldPrice && (
-                              <span className="text-xs text-taupe line-through tabular-nums">
-                                {Number(product.oldPrice).toLocaleString()} MAD
-                              </span>
+                            {/* Left & Right Slider Arrows on Product Card when multiple photos */}
+                            {imagesArr.length > 1 && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => stepCardImage(e, -1)}
+                                  className="absolute start-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                                  title="Photo précédente"
+                                  aria-label="Photo précédente"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => stepCardImage(e, 1)}
+                                  className="absolute end-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                                  title="Photo suivante"
+                                  aria-label="Photo suivante"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </button>
+                              </>
                             )}
+
+                            {/* Top Badges */}
+                            <div className="absolute top-3 start-3 flex flex-col gap-1 z-10 pointer-events-none">
+                              {isOut ? (
+                                <span className="bg-noir/90 text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
+                                  {t.badge_out}
+                                </span>
+                              ) : product.badge === 'exclusive' ? (
+                                <span className="bg-caramel text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
+                                  {t.badge_exclusive}
+                                </span>
+                              ) : product.badge === 'luxury' ? (
+                                <span className="bg-[#4A3525] text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
+                                  {t.badge_luxury}
+                                </span>
+                              ) : product.isNew ? (
+                                <span className="bg-noir text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
+                                  {t.badge_new}
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {/* Interactive Dots & Photos Counter Indicator */}
+                            {imagesArr.length > 1 && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute bottom-3 inset-x-3 flex items-center justify-between z-10 pointer-events-auto"
+                              >
+                                <div className="flex items-center gap-1 bg-black/55 px-2 py-1 rounded-xs backdrop-blur-xs">
+                                  {imagesArr.map((_, dIdx) => (
+                                    <button
+                                      key={dIdx}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCardImageIdxMap(prev => ({ ...prev, [product.id]: dIdx }));
+                                      }}
+                                      className={`h-1.5 rounded-full transition-all ${
+                                        activeCardImgIdx === dIdx ? 'w-3.5 bg-caramel' : 'w-1.5 bg-white/60 hover:bg-white'
+                                      }`}
+                                      aria-label={`Photo ${dIdx + 1}`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="bg-black/65 text-white text-[10px] px-2 py-0.5 backdrop-blur-xs font-mono tabular-nums rounded-xs">
+                                  {activeCardImgIdx + 1}/{imagesArr.length}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Top End Actions: Client Link Copy & Wishlist */}
+                            <div className="absolute top-3 end-3 flex items-center gap-1.5 z-10">
+                              {/* Copy direct client link (SEO Slug) */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const url = `${window.location.origin}/produit/${getProductSlug(product)}`;
+                                  try {
+                                    navigator.clipboard.writeText(url);
+                                    showToast(t.product_link_copied, 'success');
+                                  } catch {
+                                    showToast(url, 'info');
+                                  }
+                                }}
+                                className="w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90 text-noir/70 hover:text-caramel"
+                                title="Copier le lien direct client"
+                                aria-label="Copier le lien client"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                </svg>
+                              </button>
+
+                              {/* Wishlist Heart */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleWishlist(product.id);
+                                }}
+                                className="w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90"
+                                aria-label="Wishlist"
+                              >
+                                <svg
+                                  className={`w-4 h-4 transition-colors ${isWish ? 'fill-caramel text-caramel animate-heart-pop' : 'text-noir/60 hover:text-noir'}`}
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth="1.75"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
 
-                          {/* Action Buttons: View Product Page & Add to Cart */}
-                          <div className="grid grid-cols-2 gap-2 mt-auto">
-                            <button
-                              type="button"
+                          {/* Product Info */}
+                          <div className="p-6 flex flex-col flex-1">
+                            {/* Category and Rating */}
+                            <div className="flex items-center justify-between text-[11px] text-taupe-dark uppercase tracking-wider mb-2">
+                              <span>{product.category}</span>
+                              <span className="text-caramel font-semibold">★ {product.rating || 5}.0</span>
+                            </div>
+
+                            {/* Title */}
+                            <h3
                               onClick={() => navigateToProduct(product.id)}
-                              className="px-3 py-2.5 border border-taupe/30 text-xs font-semibold uppercase tracking-wider text-noir hover:border-noir hover:bg-noir hover:text-white transition-all flex items-center justify-center gap-1"
-                              title="Ouvrir la page dédiée avec lien direct"
+                              className="font-serif text-xl font-semibold text-noir mb-2 group-hover:text-caramel transition-colors cursor-pointer"
                             >
-                              <span>{t.admin_view_product || "Voir"}</span>
-                              <span className="text-[10px]">→</span>
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isOut}
-                              onClick={() => addToCart(product)}
-                              className={`px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
-                                isOut
-                                  ? 'bg-taupe/20 text-taupe-dark cursor-not-allowed'
-                                  : 'bg-noir text-white hover:bg-caramel active:scale-95 shadow-xs'
-                              }`}
-                            >
-                              {isOut ? t.out_of_stock : t.add_to_cart}
-                            </button>
+                              {title}
+                            </h3>
+
+                            {/* Description (2 lines clamp) */}
+                            <p className="text-xs text-taupe-dark line-clamp-2 leading-relaxed mb-4 flex-1">
+                              {desc}
+                            </p>
+
+                            {/* Stock Warning if low with Flame Pulse */}
+                            {isLow && (
+                              <p className="text-[11px] font-semibold text-[#B91C1C] mb-3 flex items-center">
+                                <span className="animate-flame me-1 inline-block">🔥</span>
+                                <span>{t.low_stock_alert.replace('🔥 ', '').replace('{n}', product.stock)}</span>
+                              </p>
+                            )}
+
+                            {/* Price & Old Price */}
+                            <div className="flex items-baseline gap-2.5 mb-5 pt-2 border-t border-taupe/15">
+                              <span className="font-semibold text-lg text-noir tabular-nums">
+                                {Number(product.price).toLocaleString()} MAD
+                              </span>
+                              {product.oldPrice && (
+                                <span className="text-xs text-taupe line-through tabular-nums">
+                                  {Number(product.oldPrice).toLocaleString()} MAD
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Action Buttons: View Product Page & Add to Cart */}
+                            <div className="grid grid-cols-2 gap-2 mt-auto">
+                              <button
+                                type="button"
+                                onClick={() => navigateToProduct(product.id)}
+                                className="px-3 py-2.5 border border-taupe/30 text-xs font-semibold uppercase tracking-wider text-noir hover:border-noir hover:bg-noir hover:text-white transition-all flex items-center justify-center gap-1"
+                                title="Ouvrir la page dédiée avec lien direct"
+                              >
+                                <span>{t.admin_view_product || "Voir"}</span>
+                                <span className="text-[10px]">→</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isOut}
+                                onClick={() => addToCart(product)}
+                                className={`px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                                  isOut
+                                    ? 'bg-taupe/20 text-taupe-dark cursor-not-allowed'
+                                    : 'bg-noir text-white hover:bg-caramel active:scale-95 shadow-xs'
+                                }`}
+                              >
+                                {isOut ? t.out_of_stock : t.add_to_cart}
+                              </button>
+                            </div>
                           </div>
                         </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Storefront Catalog Pagination Bar (10 products per page: 1-10, 11-20, etc.) */}
+                  {filteredProducts.length > 0 && (
+                    <div className="mt-10 pt-6 border-t border-taupe/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="text-xs text-taupe-dark">
+                        Affichage des produits <span className="font-bold text-noir">{startCatalogIdx + 1}</span> à{' '}
+                        <span className="font-bold text-noir">{Math.min(startCatalogIdx + CATALOG_PER_PAGE, filteredProducts.length)}</span> sur{' '}
+                        <span className="font-bold text-noir">{filteredProducts.length}</span> (Page {safeCatalogPage} sur {totalCatalogPages})
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCatalogPage(Math.max(1, safeCatalogPage - 1));
+                            const el = document.getElementById('collection');
+                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          disabled={safeCatalogPage <= 1}
+                          className={`px-3.5 py-2 text-xs font-semibold rounded-xs border transition-colors ${
+                            safeCatalogPage <= 1
+                              ? 'bg-canvas text-taupe border-taupe/20 cursor-not-allowed opacity-60'
+                              : 'bg-card text-noir border-taupe/30 hover:border-noir'
+                          }`}
+                        >
+                          ← Précédent
+                        </button>
+
+                        {Array.from({ length: totalCatalogPages }, (_, i) => i + 1).map(pNum => (
+                          <button
+                            key={pNum}
+                            type="button"
+                            onClick={() => {
+                              setCatalogPage(pNum);
+                              const el = document.getElementById('collection');
+                              if (el) el.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className={`w-9 h-9 text-xs font-bold rounded-xs border transition-colors tabular-nums ${
+                              safeCatalogPage === pNum
+                                ? 'bg-noir text-white border-noir shadow-xs'
+                                : 'bg-card text-noir border-taupe/30 hover:border-caramel hover:text-caramel'
+                            }`}
+                          >
+                            {pNum}
+                          </button>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCatalogPage(Math.min(totalCatalogPages, safeCatalogPage + 1));
+                            const el = document.getElementById('collection');
+                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          disabled={safeCatalogPage >= totalCatalogPages}
+                          className={`px-3.5 py-2 text-xs font-semibold rounded-xs border transition-colors ${
+                            safeCatalogPage >= totalCatalogPages
+                              ? 'bg-canvas text-taupe border-taupe/20 cursor-not-allowed opacity-60'
+                              : 'bg-card text-noir border-taupe/30 hover:border-noir'
+                          }`}
+                        >
+                          Suivant →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </section>
 
@@ -4010,23 +4277,59 @@
                     ✕
                   </button>
 
-                  {/* Left: Gallery */}
+                  {/* Left: Gallery with Left/Right Slider & Swipe */}
                   <div className="md:w-1/2 p-6 flex flex-col items-center bg-card">
-                    <div className="w-full aspect-square bg-[#F7F5F0] border border-taupe/20 overflow-hidden mb-4 p-4 flex items-center justify-center">
+                    <div
+                      className="relative w-full aspect-square bg-[#F7F5F0] border border-taupe/20 overflow-hidden mb-4 p-4 flex items-center justify-center select-none"
+                      onTouchStart={(e) => {
+                        if (e.touches && e.touches[0]) {
+                          quickViewTouchStartX.current = e.touches[0].clientX;
+                        }
+                      }}
+                      onTouchEnd={(e) => {
+                        if (quickViewTouchStartX.current == null || !e.changedTouches || !e.changedTouches[0]) return;
+                        const deltaX = e.changedTouches[0].clientX - quickViewTouchStartX.current;
+                        quickViewTouchStartX.current = null;
+                        const totalImgs = (quickViewProduct.images && quickViewProduct.images.length) || 0;
+                        if (Math.abs(deltaX) > 35 && totalImgs > 1) {
+                          setQuickViewImageIdx(prev => (prev + (deltaX > 0 ? -1 : 1) + totalImgs) % totalImgs);
+                        }
+                      }}
+                    >
                       <img
                         src={(quickViewProduct.images && quickViewProduct.images[quickViewImageIdx]) || (quickViewProduct.images && quickViewProduct.images[0])}
                         alt={quickViewProduct.nameFr}
                         className="w-full h-full object-contain transition-all duration-300"
                       />
+                      {quickViewProduct.images && quickViewProduct.images.length > 1 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setQuickViewImageIdx(prev => (prev - 1 + quickViewProduct.images.length) % quickViewProduct.images.length)}
+                            className="absolute start-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-colors"
+                            aria-label="Photo précédente"
+                          >
+                            ‹
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setQuickViewImageIdx(prev => (prev + 1) % quickViewProduct.images.length)}
+                            className="absolute end-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-colors"
+                            aria-label="Photo suivante"
+                          >
+                            ›
+                          </button>
+                        </>
+                      )}
                     </div>
                     {/* Thumbnails */}
                     {quickViewProduct.images && quickViewProduct.images.length > 1 && (
-                      <div className="flex gap-2 w-full justify-center">
+                      <div className="flex gap-2 w-full justify-center overflow-x-auto pb-1">
                         {quickViewProduct.images.map((img, i) => (
                           <button
                             key={i}
                             onClick={() => setQuickViewImageIdx(i)}
-                            className={`w-14 h-14 border-2 overflow-hidden transition-all p-1 bg-[#F7F5F0] flex items-center justify-center ${
+                            className={`w-14 h-14 shrink-0 border-2 overflow-hidden transition-all p-1 bg-[#F7F5F0] flex items-center justify-center ${
                               quickViewImageIdx === i ? 'border-caramel scale-105' : 'border-taupe/20 opacity-70 hover:opacity-100'
                             }`}
                           >
@@ -4230,6 +4533,10 @@
                   setOrders(prev => (prev || []).filter(o => String(o?.id || '').trim().toUpperCase() !== cleanId));
                 }}
                 onRefreshProducts={fetchProducts}
+                onDeleteProductLocal={(deletedId) => {
+                  const numId = Number(deletedId);
+                  setProducts(prev => (prev || []).filter(p => Number(p?.id) !== numId));
+                }}
                 onEditProduct={(p) => setProductFormModal(p)}
                 onAddProduct={() => setProductFormModal({
                   id: null,
@@ -4290,13 +4597,23 @@
                 t={t}
                 onClose={() => setProductFormModal(null)}
                 onSaved={(savedProduct) => {
+                  const wasNew = !productFormModal.id;
                   setProductFormModal(null);
+                  if (savedProduct && savedProduct.id) {
+                    setProducts(prev => {
+                      const existingIdx = (prev || []).findIndex(p => Number(p.id) === Number(savedProduct.id));
+                      if (existingIdx >= 0 && !wasNew) {
+                        const copy = [...prev];
+                        copy[existingIdx] = savedProduct;
+                        return copy;
+                      }
+                      // New product goes directly to 1st position (#1)
+                      return [savedProduct, ...(prev || []).filter(p => Number(p.id) !== Number(savedProduct.id))];
+                    });
+                  }
+                  setCatalogPage(1);
                   fetchProducts();
                   showToast(t.toast_product_saved, 'success');
-                  if (savedProduct && savedProduct.id) {
-                    setAdminOpen(false);
-                    navigateToProduct(savedProduct.id);
-                  }
                 }}
                 onError={(err) => showToast(err || 'Erreur enregistrement', 'error')}
               />
@@ -4716,7 +5033,7 @@
       function AdminModal({
         token, adminUser, setAdminUser, adminPass, setAdminPass, loginError,
         onLogin, onLogout, kpis, activeTab, setActiveTab, products, orders,
-        lang, t, onClose, onRefreshOrders, onDeleteOrderLocal, onRefreshProducts, onEditProduct,
+        lang, t, onClose, onRefreshOrders, onDeleteOrderLocal, onRefreshProducts, onDeleteProductLocal, onEditProduct,
         onAddProduct, onViewInvoice, showToast, onViewProductPage, onCopyProductLink,
         heroSlides, onSaveSlider, cms, onSaveCms, testimonials, onRefreshTestimonials
       }) {
@@ -4725,9 +5042,14 @@
         const [sliderUploadingIdx, setSliderUploadingIdx] = useState(null);
         const [sliderSaving, setSliderSaving] = useState(false);
 
-        // Product search & filter
+        // Product search, filter & pagination (10 products per page)
         const [prodSearch, setProdSearch] = useState('');
         const [prodCat, setProdCat] = useState('ALL');
+        const [prodPage, setProdPage] = useState(1);
+        const [confirmDeleteProdId, setConfirmDeleteProdId] = useState(null);
+        const [deletingProdId, setDeletingProdId] = useState(null);
+        const [adminThumbIdxMap, setAdminThumbIdxMap] = useState({});
+        const PRODUCTS_PER_PAGE = 10;
 
         // Order filter, search & pagination (10 orders per page)
         const [orderFilter, setOrderFilter] = useState('ALL');
@@ -5029,18 +5351,29 @@
         };
 
         const handleDeleteProduct = async (id) => {
-          if (!confirm('Supprimer définitivement ce produit ?')) return;
+          const numId = Number(id);
+          if (!numId) return;
+          setDeletingProdId(numId);
+          setConfirmDeleteProdId(null);
+          if (onDeleteProductLocal) {
+            onDeleteProductLocal(numId);
+          }
           try {
-            const res = await fetch(`/api/products/${id}`, {
+            const res = await fetch(`/api/products/${encodeURIComponent(numId)}`, {
               method: 'DELETE',
               headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
-              onRefreshProducts();
+              await onRefreshProducts();
               showToast(t.toast_product_deleted, 'info');
+            } else {
+              await onRefreshProducts();
+              showToast('Erreur suppression produit', 'error');
             }
           } catch {
             showToast('Erreur suppression', 'error');
+          } finally {
+            setDeletingProdId(null);
           }
         };
 
@@ -5072,15 +5405,21 @@
           }
         };
 
-        // Filtered products & orders
+        // Filtered products & pagination (10 products per page)
         const filteredProducts = (products || []).filter(p => {
+          if (!p) return false;
           const matchSearch = !prodSearch || 
             (p.nameFr && p.nameFr.toLowerCase().includes(prodSearch.toLowerCase())) ||
             (p.nameAr && p.nameAr.toLowerCase().includes(prodSearch.toLowerCase())) ||
             (p.id && String(p.id).toLowerCase().includes(prodSearch.toLowerCase()));
-          const matchCat = prodCat === 'ALL' || p.category === prodCat;
+          const matchCat = prodCat === 'ALL' || String(p.category || '').toLowerCase() === String(prodCat).toLowerCase();
           return matchSearch && matchCat;
         });
+
+        const totalProdPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
+        const safeProdPage = Math.min(Math.max(1, prodPage), totalProdPages);
+        const startProdIdx = (safeProdPage - 1) * PRODUCTS_PER_PAGE;
+        const paginatedProducts = filteredProducts.slice(startProdIdx, startProdIdx + PRODUCTS_PER_PAGE);
 
         const filteredOrders = (orders || []).filter(o => {
           if (!o) return false;
@@ -5442,9 +5781,18 @@
                     <div className="text-[11px] text-taupe mt-0.5">Moyenne par panier</div>
                   </div>
 
-                  <div className="bg-white p-4 border border-taupe/20 shadow-2xs rounded-xs">
-                    <div className="text-[10px] uppercase font-bold tracking-wider text-taupe-dark">
-                      Articles en Ligne
+                  <div
+                    onClick={() => setActiveTab('products')}
+                    className="bg-white p-4 border border-taupe/20 hover:border-caramel shadow-2xs rounded-xs cursor-pointer transition-colors group"
+                    title="Cliquez pour afficher tous les produits"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] uppercase font-bold tracking-wider text-taupe-dark group-hover:text-noir">
+                        Articles en Ligne
+                      </div>
+                      <span className="text-[10px] font-semibold text-caramel group-hover:underline">
+                        Voir tout →
+                      </span>
                     </div>
                     <div className="font-serif text-2xl font-bold text-noir mt-1 tabular-nums">
                       {(products || []).length}
@@ -5454,7 +5802,7 @@
                 </div>
 
                 {/* ======================================================= */}
-                {/* TAB 1: PRODUCTS TABLE (with SEO slug link & Actions)   */}
+                {/* TAB 1: PRODUCTS TABLE (1-10 Numbering, Pagination, SEO) */}
                 {/* ======================================================= */}
                 {activeTab === 'products' && (
                   <div className="bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden">
@@ -5464,13 +5812,19 @@
                         <input
                           type="text"
                           value={prodSearch}
-                          onChange={(e) => setProdSearch(e.target.value)}
+                          onChange={(e) => {
+                            setProdSearch(e.target.value);
+                            setProdPage(1);
+                          }}
                           placeholder="Rechercher par nom ou référence..."
                           className="w-full sm:w-64 bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
                         />
                         <select
                           value={prodCat}
-                          onChange={(e) => setProdCat(e.target.value)}
+                          onChange={(e) => {
+                            setProdCat(e.target.value);
+                            setProdPage(1);
+                          }}
                           className="bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
                         >
                           <option value="ALL">Toutes Catégories</option>
@@ -5479,8 +5833,10 @@
                           ))}
                         </select>
                       </div>
-                      <div className="text-xs text-taupe-dark">
-                        {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''} trouvé{filteredProducts.length > 1 ? 's' : ''}
+                      <div className="text-xs font-semibold text-taupe-dark whitespace-nowrap">
+                        {filteredProducts.length === 0
+                          ? '0 produit'
+                          : `Produits ${startProdIdx + 1}–${Math.min(startProdIdx + PRODUCTS_PER_PAGE, filteredProducts.length)} sur ${filteredProducts.length}`}
                       </div>
                     </div>
 
@@ -5489,6 +5845,7 @@
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
                           <tr className="bg-canvas border-b border-taupe/20 text-taupe-dark uppercase text-[10px] tracking-wider">
+                            <th className="p-3 text-center w-12">#</th>
                             <th className="p-3">Aperçu</th>
                             <th className="p-3">Désignation</th>
                             <th className="p-3">Catégorie</th>
@@ -5498,28 +5855,75 @@
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-taupe/15">
-                          {filteredProducts.length === 0 ? (
+                          {paginatedProducts.length === 0 ? (
                             <tr>
-                              <td colSpan="6" className="p-8 text-center text-taupe-dark">
+                              <td colSpan="7" className="p-8 text-center text-taupe-dark">
                                 Aucun produit ne correspond à votre recherche.
                               </td>
                             </tr>
                           ) : (
-                            filteredProducts.map(p => {
-                              const thumb = (p.images && p.images[0]) || '';
+                            paginatedProducts.map((p, idx) => {
+                              const prodNum = startProdIdx + idx + 1;
+                              const imgs = Array.isArray(p.images) && p.images.length > 0 ? p.images : [];
+                              const curThumbIdx = imgs.length > 0 ? (adminThumbIdxMap[p.id] || 0) % imgs.length : 0;
+                              const thumb = imgs[curThumbIdx] || '';
+                              const isConfirmingProdDelete = confirmDeleteProdId === p.id;
+                              const isDeletingProd = deletingProdId === p.id;
+
                               return (
-                                <tr key={p.id} className="hover:bg-canvas/50">
+                                <tr key={p.id || prodNum} className="hover:bg-canvas/50 transition-colors">
+                                  <td className="p-3 text-center">
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-xs bg-noir/5 border border-taupe/25 font-mono text-[11px] font-bold text-noir tabular-nums">
+                                      {prodNum}
+                                    </span>
+                                  </td>
                                   <td className="p-3">
-                                    <div className="w-12 h-16 bg-[#F7F5F0] border border-taupe/20 overflow-hidden relative rounded-xs p-1 flex items-center justify-center">
+                                    <div className="w-16 h-20 bg-[#F7F5F0] border border-taupe/20 overflow-hidden relative rounded-xs p-1 flex items-center justify-center group">
                                       {thumb ? (
                                         <img src={thumb} alt={p.nameFr} className="w-full h-full object-contain" />
                                       ) : (
                                         <div className="w-full h-full flex items-center justify-center text-[9px] text-taupe">Sans photo</div>
                                       )}
+                                      {imgs.length > 1 && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => setAdminThumbIdxMap(prev => ({
+                                              ...prev,
+                                              [p.id]: ((prev[p.id] || 0) - 1 + imgs.length) % imgs.length
+                                            }))}
+                                            className="absolute start-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white text-[10px] font-bold flex items-center justify-center shadow-2xs"
+                                            title="Photo précédente"
+                                          >
+                                            ‹
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setAdminThumbIdxMap(prev => ({
+                                              ...prev,
+                                              [p.id]: ((prev[p.id] || 0) + 1) % imgs.length
+                                            }))}
+                                            className="absolute end-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white text-[10px] font-bold flex items-center justify-center shadow-2xs"
+                                            title="Photo suivante"
+                                          >
+                                            ›
+                                          </button>
+                                          <span className="absolute bottom-0.5 end-0.5 bg-black/70 text-white text-[8px] font-mono px-1 rounded-2xs tabular-nums">
+                                            {curThumbIdx + 1}/{imgs.length}
+                                          </span>
+                                        </>
+                                      )}
                                     </div>
                                   </td>
                                   <td className="p-3">
-                                    <div className="font-semibold text-noir">{p.nameFr}</div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-noir">{p.nameFr}</span>
+                                      {prodNum === 1 && prodPage === 1 && !prodSearch && prodCat === 'ALL' && (
+                                        <span className="text-[9px] uppercase tracking-wider font-bold text-caramel">
+                                          • Récemment ajouté
+                                        </span>
+                                      )}
+                                    </div>
                                     <div className="text-[11px] text-taupe-dark font-arabic">{p.nameAr}</div>
                                     <div className="text-[10px] text-taupe font-mono mt-0.5">REF: {p.id}</div>
                                   </td>
@@ -5564,13 +5968,34 @@
                                       >
                                         ✏️ Modifier
                                       </button>
-                                      <button
-                                        onClick={() => handleDeleteProduct(p.id)}
-                                        className="px-2 py-1 text-red-600 hover:text-red-800 text-[11px]"
-                                        title="Supprimer"
-                                      >
-                                        ✕
-                                      </button>
+                                      {isConfirmingProdDelete ? (
+                                        <div className="flex items-center gap-1 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-xs">
+                                          <button
+                                            onClick={() => handleDeleteProduct(p.id)}
+                                            disabled={isDeletingProd}
+                                            className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xs transition-colors whitespace-nowrap"
+                                            title="Confirmer la suppression définitive"
+                                          >
+                                            {isDeletingProd ? '...' : 'Supprimer'}
+                                          </button>
+                                          <button
+                                            onClick={() => setConfirmDeleteProdId(null)}
+                                            className="px-1.5 py-1 text-taupe-dark hover:text-noir text-[10px] font-semibold"
+                                            title="Annuler"
+                                          >
+                                            Annuler
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={() => setConfirmDeleteProdId(p.id)}
+                                          disabled={isDeletingProd}
+                                          className="px-2 py-1 border border-red-200 hover:border-red-600 bg-red-50/50 hover:bg-red-600 text-red-600 hover:text-white text-[11px] font-bold rounded-xs transition-colors"
+                                          title="Supprimer ce produit"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -5580,6 +6005,57 @@
                         </tbody>
                       </table>
                     </div>
+
+                    {/* Products Pagination Footer (10 products per page: 1-10, 11-20, etc.) */}
+                    {filteredProducts.length > 0 && (
+                      <div className="p-4 border-t border-taupe/15 bg-canvas/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="text-xs text-taupe-dark">
+                          Affichage des produits <span className="font-bold text-noir">{startProdIdx + 1}</span> à{' '}
+                          <span className="font-bold text-noir">{Math.min(startProdIdx + PRODUCTS_PER_PAGE, filteredProducts.length)}</span> sur{' '}
+                          <span className="font-bold text-noir">{filteredProducts.length}</span> (Page {safeProdPage} sur {totalProdPages})
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                          <button
+                            onClick={() => setProdPage(Math.max(1, safeProdPage - 1))}
+                            disabled={safeProdPage <= 1}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-xs border transition-colors ${
+                              safeProdPage <= 1
+                                ? 'bg-canvas text-taupe border-taupe/20 cursor-not-allowed opacity-60'
+                                : 'bg-white text-noir border-taupe/30 hover:border-noir'
+                            }`}
+                          >
+                            ← Précédent
+                          </button>
+
+                          {Array.from({ length: totalProdPages }, (_, i) => i + 1).map(pageNum => (
+                            <button
+                              key={pageNum}
+                              onClick={() => setProdPage(pageNum)}
+                              className={`w-8 h-8 text-xs font-bold rounded-xs border transition-colors tabular-nums ${
+                                safeProdPage === pageNum
+                                  ? 'bg-noir text-white border-noir shadow-2xs'
+                                  : 'bg-white text-noir border-taupe/30 hover:border-caramel hover:text-caramel'
+                              }`}
+                              title={`Page ${pageNum} (Produits ${(pageNum - 1) * PRODUCTS_PER_PAGE + 1} à ${Math.min(pageNum * PRODUCTS_PER_PAGE, filteredProducts.length)})`}
+                            >
+                              {pageNum}
+                            </button>
+                          ))}
+
+                          <button
+                            onClick={() => setProdPage(Math.min(totalProdPages, safeProdPage + 1))}
+                            disabled={safeProdPage >= totalProdPages}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-xs border transition-colors ${
+                              safeProdPage >= totalProdPages
+                                ? 'bg-canvas text-taupe border-taupe/20 cursor-not-allowed opacity-60'
+                                : 'bg-white text-noir border-taupe/30 hover:border-noir'
+                            }`}
+                          >
+                            Suivant →
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -1,26 +1,91 @@
 {
   "products": [
     {
-      "id": 1,
+      "nameAr": "",
+      "updatedAt": "2026-11-11T17:51:33.816Z",
+      "images": [
+        "/uploads/products_1794419410120_WhatsApp_Image_2026-11-08_at_14_13_05.jpg"
+      ],
+      "nameFr": "jacket test ",
       "price": 600,
-      "badge": "new",
+      "stock": 10,
+      "descFr": "",
+      "oldPrice": 800,
+      "rating": 5,
+      "id": 1794419493816,
+      "category": "Outerwear",
       "isNew": true,
-      "descAr": "مصنوعة يدوياً على أيدي أمهر الحرفيين في فاس. جلد عجل طبيعي مدبوغ نباتياً، بطانة مريحة ونعل تشريحي مرن يجمع بين الأصالة والأناقة العصرية.",
+      "inStock": true,
+      "sizes": [
+        "M",
+        "L",
+        "XL"
+      ],
+      "descAr": "",
+      "colors": [
+        "#171717"
+      ],
+      "badge": "new"
+    },
+    {
+      "id": 1794419468167,
+      "updatedAt": "2026-11-11T17:51:08.167Z",
+      "nameAr": "",
+      "inStock": true,
+      "nameFr": "jacket test ",
+      "images": [
+        "/uploads/products_1794419410120_WhatsApp_Image_2026-11-08_at_14_13_05.jpg"
+      ],
+      "price": 600,
+      "descFr": "",
+      "stock": 10,
+      "rating": 5,
+      "isNew": true,
+      "sizes": [
+        "M",
+        "L",
+        "XL"
+      ],
+      "oldPrice": 800,
+      "descAr": "",
+      "colors": [
+        "#171717"
+      ],
+      "badge": "new",
+      "category": "Outerwear"
+    },
+    {
       "category": "Jackets",
-      "nameAr": "Arc'teryx Beta LT Jacket pour homme",
-      "updatedAt": "2026-11-10T11:05:01.154Z",
+      "colors": [
+        "#171717"
+      ],
+      "stock": 10,
+      "descAr": "",
+      "oldPrice": 1200,
+      "price": 950,
+      "inStock": true,
+      "rating": 5,
+      "descFr": "",
+      "badge": "new",
       "sizes": [
         "M",
         "L"
       ],
-      "oldPrice": 900,
-      "rating": 5,
-      "stock": 4,
-      "colors": [
-        "#3D2B1F",
-        "#171717",
-        "#8B5A2B"
+      "nameFr": "jacket",
+      "images": [
+        "/uploads/products_1794419328255_93e3b6d5-8f25-464a-b2f2-5bffa7b200df.webp",
+        "/uploads/products_1794419342031_c8597ffd-3556-43fc-8147-8045b1c8331e.webp",
+        "/uploads/products_1794419342589_17af4900-a67e-488e-b7fe-2b3f4ab1e55b.webp",
+        "/uploads/products_1794419342841_edc6c2dc-9ab7-42e7-8ef0-f6656a119c57.webp"
       ],
+      "nameAr": "",
+      "isNew": true,
+      "updatedAt": "2026-11-11T17:49:29.603Z",
+      "id": 1794419369603
+    },
+    {
+      "descFr": "Façonnées à la main par nos maîtres maroquiniers à Fès. Cuir de veau pleine fleur au tannage végétal, doublure respirante et semelle anatomique souple pour une élégance décontractée sans compromis.",
+      "price": 600,
       "images": [
         "/uploads/products_1794308641928_1000547306.jpg",
         "/uploads/products_1794308642315_1000547307.jpg",
@@ -31,466 +96,426 @@
         "/uploads/products_1794308643687_1000547303.jpg",
         "/uploads/products_1794308643971_1000547304.jpg"
       ],
-      "descFr": "Façonnées à la main par nos maîtres maroquiniers à Fès. Cuir de veau pleine fleur au tannage végétal, doublure respirante et semelle anatomique souple pour une élégance décontractée sans compromis.",
+      "nameFr": "Arc'teryx Beta LT Jacket pour homme",
+      "stock": 4,
+      "updatedAt": "2026-11-10T11:05:01.154Z",
+      "id": 1,
+      "nameAr": "Arc'teryx Beta LT Jacket pour homme",
+      "colors": [
+        "#3D2B1F",
+        "#171717",
+        "#8B5A2B"
+      ],
       "inStock": true,
-      "nameFr": "Arc'teryx Beta LT Jacket pour homme"
+      "oldPrice": 900,
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "category": "Jackets",
+      "badge": "new",
+      "descAr": "مصنوعة يدوياً على أيدي أمهر الحرفيين في فاس. جلد عجل طبيعي مدبوغ نباتياً، بطانة مريحة ونعل تشريحي مرن يجمع بين الأصالة والأناقة العصرية.",
+      "rating": 5,
+      "isNew": true
     },
     {
-      "price": 680,
-      "nameAr": "سيروم نباتي مركز للوجه واللحية",
       "isNew": true,
       "rating": 5,
+      "id": 2,
+      "descAr": "مستخلص مركز من زيت بذور التين الشوكي وزيت الحبة السوداء وخشب الأرز الأطلسي. يهدئ البشرة بعد الحلاقة، يرطب بعمق ويغذي اللحية دون أي ملمس دهني.",
       "badge": "luxury",
       "sizes": [
         "50ml",
         "100ml"
       ],
-      "stock": 4,
-      "descAr": "مستخلص مركز من زيت بذور التين الشوكي وزيت الحبة السوداء وخشب الأرز الأطلسي. يهدئ البشرة بعد الحلاقة، يرطب بعمق ويغذي اللحية دون أي ملمس دهني.",
-      "descFr": "Élixir concentré d'huile de figue de barbarie du Souss, nigelle d'Égypte et cèdre de l'Atlas. Apaise le feu du rasage, hydrate en profondeur et discipline la barbe sans film gras.",
-      "nameFr": "Sérum Botanique Visage & Barbe",
       "inStock": true,
       "colors": [
         "#8A4B1A"
       ],
+      "category": "soins",
+      "nameAr": "سيروم نباتي مركز للوجه واللحية",
       "oldPrice": 820,
+      "stock": 4,
+      "nameFr": "Sérum Botanique Visage & Barbe",
       "images": [
         "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(280, 80)'><ellipse cx='120' cy='430' rx='90' ry='20' fill='%23E5E0D8'/><rect x='60' y='180' width='120' height='230' rx='20' fill='%238A4B1A' opacity='0.9'/><rect x='85' y='120' width='70' height='60' fill='%23171717'/><rect x='105' y='60' width='30' height='60' rx='6' fill='%23222'/><rect x='75' y='230' width='90' height='130' fill='%23FAF9F6'/><text x='120' y='270' font-family='serif' font-size='15' font-weight='bold' fill='%23171717' text-anchor='middle'>MODANOVA</text><line x1='90' y1='285' x2='150' y2='285' stroke='%23C28B53' stroke-width='1.5'/><text x='120' y='305' font-family='sans-serif' font-size='9' fill='%23444' text-anchor='middle' letter-spacing='1'>SÉRUM PUR</text><text x='120' y='325' font-family='sans-serif' font-size='8' fill='%239E8C7A' text-anchor='middle'>50 ML / 1.7 FL.OZ</text></g></svg>",
         "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23ECE8E1'/><g transform='translate(300, 100)'><rect x='50' y='160' width='100' height='200' rx='16' fill='%236B3912'/><circle cx='100' cy='260' r='35' fill='%23FAF9F6' opacity='0.9'/><text x='100' y='265' font-family='serif' font-size='12' fill='%23171717' text-anchor='middle'>100% BIO</text></g></svg>"
       ],
-      "category": "soins",
-      "id": 2
+      "descFr": "Élixir concentré d'huile de figue de barbarie du Souss, nigelle d'Égypte et cèdre de l'Atlas. Apaise le feu du rasage, hydrate en profondeur et discipline la barbe sans film gras.",
+      "price": 680
     },
     {
-      "rating": 5,
-      "nameAr": "زيت جاف فاخر بخلاصة الأطلس",
       "descAr": "قوام حريري سريع الامتصاص غني بزيت الأركان العضوي وزهر البرتقال. يمنح البشرة إشراقة طبيعية ورائحة خشبية عنبرية راقية.",
-      "inStock": true,
-      "nameFr": "Huile Sèche Précieuse Atlas",
+      "id": 3,
+      "colors": [
+        "#C28B53"
+      ],
+      "isNew": true,
       "category": "soins",
       "sizes": [
         "100ml"
       ],
-      "id": 3,
+      "inStock": true,
+      "rating": 5,
       "oldPrice": null,
-      "stock": 8,
-      "descFr": "Texture satinée non comédogène infusée à l'argan biologique et néroli de Khemisset. Pénétration instantanée, parfum subtil boisé et ambré.",
+      "badge": "new",
       "images": [
         "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(290, 90)'><ellipse cx='110' cy='420' rx='80' ry='18' fill='%23E5E0D8'/><rect x='50' y='170' width='120' height='220' rx='24' fill='%23C28B53' opacity='0.85'/><rect x='85' y='110' width='50' height='60' fill='%23222'/><circle cx='110' cy='90' r='16' fill='%23171717'/><rect x='68' y='220' width='84' height='120' fill='%23FAF9F6'/><text x='110' y='260' font-family='serif' font-size='14' font-weight='bold' fill='%23171717' text-anchor='middle'>MODANOVA</text><text x='110' y='285' font-family='sans-serif' font-size='8' fill='%23444' text-anchor='middle' letter-spacing='1'>HUILE SÈCHE</text><text x='110' y='305' font-family='sans-serif' font-size='7' fill='%239E8C7A' text-anchor='middle'>ARGAN & NÉROLI</text></g></svg>"
       ],
+      "nameFr": "Huile Sèche Précieuse Atlas",
+      "descFr": "Texture satinée non comédogène infusée à l'argan biologique et néroli de Khemisset. Pénétration instantanée, parfum subtil boisé et ambré.",
       "price": 590,
-      "badge": "new",
-      "isNew": true,
-      "colors": [
-        "#C28B53"
-      ]
+      "stock": 8,
+      "nameAr": "زيت جاف فاخر بخلاصة الأطلس"
     },
     {
+      "category": "maison",
+      "stock": 2,
+      "colors": [
+        "#DCD6CD",
+        "#2C302E",
+        "#171717"
+      ],
+      "oldPrice": 2600,
+      "descAr": "منسوج بكثافة فاخرة 380 غرام/م². ياقة شال أنيقة مع جيوب عميقة وحزام متين. يوفر راحة فائقة وامتصاصاً مثالياً بعد الاستحمام.",
+      "price": 2200,
+      "inStock": true,
+      "rating": 5,
+      "descFr": "Tissé selon un grammage généreux de 380g/m². Col châle élégant, poches plaquées profondes et ceinture renforcée. Douceur aérienne et absorption optimale après le bain.",
+      "badge": "exclusive",
       "sizes": [
         "M",
         "L",
         "XL"
       ],
-      "rating": 5,
-      "nameAr": "رداء حمام فاخر من الكتان والقطن المغسول",
-      "stock": 2,
-      "price": 2200,
-      "oldPrice": 2600,
-      "id": 4,
-      "descAr": "منسوج بكثافة فاخرة 380 غرام/م². ياقة شال أنيقة مع جيوب عميقة وحزام متين. يوفر راحة فائقة وامتصاصاً مثالياً بعد الاستحمام.",
-      "isNew": false,
-      "badge": "exclusive",
-      "category": "maison",
       "nameFr": "Peignoir en Lin et Coton Lavé",
-      "inStock": true,
-      "descFr": "Tissé selon un grammage généreux de 380g/m². Col châle élégant, poches plaquées profondes et ceinture renforcée. Douceur aérienne et absorption optimale après le bain.",
       "images": [
         "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(220, 70)'><path d='M100,80 L260,80 L320,160 L280,440 L80,440 L40,160 Z' fill='%23DCD6CD'/><path d='M180,80 L120,240 L180,440 L180,80 Z' fill='%23CBC3B7'/><path d='M80,260 L280,260' stroke='%239E8C7A' stroke-width='14'/><circle cx='180' cy='260' r='12' fill='%236B5E51'/><text x='180' y='490' font-family='serif' font-size='18' fill='%239E8C7A' text-anchor='middle' letter-spacing='2'>LIN PRÉ-LAVÉ 380G/M²</text></g></svg>"
       ],
-      "colors": [
-        "#DCD6CD",
-        "#2C302E",
-        "#171717"
-      ]
+      "nameAr": "رداء حمام فاخر من الكتان والقطن المغسول",
+      "isNew": false,
+      "id": 4
     },
     {
-      "nameAr": "كوب قهوة خزفي مصنوع يدوياً",
-      "price": 320,
-      "isNew": false,
-      "rating": 4,
-      "badge": "out",
-      "sizes": [
-        "250ml"
-      ],
-      "stock": 0,
-      "descAr": "مصنوع يدوياً من الطين النقي في ورشات آسفي التاريخية. طلاء خزفي معدني غير لامع وقاعدة رملية خشنة. كل قطعة فريدة من نوعها.",
-      "descFr": "Grès chamotté tourné à la main dans les ateliers historiques de Safi. Émail mat minéral coquille d'œuf et base brute texturée. Chaque pièce est unique.",
-      "nameFr": "Tasse Céramique Artisanale",
-      "inStock": false,
       "colors": [
         "#DDD6CD",
         "#171717"
       ],
+      "stock": 0,
+      "descAr": "مصنوع يدوياً من الطين النقي في ورشات آسفي التاريخية. طلاء خزفي معدني غير لامع وقاعدة رملية خشنة. كل قطعة فريدة من نوعها.",
+      "price": 320,
+      "category": "maison",
+      "rating": 4,
       "oldPrice": null,
+      "id": 5,
+      "descFr": "Grès chamotté tourné à la main dans les ateliers historiques de Safi. Émail mat minéral coquille d'œuf et base brute texturée. Chaque pièce est unique.",
+      "badge": "out",
+      "sizes": [
+        "250ml"
+      ],
       "images": [
         "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(280, 150)'><ellipse cx='120' cy='320' rx='90' ry='20' fill='%23E5E0D8'/><path d='M60,110 L180,110 L165,280 C165,300 75,300 75,280 Z' fill='%23DDD6CD' stroke='%239E8C7A' stroke-width='3'/><path d='M175,150 C210,150 210,230 170,240' stroke='%239E8C7A' stroke-width='8' fill='none'/><rect x='70' y='265' width='100' height='20' fill='%239E8C7A'/><text x='120' y='360' font-family='serif' font-size='16' fill='%239E8C7A' text-anchor='middle'>ÉDITION LIMITÉE SAFI</text></g></svg>"
       ],
-      "category": "maison",
-      "id": 5
+      "nameFr": "Tasse Céramique Artisanale",
+      "inStock": false,
+      "nameAr": "كوب قهوة خزفي مصنوع يدوياً",
+      "isNew": false
     },
     {
-      "images": [
-        "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(220, 120)'><rect x='40' y='80' width='280' height='180' rx='12' fill='%239E8C7A'/><rect x='60' y='110' width='240' height='160' rx='8' fill='%23857565'/><rect x='80' y='140' width='200' height='140' rx='6' fill='%23FAF9F6'/><path d='M80,280 L280,280' stroke='%23C28B53' stroke-width='4' stroke-dasharray='6,6'/><text x='180' y='330' font-family='serif' font-size='16' fill='%23171717' text-anchor='middle'>MÉRINOS EXTRA-FIN 140x200 CM</text></g></svg>"
-      ],
+      "badge": "luxury",
       "colors": [
         "#9E8C7A",
         "#2C302E",
         "#FAF9F6"
       ],
-      "inStock": true,
-      "category": "maison",
-      "nameFr": "Plaid Laine Mérinos Peignée",
-      "oldPrice": 1950,
-      "descFr": "Tissage chevrons d'une finesse incomparable. Chaleur thermorégulatrice naturelle, franges torsadées nouées à la main. Idéal pour votre salon ou chambre de maître.",
-      "descAr": "نسيج كلاسيكي بنقشة متعرجة فائقة النعومة. صوف ميرينو طبيعي عازل للحرارة مع أطراف مجدولة يدوياً تضفي لمسة فخامة على مجلسك.",
-      "stock": 5,
       "sizes": [
         "140x200cm"
       ],
+      "descAr": "نسيج كلاسيكي بنقشة متعرجة فائقة النعومة. صوف ميرينو طبيعي عازل للحرارة مع أطراف مجدولة يدوياً تضفي لمسة فخامة على مجلسك.",
       "rating": 5,
       "isNew": false,
-      "badge": "luxury",
+      "descFr": "Tissage chevrons d'une finesse incomparable. Chaleur thermorégulatrice naturelle, franges torsadées nouées à la main. Idéal pour votre salon ou chambre de maître.",
+      "stock": 5,
       "id": 6,
       "price": 1650,
-      "nameAr": "غطاء فاخر من صوف الميرينو الممشط"
+      "nameFr": "Plaid Laine Mérinos Peignée",
+      "images": [
+        "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(220, 120)'><rect x='40' y='80' width='280' height='180' rx='12' fill='%239E8C7A'/><rect x='60' y='110' width='240' height='160' rx='8' fill='%23857565'/><rect x='80' y='140' width='200' height='140' rx='6' fill='%23FAF9F6'/><path d='M80,280 L280,280' stroke='%23C28B53' stroke-width='4' stroke-dasharray='6,6'/><text x='180' y='330' font-family='serif' font-size='16' fill='%23171717' text-anchor='middle'>MÉRINOS EXTRA-FIN 140x200 CM</text></g></svg>"
+      ],
+      "inStock": true,
+      "nameAr": "غطاء فاخر من صوف الميرينو الممشط",
+      "category": "maison",
+      "oldPrice": 1950
     }
   ],
   "orders": [
     {
-      "id": "CMD-8KP628",
-      "customerName": "benouair akram",
-      "paymentMethod": "COD (Paiement à la livraison)",
-      "promoCode": null,
-      "subtotal": 600,
       "status": "En attente",
-      "customerPhone": "0667556617",
-      "shippingFee": 0,
-      "city": "Casablanca",
       "discount": 0,
-      "notes": "",
-      "total": 600,
-      "address": "select kfsmkfmds fsdlkfd",
-      "date": "2026-11-10T17:24:04.077Z",
       "items": [
         {
+          "nameFr": "Arc'teryx Beta LT Jacket pour homme",
+          "price": 600,
+          "color": "#3D2B1F",
           "image": "/uploads/products_1794308641928_1000547306.jpg",
           "quantity": 1,
           "productId": 1,
           "nameAr": "Arc'teryx Beta LT Jacket pour homme",
-          "price": 600,
-          "nameFr": "Arc'teryx Beta LT Jacket pour homme",
-          "color": "#3D2B1F",
           "size": "M"
         }
       ],
+      "notes": "",
+      "subtotal": 600,
+      "customerName": "benouair akram",
+      "date": "2026-11-10T17:24:04.077Z",
+      "paymentMethod": "COD (Paiement à la livraison)",
+      "total": 600,
+      "promoCode": null,
+      "id": "CMD-8KP628",
+      "city": "Casablanca",
+      "address": "select kfsmkfmds fsdlkfd",
+      "shippingFee": 0,
+      "customerPhone": "0667556617",
       "_docId": "CMD-8KP628"
     },
     {
-      "shippingFee": 0,
-      "id": "CMD-TEE4TQ",
-      "subtotal": 1450,
-      "promoCode": null,
-      "customerName": "Akram",
-      "status": "En attente",
-      "city": "Casablanca",
-      "notes": "",
-      "total": 1450,
-      "customerPhone": "0667645481",
-      "items": [
-        {
-          "size": "40",
-          "nameAr": "نعال جلدية تقليدية فاخرة",
-          "color": "#3D2B1F",
-          "price": 1450,
-          "quantity": 1,
-          "nameFr": "Mules Cuir Artisanales",
-          "image": "/uploads/products_1794303958096_1000547307.jpg",
-          "productId": 1
-        }
-      ],
-      "discount": 0,
-      "paymentMethod": "COD (Paiement à la livraison)",
-      "date": "2026-11-10T09:46:24.900Z",
-      "address": "Gsshsh",
-      "_docId": "CMD-TEE4TQ"
-    },
-    {
-      "subtotal": 1450,
-      "customerName": "jjjjbjn",
-      "customerPhone": "0667556617",
-      "promoCode": null,
-      "city": "Tanger",
-      "address": "ytyuyy huhh kjkkjkjdrd",
-      "shippingFee": 0,
-      "id": "CMD-X4TN5S",
-      "paymentMethod": "COD (Paiement à la livraison)",
-      "notes": "",
-      "total": 1450,
-      "discount": 0,
-      "items": [
-        {
-          "color": "#3D2B1F",
-          "productId": 1,
-          "nameFr": "Mules Cuir Artisanales",
-          "quantity": 1,
-          "size": "40",
-          "image": "/uploads/products_1794272120318_edc6c2dc-9ab7-42e7-8ef0-f6656a119c57.webp",
-          "nameAr": "نعال جلدية تقليدية فاخرة",
-          "price": 1450
-        }
-      ],
-      "status": "En attente",
-      "date": "2026-11-10T01:08:06.969Z",
-      "_docId": "CMD-X4TN5S"
-    },
-    {
-      "notes": "",
-      "total": 5100,
-      "items": [
-        {
-          "nameAr": "نعال جلدية تقليدية فاخرة",
-          "price": 1450,
-          "quantity": 2,
-          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(150, 160)'><ellipse cx='250' cy='220' rx='210' ry='35' fill='%23E5E0D8'/><path d='M80,180 C110,120 220,90 320,110 C390,125 430,165 410,195 C380,215 260,225 150,220 C100,218 70,200 80,180 Z' fill='%234A3525' stroke='%23342315' stroke-width='4'/><path d='M100,175 C140,135 220,115 300,130 C330,135 340,150 320,170 C270,185 180,190 120,185 Z' fill='%23634731'/><path d='M90,190 C150,210 270,210 390,185' stroke='%23C28B53' stroke-dasharray='4,4' stroke-width='2' fill='none'/><text x='250' y='270' font-family='serif' font-size='20' fill='%239E8C7A' text-anchor='middle' letter-spacing='4'>MODANOVA</text></g></svg>",
-          "size": "40",
-          "nameFr": "Mules Cuir Artisanales",
-          "productId": 1,
-          "color": "#3D2B1F"
-        },
-        {
-          "price": 2200,
-          "nameFr": "Peignoir en Lin et Coton Lavé",
-          "quantity": 1,
-          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(220, 70)'><path d='M100,80 L260,80 L320,160 L280,440 L80,440 L40,160 Z' fill='%23DCD6CD'/><path d='M180,80 L120,240 L180,440 L180,80 Z' fill='%23CBC3B7'/><path d='M80,260 L280,260' stroke='%239E8C7A' stroke-width='14'/><circle cx='180' cy='260' r='12' fill='%236B5E51'/><text x='180' y='490' font-family='serif' font-size='18' fill='%239E8C7A' text-anchor='middle' letter-spacing='2'>LIN PRÉ-LAVÉ 380G/M²</text></g></svg>",
-          "size": "M",
-          "nameAr": "رداء حمام فاخر من الكتان والقطن المغسول",
-          "productId": 4,
-          "color": "#DCD6CD"
-        }
-      ],
-      "subtotal": 5100,
       "city": "Marrakech",
       "shippingFee": 0,
       "customerName": "Benouari",
-      "paymentMethod": "COD (Paiement à la livraison)",
-      "customerPhone": "0667556617",
+      "notes": "",
+      "items": [
+        {
+          "nameFr": "Mules Cuir Artisanales",
+          "price": 1450,
+          "size": "40",
+          "productId": 1,
+          "nameAr": "نعال جلدية تقليدية فاخرة",
+          "color": "#3D2B1F",
+          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(150, 160)'><ellipse cx='250' cy='220' rx='210' ry='35' fill='%23E5E0D8'/><path d='M80,180 C110,120 220,90 320,110 C390,125 430,165 410,195 C380,215 260,225 150,220 C100,218 70,200 80,180 Z' fill='%234A3525' stroke='%23342315' stroke-width='4'/><path d='M100,175 C140,135 220,115 300,130 C330,135 340,150 320,170 C270,185 180,190 120,185 Z' fill='%23634731'/><path d='M90,190 C150,210 270,210 390,185' stroke='%23C28B53' stroke-dasharray='4,4' stroke-width='2' fill='none'/><text x='250' y='270' font-family='serif' font-size='20' fill='%239E8C7A' text-anchor='middle' letter-spacing='4'>MODANOVA</text></g></svg>",
+          "quantity": 2
+        },
+        {
+          "nameFr": "Peignoir en Lin et Coton Lavé",
+          "price": 2200,
+          "color": "#DCD6CD",
+          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(220, 70)'><path d='M100,80 L260,80 L320,160 L280,440 L80,440 L40,160 Z' fill='%23DCD6CD'/><path d='M180,80 L120,240 L180,440 L180,80 Z' fill='%23CBC3B7'/><path d='M80,260 L280,260' stroke='%239E8C7A' stroke-width='14'/><circle cx='180' cy='260' r='12' fill='%236B5E51'/><text x='180' y='490' font-family='serif' font-size='18' fill='%239E8C7A' text-anchor='middle' letter-spacing='2'>LIN PRÉ-LAVÉ 380G/M²</text></g></svg>",
+          "size": "M",
+          "productId": 4,
+          "nameAr": "رداء حمام فاخر من الكتان والقطن المغسول",
+          "quantity": 1
+        }
+      ],
       "promoCode": null,
-      "discount": 0,
-      "date": "2026-11-08T20:30:36.111Z",
+      "customerPhone": "0667556617",
       "id": "CMD-84CJGV",
-      "address": "Gjrjehrhrhr hdhehrb",
+      "discount": 0,
       "status": "En attente",
+      "subtotal": 5100,
+      "address": "Gjrjehrhrhr hdhehrb",
+      "paymentMethod": "COD (Paiement à la livraison)",
+      "total": 5100,
+      "date": "2026-11-08T20:30:36.111Z",
       "_docId": "CMD-84CJGV"
     },
     {
-      "discount": 0,
+      "customerPhone": "0612345678",
+      "id": "CMD-29GESL",
+      "shippingFee": 0,
+      "total": 1450,
+      "date": "2026-11-08T20:22:32.919Z",
+      "paymentMethod": "COD (Paiement à la livraison)",
+      "status": "En attente",
+      "promoCode": null,
+      "address": "Avenue Mohammed V, Résidence Al Manar",
       "city": "Kenitra",
+      "subtotal": 1450,
+      "discount": 0,
+      "customerName": "Tarik Berrada",
       "items": [
         {
-          "color": "#171717",
-          "nameAr": "نعال جلدية تقليدية فاخرة",
-          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(150, 160)'><ellipse cx='250' cy='220' rx='210' ry='35' fill='%23E5E0D8'/><path d='M80,180 C110,120 220,90 320,110 C390,125 430,165 410,195 C380,215 260,225 150,220 C100,218 70,200 80,180 Z' fill='%234A3525' stroke='%23342315' stroke-width='4'/><path d='M100,175 C140,135 220,115 300,130 C330,135 340,150 320,170 C270,185 180,190 120,185 Z' fill='%23634731'/><path d='M90,190 C150,210 270,210 390,185' stroke='%23C28B53' stroke-dasharray='4,4' stroke-width='2' fill='none'/><text x='250' y='270' font-family='serif' font-size='20' fill='%239E8C7A' text-anchor='middle' letter-spacing='4'>MODANOVA</text></g></svg>",
-          "quantity": 1,
           "size": "42",
           "price": 1450,
+          "nameAr": "نعال جلدية تقليدية فاخرة",
+          "quantity": 1,
+          "nameFr": "Mules Cuir Artisanales",
+          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(150, 160)'><ellipse cx='250' cy='220' rx='210' ry='35' fill='%23E5E0D8'/><path d='M80,180 C110,120 220,90 320,110 C390,125 430,165 410,195 C380,215 260,225 150,220 C100,218 70,200 80,180 Z' fill='%234A3525' stroke='%23342315' stroke-width='4'/><path d='M100,175 C140,135 220,115 300,130 C330,135 340,150 320,170 C270,185 180,190 120,185 Z' fill='%23634731'/><path d='M90,190 C150,210 270,210 390,185' stroke='%23C28B53' stroke-dasharray='4,4' stroke-width='2' fill='none'/><text x='250' y='270' font-family='serif' font-size='20' fill='%239E8C7A' text-anchor='middle' letter-spacing='4'>MODANOVA</text></g></svg>",
           "productId": 1,
-          "nameFr": "Mules Cuir Artisanales"
+          "color": "#171717"
         }
       ],
-      "customerName": "Tarik Berrada",
-      "total": 1450,
       "notes": "Sonner à l interphone B2",
-      "customerPhone": "0612345678",
-      "address": "Avenue Mohammed V, Résidence Al Manar",
-      "subtotal": 1450,
-      "date": "2026-11-08T20:22:32.919Z",
-      "status": "En attente",
-      "id": "CMD-29GESL",
-      "paymentMethod": "COD (Paiement à la livraison)",
-      "shippingFee": 0,
-      "promoCode": null,
       "_docId": "CMD-29GESL"
     },
     {
-      "subtotal": 900,
       "total": 900,
-      "notes": "",
-      "shippingFee": 0,
+      "status": "En attente",
+      "address": "rue 172 n 170 afca",
+      "city": "Kénitra",
+      "paymentMethod": "COD (Paiement à la livraison)",
+      "customerPhone": "0667556617",
+      "promoCode": null,
       "items": [
         {
-          "nameFr": "Carhartt WIP Detroit Jacket",
+          "image": "/uploads/products_1794167301389_17af4900-a67e-488e-b7fe-2b3f4ab1e55b.webp",
+          "color": "#2E3A46",
+          "nameAr": "Carhartt WIP Detroit Jacket",
+          "productId": 1,
+          "quantity": 1,
           "size": "M",
           "price": 900,
-          "image": "/uploads/products_1794167301389_17af4900-a67e-488e-b7fe-2b3f4ab1e55b.webp",
-          "nameAr": "Carhartt WIP Detroit Jacket",
-          "quantity": 1,
-          "color": "#2E3A46",
-          "productId": 1
+          "nameFr": "Carhartt WIP Detroit Jacket"
         }
       ],
+      "notes": "",
       "customerName": "akram benouari",
-      "promoCode": null,
-      "id": "CMD-U8NMVC",
       "date": "2026-11-08T19:57:40.902Z",
-      "address": "rue 172 n 170 afca",
+      "id": "CMD-U8NMVC",
+      "shippingFee": 0,
       "discount": 0,
-      "paymentMethod": "COD (Paiement à la livraison)",
-      "city": "Kénitra",
-      "customerPhone": "0667556617",
-      "status": "En attente",
+      "subtotal": 900,
       "_docId": "CMD-U8NMVC"
     },
     {
-      "city": "Sidi Slimane",
-      "promoCode": null,
-      "customerPhone": "0667556617",
+      "subtotal": 590,
+      "shippingFee": 0,
+      "notes": "",
+      "discount": 0,
       "items": [
         {
-          "size": "L",
-          "productId": 3,
           "nameFr": "Huile Sèche Précieuse Atlas",
+          "size": "L",
           "price": 590,
-          "image": "/uploads/products_1794149173578_WhatsApp_Image_2026-11-08_at_14_13_05.jpg",
-          "nameAr": "زيت جاف فاخر بخلاصة الأطلس",
           "quantity": 1,
+          "image": "/uploads/products_1794149173578_WhatsApp_Image_2026-11-08_at_14_13_05.jpg",
+          "productId": 3,
+          "nameAr": "زيت جاف فاخر بخلاصة الأطلس",
           "color": "#393d36"
         }
       ],
-      "subtotal": 590,
-      "id": "CMD-R7ZK7W",
-      "paymentMethod": "COD (Paiement à la livraison)",
-      "notes": "",
-      "total": 590,
-      "address": "rue 147. n 170",
-      "shippingFee": 0,
-      "date": "2026-11-08T14:51:48.758Z",
-      "customerName": "akram benouari",
-      "discount": 0,
+      "city": "Sidi Slimane",
       "status": "En attente",
+      "customerName": "akram benouari",
+      "date": "2026-11-08T14:51:48.758Z",
+      "customerPhone": "0667556617",
+      "address": "rue 147. n 170",
+      "paymentMethod": "COD (Paiement à la livraison)",
+      "promoCode": null,
+      "total": 590,
+      "id": "CMD-R7ZK7W",
       "_docId": "CMD-R7ZK7W"
     },
     {
-      "paymentMethod": "COD (Paiement à la livraison)",
+      "promoCode": null,
       "id": "CMD-PZN35Z",
-      "customerPhone": "0667556667",
-      "customerName": "gvgvgv",
-      "discount": 0,
-      "date": "2026-11-08T12:32:07.375Z",
+      "paymentMethod": "COD (Paiement à la livraison)",
       "shippingFee": 0,
+      "customerPhone": "0667556667",
+      "total": 1450,
       "address": "jkkjnjkn jjhjn",
       "status": "En attente",
-      "total": 1450,
-      "notes": "",
-      "promoCode": null,
-      "subtotal": 1450,
+      "date": "2026-11-08T12:32:07.375Z",
       "city": "Casablanca",
+      "subtotal": 1450,
+      "discount": 0,
+      "notes": "",
       "items": [
         {
-          "color": "#3D2B1F",
-          "productId": 1,
-          "nameFr": "Mules Cuir Artisanales",
-          "quantity": 1,
-          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(150, 160)'><ellipse cx='250' cy='220' rx='210' ry='35' fill='%23E5E0D8'/><path d='M80,180 C110,120 220,90 320,110 C390,125 430,165 410,195 C380,215 260,225 150,220 C100,218 70,200 80,180 Z' fill='%234A3525' stroke='%23342315' stroke-width='4'/><path d='M100,175 C140,135 220,115 300,130 C330,135 340,150 320,170 C270,185 180,190 120,185 Z' fill='%23634731'/><path d='M90,190 C150,210 270,210 390,185' stroke='%23C28B53' stroke-dasharray='4,4' stroke-width='2' fill='none'/><text x='250' y='270' font-family='serif' font-size='20' fill='%239E8C7A' text-anchor='middle' letter-spacing='4'>ETTORE ATELIER</text></g></svg>",
-          "price": 1450,
           "size": "40",
-          "nameAr": "نعال جلدية تقليدية فاخرة"
+          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(150, 160)'><ellipse cx='250' cy='220' rx='210' ry='35' fill='%23E5E0D8'/><path d='M80,180 C110,120 220,90 320,110 C390,125 430,165 410,195 C380,215 260,225 150,220 C100,218 70,200 80,180 Z' fill='%234A3525' stroke='%23342315' stroke-width='4'/><path d='M100,175 C140,135 220,115 300,130 C330,135 340,150 320,170 C270,185 180,190 120,185 Z' fill='%23634731'/><path d='M90,190 C150,210 270,210 390,185' stroke='%23C28B53' stroke-dasharray='4,4' stroke-width='2' fill='none'/><text x='250' y='270' font-family='serif' font-size='20' fill='%239E8C7A' text-anchor='middle' letter-spacing='4'>ETTORE ATELIER</text></g></svg>",
+          "nameFr": "Mules Cuir Artisanales",
+          "color": "#3D2B1F",
+          "nameAr": "نعال جلدية تقليدية فاخرة",
+          "quantity": 1,
+          "price": 1450,
+          "productId": 1
         }
       ],
+      "customerName": "gvgvgv",
       "_docId": "CMD-PZN35Z"
     },
     {
-      "city": "Rabat",
-      "customerPhone": "0667556617",
-      "shippingFee": 0,
-      "subtotal": 3580,
-      "promoCode": null,
-      "customerName": "dsmjfbdjs jdkhjshd",
+      "id": "CMD-RGLA64",
       "paymentMethod": "COD (Paiement à la livraison)",
       "status": "En attente",
-      "discount": 0,
+      "shippingFee": 0,
       "date": "2026-11-07T18:21:57.318Z",
+      "notes": "",
+      "discount": 0,
+      "subtotal": 3580,
       "items": [
         {
           "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(150, 160)'><ellipse cx='250' cy='220' rx='210' ry='35' fill='%23E5E0D8'/><path d='M80,180 C110,120 220,90 320,110 C390,125 430,165 410,195 C380,215 260,225 150,220 C100,218 70,200 80,180 Z' fill='%234A3525' stroke='%23342315' stroke-width='4'/><path d='M100,175 C140,135 220,115 300,130 C330,135 340,150 320,170 C270,185 180,190 120,185 Z' fill='%23634731'/><path d='M90,190 C150,210 270,210 390,185' stroke='%23C28B53' stroke-dasharray='4,4' stroke-width='2' fill='none'/><text x='250' y='270' font-family='serif' font-size='20' fill='%239E8C7A' text-anchor='middle' letter-spacing='4'>ETTORE ATELIER</text></g></svg>",
+          "color": "#3D2B1F",
+          "nameFr": "Mules Cuir Artisanales",
           "nameAr": "نعال جلدية تقليدية فاخرة",
-          "productId": 1,
+          "size": "40",
           "quantity": 2,
           "price": 1450,
-          "color": "#3D2B1F",
-          "size": "40",
-          "nameFr": "Mules Cuir Artisanales"
+          "productId": 1
         },
         {
-          "nameFr": "Sérum Botanique Visage & Barbe",
-          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(280, 80)'><ellipse cx='120' cy='430' rx='90' ry='20' fill='%23E5E0D8'/><rect x='60' y='180' width='120' height='230' rx='20' fill='%238A4B1A' opacity='0.9'/><rect x='85' y='120' width='70' height='60' fill='%23171717'/><rect x='105' y='60' width='30' height='60' rx='6' fill='%23222'/><rect x='75' y='230' width='90' height='130' fill='%23FAF9F6'/><text x='120' y='270' font-family='serif' font-size='15' font-weight='bold' fill='%23171717' text-anchor='middle'>ETTORE</text><line x1='90' y1='285' x2='150' y2='285' stroke='%23C28B53' stroke-width='1.5'/><text x='120' y='305' font-family='sans-serif' font-size='9' fill='%23444' text-anchor='middle' letter-spacing='1'>SÉRUM PUR</text><text x='120' y='325' font-family='sans-serif' font-size='8' fill='%239E8C7A' text-anchor='middle'>50 ML / 1.7 FL.OZ</text></g></svg>",
           "price": 680,
-          "productId": 2,
-          "color": "#8A4B1A",
-          "size": "50ml",
           "nameAr": "سيروم نباتي مركز للوجه واللحية",
-          "quantity": 1
+          "size": "50ml",
+          "nameFr": "Sérum Botanique Visage & Barbe",
+          "color": "#8A4B1A",
+          "quantity": 1,
+          "productId": 2,
+          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(280, 80)'><ellipse cx='120' cy='430' rx='90' ry='20' fill='%23E5E0D8'/><rect x='60' y='180' width='120' height='230' rx='20' fill='%238A4B1A' opacity='0.9'/><rect x='85' y='120' width='70' height='60' fill='%23171717'/><rect x='105' y='60' width='30' height='60' rx='6' fill='%23222'/><rect x='75' y='230' width='90' height='130' fill='%23FAF9F6'/><text x='120' y='270' font-family='serif' font-size='15' font-weight='bold' fill='%23171717' text-anchor='middle'>ETTORE</text><line x1='90' y1='285' x2='150' y2='285' stroke='%23C28B53' stroke-width='1.5'/><text x='120' y='305' font-family='sans-serif' font-size='9' fill='%23444' text-anchor='middle' letter-spacing='1'>SÉRUM PUR</text><text x='120' y='325' font-family='sans-serif' font-size='8' fill='%239E8C7A' text-anchor='middle'>50 ML / 1.7 FL.OZ</text></g></svg>"
         }
       ],
-      "address": "rue kjkjj jkje  jhejh",
-      "id": "CMD-RGLA64",
-      "notes": "",
+      "customerPhone": "0667556617",
+      "promoCode": null,
+      "city": "Rabat",
+      "customerName": "dsmjfbdjs jdkhjshd",
       "total": 3580,
+      "address": "rue kjkjj jkje  jhejh",
       "_docId": "CMD-RGLA64"
+    },
+    {
+      "address": "8 Avenue Annakhil, Hay Riad",
+      "id": "CMD-FLZ6K9",
+      "total": 680,
+      "shippingFee": 0,
+      "date": "2026-11-06T11:36:43.983Z",
+      "discount": 0,
+      "subtotal": 680,
+      "city": "Rabat",
+      "promoCode": null,
+      "status": "En attente",
+      "customerPhone": "0701234567",
+      "customerName": "Rachid Benjelloun",
+      "paymentMethod": "COD (Paiement à la livraison)",
+      "notes": "",
+      "items": [
+        {
+          "price": 680,
+          "nameFr": "Sérum Botanique Visage & Barbe",
+          "quantity": 1,
+          "size": "50ml",
+          "productId": 2,
+          "nameAr": "سيروم نباتي مركز للوجه واللحية",
+          "color": "#8A4B1A",
+          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(280, 80)'><ellipse cx='120' cy='430' rx='90' ry='20' fill='%23E5E0D8'/><rect x='60' y='180' width='120' height='230' rx='20' fill='%238A4B1A' opacity='0.9'/><rect x='85' y='120' width='70' height='60' fill='%23171717'/><rect x='105' y='60' width='30' height='60' rx='6' fill='%23222'/><rect x='75' y='230' width='90' height='130' fill='%23FAF9F6'/><text x='120' y='270' font-family='serif' font-size='15' font-weight='bold' fill='%23171717' text-anchor='middle'>ETTORE</text><line x1='90' y1='285' x2='150' y2='285' stroke='%23C28B53' stroke-width='1.5'/><text x='120' y='305' font-family='sans-serif' font-size='9' fill='%23444' text-anchor='middle' letter-spacing='1'>SÉRUM PUR</text><text x='120' y='325' font-family='sans-serif' font-size='8' fill='%239E8C7A' text-anchor='middle'>50 ML / 1.7 FL.OZ</text></g></svg>"
+        }
+      ],
+      "_docId": "CMD-FLZ6K9"
     },
     {
       "items": [
         {
           "quantity": 1,
-          "nameFr": "Sérum Botanique Visage & Barbe",
-          "size": "50ml",
-          "color": "#8A4B1A",
-          "price": 680,
-          "image": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'><rect width='800' height='600' fill='%23F3F1EC'/><g transform='translate(280, 80)'><ellipse cx='120' cy='430' rx='90' ry='20' fill='%23E5E0D8'/><rect x='60' y='180' width='120' height='230' rx='20' fill='%238A4B1A' opacity='0.9'/><rect x='85' y='120' width='70' height='60' fill='%23171717'/><rect x='105' y='60' width='30' height='60' rx='6' fill='%23222'/><rect x='75' y='230' width='90' height='130' fill='%23FAF9F6'/><text x='120' y='270' font-family='serif' font-size='15' font-weight='bold' fill='%23171717' text-anchor='middle'>ETTORE</text><line x1='90' y1='285' x2='150' y2='285' stroke='%23C28B53' stroke-width='1.5'/><text x='120' y='305' font-family='sans-serif' font-size='9' fill='%23444' text-anchor='middle' letter-spacing='1'>SÉRUM PUR</text><text x='120' y='325' font-family='sans-serif' font-size='8' fill='%239E8C7A' text-anchor='middle'>50 ML / 1.7 FL.OZ</text></g></svg>",
-          "nameAr": "سيروم نباتي مركز للوجه واللحية",
-          "productId": 2
-        }
-      ],
-      "city": "Rabat",
-      "notes": "",
-      "total": 680,
-      "subtotal": 680,
-      "promoCode": null,
-      "customerName": "Rachid Benjelloun",
-      "status": "En attente",
-      "address": "8 Avenue Annakhil, Hay Riad",
-      "id": "CMD-FLZ6K9",
-      "customerPhone": "0701234567",
-      "date": "2026-11-06T11:36:43.983Z",
-      "paymentMethod": "COD (Paiement à la livraison)",
-      "discount": 0,
-      "shippingFee": 0,
-      "_docId": "CMD-FLZ6K9"
-    },
-    {
-      "city": "Casablanca",
-      "total": 1450,
-      "customerName": "Amine Alami",
-      "id": "CMD-T1E2S3",
-      "items": [
-        {
           "productId": 1,
-          "name": "Mules",
-          "quantity": 1
+          "name": "Mules"
         }
       ],
-      "customerPhone": "0612345678",
       "address": "12 Bd d Anfa",
+      "id": "CMD-T1E2S3",
+      "customerName": "Amine Alami",
+      "customerPhone": "0612345678",
+      "city": "Casablanca",
       "status": "En attente",
+      "total": 1450,
       "_docId": "CMD-T1E2S3"
     }
   ],
@@ -499,43 +524,43 @@
   ],
   "slider": [
     {
-      "categoryFilter": "Jackets",
-      "badge": "Maison de maroquinerie & soins d'exception",
-      "wallpaper": "/images/hero-1-leather.jpg",
-      "cta2": "Notre Savoir-Faire",
-      "cta1Href": "#collection",
-      "tag": "01 - Jackets",
-      "cta2Href": "#savoir-faire",
-      "subtitle": "Pensé pour l'homme contemporain au Maroc. Matières nobles, savoir-faire séculaire et livraison express avec paiement sécurisé à la livraison.",
-      "id": 0,
       "title": "L'Essence du Luxe Brut & Minimaliste",
-      "cta1": "Explorer la Collection"
+      "tag": "01 - Jackets",
+      "badge": "Maison de maroquinerie & soins d'exception",
+      "subtitle": "Pensé pour l'homme contemporain au Maroc. Matières nobles, savoir-faire séculaire et livraison express avec paiement sécurisé à la livraison.",
+      "cta1": "Explorer la Collection",
+      "cta1Href": "#collection",
+      "id": 0,
+      "cta2": "Notre Savoir-Faire",
+      "wallpaper": "/images/hero-1-leather.jpg",
+      "cta2Href": "#savoir-faire",
+      "categoryFilter": "Jackets"
     },
     {
+      "id": 1,
+      "tag": "02 - Accessoires",
+      "cta1": "Découvrir la Sélection",
       "cta2Href": "#savoir-faire",
+      "title": "L'Art du Détail & des Matières Nobles",
       "cta2": "Savoir-Faire Artisanal",
       "badge": "Accessoires & Maroquinerie d'Exception",
-      "subtitle": "Sélection rigoureuse d'accessoires, maroquinerie d'exception et souliers façonnés par des maîtres artisans pour parfaire votre vestiaire.",
-      "categoryFilter": "Accessoires",
-      "cta1": "Découvrir la Sélection",
-      "id": 1,
       "wallpaper": "/images/hero-2-botanical.jpg",
-      "tag": "02 - Accessoires",
-      "title": "L'Art du Détail & des Matières Nobles",
-      "cta1Href": "#collection"
+      "subtitle": "Sélection rigoureuse d'accessoires, maroquinerie d'exception et souliers façonnés par des maîtres artisans pour parfaire votre vestiaire.",
+      "cta1Href": "#collection",
+      "categoryFilter": "Accessoires"
     },
     {
-      "title": "Élégance Éternelle & Confort Suprême",
       "id": 2,
-      "subtitle": "Mules, souliers et cuirs pleine fleur assemblés à la main au Maroc pour une démarche affirmée et un confort absolu.",
       "tag": "03 - Chaussures",
-      "cta1": "Voir les Chaussures",
-      "categoryFilter": "Chaussures",
-      "wallpaper": "/images/hero-3-linen.jpg",
+      "cta2": "Cuirs Sélectionnés",
       "cta2Href": "#savoir-faire",
-      "cta1Href": "#collection",
+      "title": "Élégance Éternelle & Confort Suprême",
+      "wallpaper": "/images/hero-3-linen.jpg",
       "badge": "Soulier & Chaussures Sartoriales",
-      "cta2": "Cuirs Sélectionnés"
+      "subtitle": "Mules, souliers et cuirs pleine fleur assemblés à la main au Maroc pour une démarche affirmée et un confort absolu.",
+      "cta1": "Voir les Chaussures",
+      "cta1Href": "#collection",
+      "categoryFilter": "Chaussures"
     }
   ],
   "cms": {
@@ -558,31 +583,31 @@
   },
   "testimonials": [
     {
-      "name": "Karim Bennani",
-      "verified": true,
-      "rating": 5,
-      "date": "2025-01-14",
       "id": 1,
       "text": "Qualité exceptionnelle ! La veste est impeccable, finitions très soignées et livraison reçue le lendemain à Casablanca. Paiement à la livraison très pratique.",
-      "city": "Casablanca"
+      "verified": true,
+      "date": "2025-01-14",
+      "city": "Casablanca",
+      "name": "Karim Bennani",
+      "rating": 5
     },
     {
-      "id": 2,
-      "name": "Mehdi Tazi",
-      "rating": 5,
-      "verified": true,
       "date": "2025-01-18",
       "text": "MODANOVA est devenue ma marque de référence. Coupe moderne, tissus résistants et service client via WhatsApp ultra réactif. Je recommande à 100%.",
-      "city": "Rabat"
+      "name": "Mehdi Tazi",
+      "rating": 5,
+      "id": 2,
+      "city": "Rabat",
+      "verified": true
     },
     {
-      "date": "2025-01-22",
-      "text": "Très satisfait de ma commande. Les chaussures sont super confortables et la confection est de haut standing. Bravo pour ce niveau de qualité au Maroc.",
-      "city": "Marrakech",
       "id": 3,
+      "date": "2025-01-22",
+      "rating": 5,
+      "text": "Très satisfait de ma commande. Les chaussures sont super confortables et la confection est de haut standing. Bravo pour ce niveau de qualité au Maroc.",
       "name": "Yassine El Amrani",
-      "verified": true,
-      "rating": 5
+      "city": "Marrakech",
+      "verified": true
     }
   ]
 }

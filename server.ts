@@ -577,8 +577,9 @@ app.post('/api/seed', async (req: Request, res: Response) => {
   }
 });
 
-// Get products (Always synced with Firebase Firestore)
+// Get products (Always synced with Firebase Firestore, newest products first)
 app.get('/api/products', async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   try {
     const { fetchFirestoreProducts } = await import('./src/firebase.ts');
     const remoteProducts = await fetchFirestoreProducts();
@@ -612,7 +613,7 @@ app.get('/api/products/:id', async (req: Request, res: Response) => {
   return res.json(product);
 });
 
-// Upsert product (Admin — Persisted to Firebase Firestore)
+// Upsert product (Admin — Persisted to Firebase Firestore, new products placed 1st)
 app.put('/api/products', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
     return res.status(401).json({ error: "Non autorisé" });
@@ -621,20 +622,27 @@ app.put('/api/products', async (req: Request, res: Response) => {
   if (!product || !product.nameFr || product.price === undefined) {
     return res.status(400).json({ error: "Champs produit obligatoires manquants" });
   }
+  const isNewProduct = !product.id;
   const id = product.id ? Number(product.id) : Date.now();
+  const idx = productsStore.findIndex((p: any) => Number(p.id) === id);
+  const nowIso = new Date().toISOString();
+  const existingCreatedAt = idx >= 0 ? productsStore[idx].createdAt : undefined;
+
   const payload = {
     ...product,
     id,
     price: Number(product.price) || 0,
     stock: Number(product.stock) || 0,
     inStock: Number(product.stock) > 0,
-    updatedAt: new Date().toISOString()
+    createdAt: isNewProduct ? nowIso : (existingCreatedAt || product.createdAt || nowIso),
+    updatedAt: nowIso
   };
-  const idx = productsStore.findIndex((p: any) => p.id === id);
+
   if (idx >= 0) {
     productsStore[idx] = payload;
   } else {
-    productsStore.push(payload);
+    // New product always goes to the 1st position in the list
+    productsStore.unshift(payload);
   }
   savePersistedStore();
 

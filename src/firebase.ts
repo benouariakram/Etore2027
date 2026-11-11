@@ -97,15 +97,39 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 }
 
 // 4. Firestore Products Operations
+export function sortProductsNewestFirst(items: any[]) {
+  return [...items].sort((a, b) => {
+    const getSortWeight = (p: any) => {
+      if (!p) return 0;
+      if (p.createdAt) {
+        const t = new Date(p.createdAt).getTime();
+        if (!isNaN(t)) return t;
+      }
+      const numId = Number(p.id) || 0;
+      if (numId > 100000) return numId;
+      if (p.updatedAt) {
+        const u = new Date(p.updatedAt).getTime();
+        if (!isNaN(u)) return u;
+      }
+      return 100000 - numId;
+    };
+    return getSortWeight(b) - getSortWeight(a);
+  });
+}
+
 export async function fetchFirestoreProducts() {
   const path = 'products';
   try {
     const snap = await getDocs(collection(db, path));
     const items: any[] = [];
     snap.forEach(docSnap => {
-      items.push(docSnap.data());
+      const data = docSnap.data();
+      items.push({
+        ...data,
+        id: data.id !== undefined ? Number(data.id) : Number(docSnap.id)
+      });
     });
-    return items.sort((a, b) => a.id - b.id);
+    return sortProductsNewestFirst(items);
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, path);
   }
@@ -122,9 +146,22 @@ export async function saveFirestoreProduct(product: any) {
 }
 
 export async function deleteFirestoreProduct(productId: number | string) {
-  const path = `products/${productId}`;
+  const targetIdStr = String(productId).trim();
+  const targetIdNum = Number(productId);
+  const path = `products/${targetIdStr}`;
   try {
-    await deleteDoc(doc(db, 'products', String(productId)));
+    await deleteDoc(doc(db, 'products', targetIdStr));
+    const snap = await getDocs(collection(db, 'products'));
+    const deletions: Promise<void>[] = [];
+    snap.forEach(docSnap => {
+      const data = docSnap.data();
+      if (docSnap.id === targetIdStr || Number(data?.id) === targetIdNum) {
+        deletions.push(deleteDoc(doc(db, 'products', docSnap.id)));
+      }
+    });
+    if (deletions.length > 0) {
+      await Promise.all(deletions);
+    }
     return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, path);
