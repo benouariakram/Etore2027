@@ -613,6 +613,47 @@ app.get('/api/products/:id', async (req: Request, res: Response) => {
   return res.json(product);
 });
 
+// Reorder products (Admin — Persisted to Firebase Firestore: 1st, 2nd, 3rd, ..., 12th, etc.)
+app.put('/api/products/reorder', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const { orderedIds } = req.body || {};
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    return res.status(400).json({ error: "Liste d'identifiants produits invalide" });
+  }
+
+  const idOrderMap = new Map<number, number>();
+  orderedIds.forEach((rawId: any, index: number) => {
+    const numId = Number(rawId);
+    if (!isNaN(numId) && !idOrderMap.has(numId)) {
+      idOrderMap.set(numId, index);
+    }
+  });
+
+  const reordered = [...productsStore].sort((a: any, b: any) => {
+    const rankA = idOrderMap.has(Number(a.id)) ? idOrderMap.get(Number(a.id))! : 999999;
+    const rankB = idOrderMap.has(Number(b.id)) ? idOrderMap.get(Number(b.id))! : 999999;
+    return rankA - rankB;
+  });
+
+  productsStore = reordered.map((p: any, i: number) => ({
+    ...p,
+    position: i + 1
+  }));
+  savePersistedStore();
+
+  try {
+    const { saveFirestoreProductsOrder, markCatalogInitialized } = await import('./src/firebase.ts');
+    await saveFirestoreProductsOrder(productsStore);
+    await markCatalogInitialized();
+  } catch (err) {
+    console.error('Error saving product order to Firestore:', err);
+  }
+
+  return res.json({ ok: true, products: productsStore });
+});
+
 // Upsert product (Admin — Persisted to Firebase Firestore, new products placed 1st)
 app.put('/api/products', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
@@ -627,6 +668,7 @@ app.put('/api/products', async (req: Request, res: Response) => {
   const idx = productsStore.findIndex((p: any) => Number(p.id) === id);
   const nowIso = new Date().toISOString();
   const existingCreatedAt = idx >= 0 ? productsStore[idx].createdAt : undefined;
+  const existingPosition = idx >= 0 ? productsStore[idx].position : undefined;
 
   const payload = {
     ...product,
@@ -634,6 +676,7 @@ app.put('/api/products', async (req: Request, res: Response) => {
     price: Number(product.price) || 0,
     stock: Number(product.stock) || 0,
     inStock: Number(product.stock) > 0,
+    position: isNewProduct ? 1 : (typeof product.position === 'number' ? product.position : (existingPosition ?? idx + 1)),
     createdAt: isNewProduct ? nowIso : (existingCreatedAt || product.createdAt || nowIso),
     updatedAt: nowIso
   };
@@ -641,20 +684,30 @@ app.put('/api/products', async (req: Request, res: Response) => {
   if (idx >= 0) {
     productsStore[idx] = payload;
   } else {
-    // New product always goes to the 1st position in the list
-    productsStore.unshift(payload);
+    // New product always goes to the 1st position in the list; shift existing products' positions
+    productsStore = [
+      payload,
+      ...productsStore.map((p: any, i: number) => ({
+        ...p,
+        position: i + 2
+      }))
+    ];
   }
   savePersistedStore();
 
   try {
-    const { saveFirestoreProduct, markCatalogInitialized } = await import('./src/firebase.ts');
-    await saveFirestoreProduct(payload);
+    const { saveFirestoreProduct, saveFirestoreProductsOrder, markCatalogInitialized } = await import('./src/firebase.ts');
+    if (isNewProduct) {
+      await saveFirestoreProductsOrder(productsStore);
+    } else {
+      await saveFirestoreProduct(payload);
+    }
     await markCatalogInitialized();
   } catch (err) {
     console.error('Error saving product to Firestore:', err);
   }
 
-  return res.json({ ok: true, product: payload });
+  return res.json({ ok: true, product: payload, products: productsStore });
 });
 
 // Delete product (Admin — Deleted from Firebase Firestore)
@@ -663,12 +716,17 @@ app.delete('/api/products/:id', async (req: Request, res: Response) => {
     return res.status(401).json({ error: "Non autorisé" });
   }
   const id = Number(req.params.id);
-  productsStore = productsStore.filter((p: any) => p.id !== id);
+  productsStore = productsStore
+    .filter((p: any) => p.id !== id)
+    .map((p: any, i: number) => ({ ...p, position: i + 1 }));
   savePersistedStore();
 
   try {
-    const { deleteFirestoreProduct, markCatalogInitialized } = await import('./src/firebase.ts');
+    const { deleteFirestoreProduct, saveFirestoreProductsOrder, markCatalogInitialized } = await import('./src/firebase.ts');
     await deleteFirestoreProduct(id);
+    if (productsStore.length > 0) {
+      await saveFirestoreProductsOrder(productsStore);
+    }
     await markCatalogInitialized();
   } catch (err) {
     console.error('Error deleting product from Firestore:', err);

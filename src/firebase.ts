@@ -99,6 +99,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // 4. Firestore Products Operations
 export function sortProductsNewestFirst(items: any[]) {
   return [...items].sort((a, b) => {
+    const posA = typeof a?.position === 'number' && !isNaN(a.position) ? a.position : null;
+    const posB = typeof b?.position === 'number' && !isNaN(b.position) ? b.position : null;
+    if (posA !== null && posB !== null && posA !== posB) {
+      return posA - posB;
+    }
+    if (posA !== null && posB === null) return -1;
+    if (posA === null && posB !== null) return 1;
+
     const getSortWeight = (p: any) => {
       if (!p) return 0;
       if (p.createdAt) {
@@ -140,6 +148,25 @@ export async function saveFirestoreProduct(product: any) {
   try {
     await setDoc(doc(db, 'products', String(product.id)), product);
     return product;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+export async function saveFirestoreProductsOrder(products: any[]) {
+  const path = 'products';
+  try {
+    const batch = writeBatch(db);
+    for (let i = 0; i < products.length; i++) {
+      const prod = products[i];
+      if (!prod || prod.id === undefined) continue;
+      batch.set(doc(db, 'products', String(prod.id)), {
+        ...prod,
+        position: i + 1
+      });
+    }
+    await batch.commit();
+    return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
   }
