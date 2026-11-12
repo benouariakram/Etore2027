@@ -1509,10 +1509,7 @@
                     <img
                       src={imgList[activeImageIdx] || imgList[0]}
                       alt={title}
-                      className={`w-full h-full transition-all duration-300 ${
-                        imageFit === 'contain' ? 'object-contain' : 'object-cover'
-                      } cursor-zoom-in`}
-                      onClick={() => setZoomModalOpen(true)}
+                      className="w-full h-full transition-all duration-300 object-contain"
                     />
 
                     {/* Left & Right Slider Arrows (Visible when product has >1 photo) */}
@@ -1565,26 +1562,6 @@
                         </div>
                       </>
                     )}
-
-                    {/* Image Mode & Fullscreen Zoom Controls Overlay */}
-                    <div className="absolute bottom-3 end-3 flex items-center gap-1.5 z-10">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setImageFit(f => f === 'contain' ? 'cover' : 'contain'); }}
-                        className="px-2.5 py-1.5 bg-white/90 hover:bg-white text-noir text-[11px] font-semibold rounded-xs shadow-xs border border-taupe/30 flex items-center gap-1 transition-colors backdrop-blur-xs"
-                        title={imageFit === 'contain' ? 'Afficher en plein cadre' : 'Afficher la pièce entière'}
-                      >
-                        <span>{imageFit === 'contain' ? '🔍 Plein cadre' : '👁️ Vue complète'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setZoomModalOpen(true); }}
-                        className="px-2.5 py-1.5 bg-noir hover:bg-caramel text-white text-[11px] font-semibold rounded-xs shadow-xs flex items-center gap-1 transition-colors"
-                        title="Ouvrir la photo en haute résolution"
-                      >
-                        <span>🔍 Zoom HD</span>
-                      </button>
-                    </div>
 
                     {/* Top Badges */}
                     <div className="absolute top-4 start-4 flex flex-col gap-1 z-10">
@@ -1934,82 +1911,6 @@
                 </button>
               </div>
             </div>
-
-            {/* Full-Screen High-Definition Lightbox Zoom Modal */}
-            {zoomModalOpen && (
-              <div className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-2 sm:p-6 animate-fade-in">
-                {/* Modal Bar */}
-                <div className="absolute top-4 start-4 end-4 flex items-center justify-between text-white z-20">
-                  <div className="flex items-center gap-3">
-                    <span className="font-serif text-lg font-bold text-white">{title}</span>
-                    <span className="text-xs text-taupe font-mono">Photo {activeImageIdx + 1} / {product.images ? product.images.length : 1}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setZoomLevel(z => z === 1 ? 1.75 : z === 1.75 ? 2.5 : 1)}
-                      className="px-3 py-1 bg-white/20 hover:bg-white/30 text-xs font-semibold rounded text-white transition-colors"
-                    >
-                      Zoom: {zoomLevel}x
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setZoomModalOpen(false); setZoomLevel(1); }}
-                      className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-lg transition-colors"
-                      aria-label="Fermer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-
-                {/* Main Zoomed Image Container */}
-                <div
-                  className="relative w-full max-w-4xl max-h-[80vh] flex items-center justify-center overflow-auto p-4 cursor-zoom-out"
-                  onClick={() => setZoomModalOpen(false)}
-                >
-                  <img
-                    src={(product.images && product.images[activeImageIdx]) || (product.images && product.images[0])}
-                    alt={title}
-                    style={{ transform: `scale(${zoomLevel})` }}
-                    className="max-w-full max-h-[75vh] object-contain transition-transform duration-300 drop-shadow-2xl"
-                    onClick={(e) => { e.stopPropagation(); setZoomLevel(z => z === 1 ? 1.75 : z === 1.75 ? 2.5 : 1); }}
-                  />
-                </div>
-
-                {/* Nav Arrows if multiple images */}
-                {product.images && product.images.length > 1 && (
-                  <div className="absolute bottom-6 flex items-center gap-3 z-20">
-                    <button
-                      type="button"
-                      onClick={() => setActiveImageIdx(i => (i - 1 + product.images.length) % product.images.length)}
-                      className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded transition-colors"
-                    >
-                      ← Précédent
-                    </button>
-                    <div className="flex gap-2">
-                      {product.images.map((img, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setActiveImageIdx(idx)}
-                          className={`w-10 h-10 rounded border-2 overflow-hidden bg-black/40 p-0.5 ${activeImageIdx === idx ? 'border-caramel scale-110' : 'border-white/30 opacity-60'}`}
-                        >
-                          <img src={img} alt="" className="w-full h-full object-contain" />
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveImageIdx(i => (i + 1) % product.images.length)}
-                      className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded transition-colors"
-                    >
-                      Suivant →
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Size Guide Modal */}
             {sizeGuideOpen && (
