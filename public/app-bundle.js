@@ -3808,6 +3808,78 @@ function AdminModal({
       setWaTesting(false);
     }
   };
+  const [clearingCache, setClearingCache] = useState(false);
+  const [lastCacheClearedAt, setLastCacheClearedAt] = useState(null);
+  const handleClearCache = async () => {
+    if (clearingCache) return;
+    setClearingCache(true);
+    try {
+      const res = await fetch("/api/admin/clear-cache", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json().catch(() => ({}));
+      try {
+        if ("caches" in window && window.caches) {
+          const cacheNames = await window.caches.keys();
+          await Promise.all(cacheNames.map((name) => window.caches.delete(name)));
+        }
+      } catch {
+      }
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.includes("cache") || k.includes("products") || k.includes("slider") || k.includes("cms"))) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      } catch {
+      }
+      await Promise.all([
+        onRefreshProducts ? onRefreshProducts() : Promise.resolve(),
+        onRefreshOrders ? onRefreshOrders() : Promise.resolve(),
+        onRefreshTestimonials ? onRefreshTestimonials() : Promise.resolve()
+      ]);
+      try {
+        const bust = Date.now();
+        const [sliderRes, cmsRes] = await Promise.all([
+          fetch(`/api/slider?t=${bust}`, { cache: "no-store" }),
+          fetch(`/api/cms?t=${bust}`, { cache: "no-store" })
+        ]);
+        if (sliderRes.ok) {
+          const freshSlides = await sliderRes.json();
+          if (Array.isArray(freshSlides) && freshSlides.length > 0 && onSaveSlider) {
+            onSaveSlider(freshSlides);
+            setSliderDraft(JSON.parse(JSON.stringify(freshSlides)));
+          }
+        }
+        if (cmsRes.ok) {
+          const freshCms = await cmsRes.json();
+          if (freshCms && typeof freshCms === "object" && onSaveCms) {
+            onSaveCms(freshCms);
+          }
+        }
+      } catch {
+      }
+      const nowStr = (/* @__PURE__ */ new Date()).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      setLastCacheClearedAt(nowStr);
+      if (res.ok && data.ok) {
+        showToast(`\u{1F9F9} Cache vid\xE9 avec succ\xE8s ! (${data.counts?.products ?? products.length} produits & ${data.counts?.orders ?? orders.length} commandes synchronis\xE9s depuis Firebase)`, "success");
+      } else {
+        showToast("\u{1F9F9} Cache du navigateur vid\xE9 et donn\xE9es rafra\xEEchies !", "success");
+      }
+    } catch {
+      showToast("Erreur lors du vidage du cache", "error");
+    } finally {
+      setClearingCache(false);
+    }
+  };
   useEffect(() => {
     if (heroSlides && heroSlides.length > 0) {
       setSliderDraft(JSON.parse(JSON.stringify(heroSlides)));
@@ -4296,6 +4368,17 @@ function AdminModal({
   )), /* @__PURE__ */ React.createElement("div", { className: "p-4 border-t border-[#262626] hidden md:flex flex-col gap-2" }, /* @__PURE__ */ React.createElement(
     "button",
     {
+      type: "button",
+      onClick: handleClearCache,
+      disabled: clearingCache,
+      className: "w-full py-2.5 px-3 bg-[#E6C687]/15 hover:bg-[#E6C687]/25 border border-[#E6C687]/40 text-[#E6C687] text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center justify-center gap-2",
+      title: "Vider le cache serveur et navigateur et recharger depuis Firebase"
+    },
+    /* @__PURE__ */ React.createElement("span", null, clearingCache ? "\u23F3" : "\u{1F9F9}"),
+    /* @__PURE__ */ React.createElement("span", null, clearingCache ? "Vidage du cache..." : "Vider le Cache")
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
       onClick: onClose,
       className: "w-full py-2.5 px-3 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white text-xs font-semibold rounded-xs transition-colors flex items-center justify-center gap-2"
     },
@@ -4369,6 +4452,17 @@ function AdminModal({
     },
     /* @__PURE__ */ React.createElement("span", null, "+"),
     /* @__PURE__ */ React.createElement("span", null, "Ajouter T\xE9moignage")
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: handleClearCache,
+      disabled: clearingCache,
+      className: "px-3.5 py-2 bg-[#FAF9F6] hover:bg-noir text-noir hover:text-[#E6C687] border border-taupe/40 text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-1.5 shadow-2xs",
+      title: "Vider le cache du site et resynchroniser avec Firebase"
+    },
+    /* @__PURE__ */ React.createElement("span", null, clearingCache ? "\u23F3" : "\u{1F9F9}"),
+    /* @__PURE__ */ React.createElement("span", { className: "hidden sm:inline" }, clearingCache ? "Vidage..." : "Vider le Cache")
   ), /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -5109,7 +5203,17 @@ function AdminModal({
       alt: "MODANOVA Logo Preview",
       className: "w-full h-40 object-contain bg-white p-2 border-b border-black/5"
     }
-  ), /* @__PURE__ */ React.createElement("div", { className: "p-2.5" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs font-bold text-noir truncate" }, "MODANOVA \u2014 Men's Essentials | Luxe Minimaliste Maroc"), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark line-clamp-2 mt-0.5" }, "Luxe contemporain masculin au Maroc. Pi\xE8ces d'exception & Paiement \xE0 la livraison partout au Maroc."), /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-taupe font-mono mt-1 truncate" }, window.location.host || "modanova.ma"))), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-[#075E54] font-medium underline break-all" }, window.location.origin))), /* @__PURE__ */ React.createElement("div", { className: "space-y-3 text-xs text-taupe-dark leading-relaxed" }, /* @__PURE__ */ React.createElement("div", { className: "p-3.5 bg-[#FAF9F6] border border-taupe/20 rounded-xs space-y-2" }, /* @__PURE__ */ React.createElement("div", { className: "font-bold text-noir" }, "\u2705 Configuration OpenGraph & Favicon Active :"), /* @__PURE__ */ React.createElement("ul", { className: "list-disc list-inside space-y-1 text-[11px]" }, /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Image de partage large (1200\xD7630 JPG) :"), " ", /* @__PURE__ */ React.createElement("code", null, "/og-logo.jpg")), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Image de partage carr\xE9e WhatsApp (600\xD7600 JPG) :"), " ", /* @__PURE__ */ React.createElement("code", null, "/og-logo-square.jpg")), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Ic\xF4ne d'onglet & iPhone/Android :"), " ", /* @__PURE__ */ React.createElement("code", null, "/logo.png"), " & ", /* @__PURE__ */ React.createElement("code", null, "/favicon.ico")), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Sauvegarde permanente :"), " Votre logo est \xE9galement sauvegard\xE9 dans Firebase Firestore."))))))))), testimonialModalOpen && /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-60 bg-black/70 flex items-center justify-center p-4" }, /* @__PURE__ */ React.createElement("div", { className: "bg-white w-full max-w-lg rounded-xs shadow-2xl border border-taupe/30 overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-noir text-white flex items-center justify-between" }, /* @__PURE__ */ React.createElement("h3", { className: "font-serif text-sm font-bold tracking-wide" }, editingTestimonial ? "Modifier le T\xE9moignage" : "Nouveau T\xE9moignage Client"), /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("div", { className: "p-2.5" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs font-bold text-noir truncate" }, "MODANOVA \u2014 Men's Essentials | Luxe Minimaliste Maroc"), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark line-clamp-2 mt-0.5" }, "Luxe contemporain masculin au Maroc. Pi\xE8ces d'exception & Paiement \xE0 la livraison partout au Maroc."), /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-taupe font-mono mt-1 truncate" }, window.location.host || "modanova.ma"))), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-[#075E54] font-medium underline break-all" }, window.location.origin))), /* @__PURE__ */ React.createElement("div", { className: "space-y-3 text-xs text-taupe-dark leading-relaxed" }, /* @__PURE__ */ React.createElement("div", { className: "p-3.5 bg-[#FAF9F6] border border-taupe/20 rounded-xs space-y-2" }, /* @__PURE__ */ React.createElement("div", { className: "font-bold text-noir" }, "\u2705 Configuration OpenGraph & Favicon Active :"), /* @__PURE__ */ React.createElement("ul", { className: "list-disc list-inside space-y-1 text-[11px]" }, /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Image de partage large (1200\xD7630 JPG) :"), " ", /* @__PURE__ */ React.createElement("code", null, "/og-logo.jpg")), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Image de partage carr\xE9e WhatsApp (600\xD7600 JPG) :"), " ", /* @__PURE__ */ React.createElement("code", null, "/og-logo-square.jpg")), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Ic\xF4ne d'onglet & iPhone/Android :"), " ", /* @__PURE__ */ React.createElement("code", null, "/logo.png"), " & ", /* @__PURE__ */ React.createElement("code", null, "/favicon.ico")), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Sauvegarde permanente :"), " Votre logo est \xE9galement sauvegard\xE9 dans Firebase Firestore.")))))), /* @__PURE__ */ React.createElement("div", { className: "bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-taupe/15 pb-4 mb-4" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "font-serif text-lg font-bold text-noir flex items-center gap-2" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F9F9}"), /* @__PURE__ */ React.createElement("span", null, "Vider le Cache Syst\xE8me & Navigateur (Clear Cache)")), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-taupe-dark mt-0.5" }, "Purge le cache local du serveur et du navigateur, puis recharge imm\xE9diatement toutes les donn\xE9es en direct depuis votre base de donn\xE9es ", /* @__PURE__ */ React.createElement("strong", null, "Firebase Firestore"), " (sans supprimer aucun produit ni aucune commande).")), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: handleClearCache,
+      disabled: clearingCache,
+      className: "px-5 py-2.5 bg-noir hover:bg-caramel text-[#E6C687] hover:text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shrink-0 shadow-xs"
+    },
+    /* @__PURE__ */ React.createElement("span", null, clearingCache ? "\u23F3" : "\u{1F9F9}"),
+    /* @__PURE__ */ React.createElement("span", null, clearingCache ? "Vidage du cache en cours..." : "Vider le Cache Maintenant")
+  )), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs" }, /* @__PURE__ */ React.createElement("div", { className: "p-3 bg-[#FAF9F6] border border-taupe/20 rounded-xs" }, /* @__PURE__ */ React.createElement("div", { className: "font-bold text-noir mb-0.5" }, "1. Cache Serveur & Images"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-taupe-dark" }, "R\xE9initialise le fichier de cache local du serveur et force la lecture directe depuis Firebase.")), /* @__PURE__ */ React.createElement("div", { className: "p-3 bg-[#FAF9F6] border border-taupe/20 rounded-xs" }, /* @__PURE__ */ React.createElement("div", { className: "font-bold text-noir mb-0.5" }, "2. Cache Navigateur"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-taupe-dark" }, "Vide les donn\xE9es temporaires du navigateur tout en conservant votre session administrateur active.")), /* @__PURE__ */ React.createElement("div", { className: "p-3 bg-[#FAF9F6] border border-taupe/20 rounded-xs" }, /* @__PURE__ */ React.createElement("div", { className: "font-bold text-noir mb-0.5" }, "3. Synchronisation Firebase"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-taupe-dark" }, lastCacheClearedAt ? `\u2705 Dernier vidage r\xE9ussi \xE0 ${lastCacheClearedAt}` : `Pr\xEAt \u2014 ${products.length} produits & ${orders.length} commandes synchronis\xE9s.`))))))), testimonialModalOpen && /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-60 bg-black/70 flex items-center justify-center p-4" }, /* @__PURE__ */ React.createElement("div", { className: "bg-white w-full max-w-lg rounded-xs shadow-2xl border border-taupe/30 overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-noir text-white flex items-center justify-between" }, /* @__PURE__ */ React.createElement("h3", { className: "font-serif text-sm font-bold tracking-wide" }, editingTestimonial ? "Modifier le T\xE9moignage" : "Nouveau T\xE9moignage Client"), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => setTestimonialModalOpen(false),

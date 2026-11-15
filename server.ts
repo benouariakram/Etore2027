@@ -882,6 +882,49 @@ app.post('/api/admin/test-whatsapp', async (req: Request, res: Response) => {
   });
 });
 
+// Clear Server & Local Cache and Resynchronize from Firebase Firestore (Admin)
+app.post('/api/admin/clear-cache', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  try {
+    // 1. Clear in-memory rate-limit caches
+    loginAttempts.clear();
+    orderAttempts.clear();
+
+    // 2. Remove local disk cache file (.data/store.json) without touching Firebase Firestore
+    try {
+      if (fs.existsSync(STORE_FILE)) {
+        fs.unlinkSync(STORE_FILE);
+      }
+    } catch (unlinkErr) {
+      console.warn('Could not unlink local store cache file:', unlinkErr);
+    }
+
+    // 3. Re-fetch and resynchronize all live data directly from Firebase Firestore
+    await syncWithFirestoreOnBoot();
+
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    return res.json({
+      ok: true,
+      clearedAt: new Date().toISOString(),
+      counts: {
+        products: productsStore.length,
+        orders: ordersStore.length,
+        slides: sliderStore.length,
+        testimonials: testimonialsStore.length
+      },
+      message: "Cache serveur vidé et données rechargées depuis Firebase Firestore."
+    });
+  } catch (err) {
+    console.error('Error clearing cache:', err);
+    return res.status(500).json({ error: "Erreur lors du vidage du cache serveur." });
+  }
+});
+
 // Seed
 app.post('/api/seed', async (req: Request, res: Response) => {
   try {

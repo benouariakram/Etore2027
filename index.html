@@ -5735,6 +5735,88 @@
           }
         };
 
+        const [clearingCache, setClearingCache] = useState(false);
+        const [lastCacheClearedAt, setLastCacheClearedAt] = useState(null);
+
+        const handleClearCache = async () => {
+          if (clearingCache) return;
+          setClearingCache(true);
+          try {
+            // 1. Clear server cache & resynchronize live data from Firebase Firestore
+            const res = await fetch('/api/admin/clear-cache', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+                Authorization: `Bearer ${token}`
+              }
+            });
+            const data = await res.json().catch(() => ({}));
+
+            // 2. Clear browser Cache Storage API (Service Worker / HTTP caches) if available
+            try {
+              if ('caches' in window && window.caches) {
+                const cacheNames = await window.caches.keys();
+                await Promise.all(cacheNames.map(name => window.caches.delete(name)));
+              }
+            } catch {}
+
+            // 3. Clear stale browser localStorage keys while preserving session & language/cart if needed
+            try {
+              const keysToRemove = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && (k.includes('cache') || k.includes('products') || k.includes('slider') || k.includes('cms'))) {
+                  keysToRemove.push(k);
+                }
+              }
+              keysToRemove.forEach(k => localStorage.removeItem(k));
+            } catch {}
+
+            // 4. Refresh live state in the application
+            await Promise.all([
+              onRefreshProducts ? onRefreshProducts() : Promise.resolve(),
+              onRefreshOrders ? onRefreshOrders() : Promise.resolve(),
+              onRefreshTestimonials ? onRefreshTestimonials() : Promise.resolve()
+            ]);
+
+            // Also re-fetch slider and CMS with cache-busting timestamp
+            try {
+              const bust = Date.now();
+              const [sliderRes, cmsRes] = await Promise.all([
+                fetch(`/api/slider?t=${bust}`, { cache: 'no-store' }),
+                fetch(`/api/cms?t=${bust}`, { cache: 'no-store' })
+              ]);
+              if (sliderRes.ok) {
+                const freshSlides = await sliderRes.json();
+                if (Array.isArray(freshSlides) && freshSlides.length > 0 && onSaveSlider) {
+                  onSaveSlider(freshSlides);
+                  setSliderDraft(JSON.parse(JSON.stringify(freshSlides)));
+                }
+              }
+              if (cmsRes.ok) {
+                const freshCms = await cmsRes.json();
+                if (freshCms && typeof freshCms === 'object' && onSaveCms) {
+                  onSaveCms(freshCms);
+                }
+              }
+            } catch {}
+
+            const nowStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            setLastCacheClearedAt(nowStr);
+
+            if (res.ok && data.ok) {
+              showToast(`🧹 Cache vidé avec succès ! (${data.counts?.products ?? products.length} produits & ${data.counts?.orders ?? orders.length} commandes synchronisés depuis Firebase)`, 'success');
+            } else {
+              showToast('🧹 Cache du navigateur vidé et données rafraîchies !', 'success');
+            }
+          } catch {
+            showToast('Erreur lors du vidage du cache', 'error');
+          } finally {
+            setClearingCache(false);
+          }
+        };
+
         useEffect(() => {
           if (heroSlides && heroSlides.length > 0) {
             setSliderDraft(JSON.parse(JSON.stringify(heroSlides)));
@@ -6384,6 +6466,16 @@
               {/* Sidebar Footer */}
               <div className="p-4 border-t border-[#262626] hidden md:flex flex-col gap-2">
                 <button
+                  type="button"
+                  onClick={handleClearCache}
+                  disabled={clearingCache}
+                  className="w-full py-2.5 px-3 bg-[#E6C687]/15 hover:bg-[#E6C687]/25 border border-[#E6C687]/40 text-[#E6C687] text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center justify-center gap-2"
+                  title="Vider le cache serveur et navigateur et recharger depuis Firebase"
+                >
+                  <span>{clearingCache ? '⏳' : '🧹'}</span>
+                  <span>{clearingCache ? 'Vidage du cache...' : 'Vider le Cache'}</span>
+                </button>
+                <button
                   onClick={onClose}
                   className="w-full py-2.5 px-3 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white text-xs font-semibold rounded-xs transition-colors flex items-center justify-center gap-2"
                 >
@@ -6510,6 +6602,17 @@
                       <span>Ajouter Témoignage</span>
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={handleClearCache}
+                    disabled={clearingCache}
+                    className="px-3.5 py-2 bg-[#FAF9F6] hover:bg-noir text-noir hover:text-[#E6C687] border border-taupe/40 text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-1.5 shadow-2xs"
+                    title="Vider le cache du site et resynchroniser avec Firebase"
+                  >
+                    <span>{clearingCache ? '⏳' : '🧹'}</span>
+                    <span className="hidden sm:inline">{clearingCache ? 'Vidage...' : 'Vider le Cache'}</span>
+                  </button>
 
                   <button
                     onClick={onClose}
@@ -7982,6 +8085,53 @@
                               <li><strong>Sauvegarde permanente :</strong> Votre logo est également sauvegardé dans Firebase Firestore.</li>
                             </ul>
                           </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. MAINTENANCE & VIDAGE DU CACHE (CLEAR CACHE) */}
+                    <div className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-taupe/15 pb-4 mb-4">
+                        <div>
+                          <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
+                            <span>🧹</span>
+                            <span>Vider le Cache Système & Navigateur (Clear Cache)</span>
+                          </h3>
+                          <p className="text-xs text-taupe-dark mt-0.5">
+                            Purge le cache local du serveur et du navigateur, puis recharge immédiatement toutes les données en direct depuis votre base de données <strong>Firebase Firestore</strong> (sans supprimer aucun produit ni aucune commande).
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleClearCache}
+                          disabled={clearingCache}
+                          className="px-5 py-2.5 bg-noir hover:bg-caramel text-[#E6C687] hover:text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shrink-0 shadow-xs"
+                        >
+                          <span>{clearingCache ? '⏳' : '🧹'}</span>
+                          <span>{clearingCache ? 'Vidage du cache en cours...' : 'Vider le Cache Maintenant'}</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                        <div className="p-3 bg-[#FAF9F6] border border-taupe/20 rounded-xs">
+                          <div className="font-bold text-noir mb-0.5">1. Cache Serveur & Images</div>
+                          <p className="text-[11px] text-taupe-dark">
+                            Réinitialise le fichier de cache local du serveur et force la lecture directe depuis Firebase.
+                          </p>
+                        </div>
+                        <div className="p-3 bg-[#FAF9F6] border border-taupe/20 rounded-xs">
+                          <div className="font-bold text-noir mb-0.5">2. Cache Navigateur</div>
+                          <p className="text-[11px] text-taupe-dark">
+                            Vide les données temporaires du navigateur tout en conservant votre session administrateur active.
+                          </p>
+                        </div>
+                        <div className="p-3 bg-[#FAF9F6] border border-taupe/20 rounded-xs">
+                          <div className="font-bold text-noir mb-0.5">3. Synchronisation Firebase</div>
+                          <p className="text-[11px] text-taupe-dark">
+                            {lastCacheClearedAt
+                              ? `✅ Dernier vidage réussi à ${lastCacheClearedAt}`
+                              : `Prêt — ${products.length} produits & ${orders.length} commandes synchronisés.`}
+                          </p>
                         </div>
                       </div>
                     </div>
