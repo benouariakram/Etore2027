@@ -828,6 +828,160 @@ function getProductSlug(product) {
   const base = slugify(product.nameFr || product.nameAr || "produit");
   return `${base}-${product.id}`;
 }
+const PRESET_COLOR_PALETTE = [
+  { labelFr: "Noir", labelAr: "\u0623\u0633\u0648\u062F", hex: "#171717" },
+  { labelFr: "Blanc", labelAr: "\u0623\u0628\u064A\u0636", hex: "#FFFFFF" },
+  { labelFr: "Marron", labelAr: "\u0628\u0646\u064A", hex: "#3D2B1F" },
+  { labelFr: "Camel", labelAr: "\u062C\u0645\u0644\u064A", hex: "#C28B53" },
+  { labelFr: "Beige", labelAr: "\u0628\u064A\u062C", hex: "#D2B48C" },
+  { labelFr: "Bleu Marine", labelAr: "\u0623\u0632\u0631\u0642 \u062F\u0627\u0643\u0646", hex: "#1E293B" },
+  { labelFr: "Gris", labelAr: "\u0631\u0645\u0627\u062F\u064A", hex: "#4B5563" },
+  { labelFr: "Vert", labelAr: "\u0623\u062E\u0636\u0631", hex: "#14532D" },
+  { labelFr: "Bordeaux", labelAr: "\u062E\u0645\u0631\u064A", hex: "#7F1D1D" }
+];
+function getColorLabel(rawColor, lang = "fr") {
+  const c = String(rawColor || "").trim();
+  if (!c) return lang === "ar" ? "\u0642\u064A\u0627\u0633\u064A" : "Standard";
+  if (c.includes(":")) {
+    return c.split(":")[0].trim() || c;
+  }
+  const upper = c.toUpperCase();
+  const mapFr = {
+    "#171717": "Noir",
+    "#000000": "Noir",
+    "#121212": "Noir",
+    "#1C1C1C": "Noir",
+    "#3D2B1F": "Marron",
+    "#4A3525": "Marron",
+    "#5C4033": "Marron",
+    "#8B4513": "Cognac",
+    "#C28B53": "Camel",
+    "#D2B48C": "Beige",
+    "#9E8C7A": "Taupe / Beige",
+    "#F5F5DC": "Beige",
+    "#FAF9F6": "Blanc Cass\xE9",
+    "#FFFFFF": "Blanc",
+    "#F3F1EC": "Ivoire",
+    "#1E293B": "Bleu Marine",
+    "#1E3A8A": "Bleu Marine",
+    "#0F172A": "Bleu Nuit",
+    "#4B5563": "Gris",
+    "#6B7280": "Gris",
+    "#9CA3AF": "Gris Clair",
+    "#065F46": "Vert \xC9meraude",
+    "#14532D": "Vert",
+    "#7F1D1D": "Bordeaux",
+    "#991B1B": "Bordeaux",
+    "#D4AF37": "Or",
+    "#E6C687": "Or",
+    "#C0C0C0": "Argent"
+  };
+  const mapAr = {
+    "#171717": "\u0623\u0633\u0648\u062F",
+    "#000000": "\u0623\u0633\u0648\u062F",
+    "#121212": "\u0623\u0633\u0648\u062F",
+    "#1C1C1C": "\u0623\u0633\u0648\u062F",
+    "#3D2B1F": "\u0628\u0646\u064A",
+    "#4A3525": "\u0628\u0646\u064A",
+    "#5C4033": "\u0628\u0646\u064A",
+    "#8B4513": "\u0628\u0646\u064A \u0641\u0627\u062A\u062D",
+    "#C28B53": "\u062C\u0645\u0644\u064A",
+    "#D2B48C": "\u0628\u064A\u062C",
+    "#9E8C7A": "\u0628\u064A\u062C",
+    "#FAF9F6": "\u0623\u0628\u064A\u0636",
+    "#FFFFFF": "\u0623\u0628\u064A\u0636",
+    "#F3F1EC": "\u0639\u0627\u062C\u064A",
+    "#1E293B": "\u0623\u0632\u0631\u0642 \u062F\u0627\u0643\u0646",
+    "#1E3A8A": "\u0623\u0632\u0631\u0642 \u062F\u0627\u0643\u0646",
+    "#4B5563": "\u0631\u0645\u0627\u062F\u064A",
+    "#6B7280": "\u0631\u0645\u0627\u062F\u064A",
+    "#065F46": "\u0623\u062E\u0636\u0631",
+    "#14532D": "\u0623\u062E\u0636\u0631",
+    "#7F1D1D": "\u062E\u0645\u0631\u064A",
+    "#991B1B": "\u0623\u062D\u0645\u0631 \u062F\u0627\u0643\u0646"
+  };
+  if (lang === "ar" && mapAr[upper]) return mapAr[upper];
+  if (mapFr[upper]) return mapFr[upper];
+  return c;
+}
+function getColorCss(rawColor) {
+  const c = String(rawColor || "").trim();
+  if (!c) return "#171717";
+  if (c.includes(":")) {
+    const hexPart = c.split(":")[1]?.trim();
+    if (hexPart) return hexPart;
+  }
+  if (c.startsWith("#") || c.startsWith("rgb")) return c;
+  const lower = c.toLowerCase();
+  const nameToHex = {
+    "noir": "#171717",
+    "black": "#171717",
+    "blanc": "#FFFFFF",
+    "white": "#FFFFFF",
+    "marron": "#3D2B1F",
+    "marron fonc\xE9": "#3D2B1F",
+    "cognac": "#8B4513",
+    "camel": "#C28B53",
+    "caramel": "#C28B53",
+    "beige": "#D2B48C",
+    "taupe": "#9E8C7A",
+    "bleu": "#1E3A8A",
+    "bleu marine": "#1E293B",
+    "bleu nuit": "#0F172A",
+    "gris": "#4B5563",
+    "gris clair": "#9CA3AF",
+    "vert": "#14532D",
+    "kaki": "#14532D",
+    "bordeaux": "#7F1D1D",
+    "rouge": "#991B1B",
+    "or": "#D4AF37",
+    "argent": "#C0C0C0"
+  };
+  return nameToHex[lower] || "#171717";
+}
+function makeVariantKey(size, color) {
+  const s = String(size || "Unique").trim();
+  const c = String(color || "Default").trim();
+  return `${s}__${c}`;
+}
+function hasVariantStockMatrix(product) {
+  return Boolean(
+    product && product.variantStock && typeof product.variantStock === "object" && Object.keys(product.variantStock).length > 0
+  );
+}
+function getProductVariantStock(product, size, color) {
+  if (!product) return 0;
+  const effSize = String(size || product.sizes && product.sizes[0] || "Unique").trim();
+  const effColor = String(color || product.colors && product.colors[0] || "Default").trim();
+  if (hasVariantStockMatrix(product)) {
+    const vs = product.variantStock;
+    const exactKey = makeVariantKey(effSize, effColor);
+    if (vs[exactKey] !== void 0) {
+      return Math.max(0, Number(vs[exactKey]) || 0);
+    }
+    const targetLower = exactKey.toLowerCase();
+    for (const [k, v] of Object.entries(vs)) {
+      if (String(k).trim().toLowerCase() === targetLower) {
+        return Math.max(0, Number(v) || 0);
+      }
+    }
+    const cLabelLower = getColorLabel(effColor, "fr").toLowerCase();
+    for (const [k, v] of Object.entries(vs)) {
+      const [ks, kc] = String(k).split("__");
+      if (ks && kc && ks.trim().toLowerCase() === effSize.toLowerCase() && (kc.trim().toLowerCase() === effColor.toLowerCase() || getColorLabel(kc, "fr").toLowerCase() === cLabelLower)) {
+        return Math.max(0, Number(v) || 0);
+      }
+    }
+    return 0;
+  }
+  return Math.max(0, Number(product.stock) || 0);
+}
+function getTotalStockForSize(product, size) {
+  if (!product) return 0;
+  if (!hasVariantStockMatrix(product)) return Math.max(0, Number(product.stock) || 0);
+  const colors = Array.isArray(product.colors) && product.colors.length > 0 ? product.colors : ["Default"];
+  return colors.reduce((sum, col) => sum + getProductVariantStock(product, size, col), 0);
+}
 function ProductDetailPage({
   product,
   allProducts,
@@ -842,8 +996,26 @@ function ProductDetailPage({
   showToast
 }) {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
-  const [selectedSize, setSelectedSize] = useState(product.sizes && product.sizes[0] || "");
-  const [selectedColor, setSelectedColor] = useState(product.colors && product.colors[0] || "");
+  const [selectedSize, setSelectedSize] = useState(() => {
+    const sizes = product.sizes && product.sizes.length > 0 ? product.sizes : ["Unique"];
+    const colors = product.colors && product.colors.length > 0 ? product.colors : ["Default"];
+    for (const s of sizes) {
+      for (const c of colors) {
+        if (getProductVariantStock(product, s, c) > 0) return s;
+      }
+    }
+    return sizes[0] || "";
+  });
+  const [selectedColor, setSelectedColor] = useState(() => {
+    const sizes = product.sizes && product.sizes.length > 0 ? product.sizes : ["Unique"];
+    const colors = product.colors && product.colors.length > 0 ? product.colors : ["Default"];
+    for (const s of sizes) {
+      for (const c of colors) {
+        if (getProductVariantStock(product, s, c) > 0) return c;
+      }
+    }
+    return colors[0] || "";
+  });
   const [qty, setQty] = useState(1);
   const [copied, setCopied] = useState(false);
   const [imageFit, setImageFit] = useState("contain");
@@ -897,18 +1069,41 @@ function ProductDetailPage({
   }, []);
   useEffect(() => {
     setActiveImageIdx(0);
-    setSelectedSize(product.sizes && product.sizes[0] || "");
-    setSelectedColor(product.colors && product.colors[0] || "");
+    const sizes = product.sizes && product.sizes.length > 0 ? product.sizes : ["Unique"];
+    const colors = product.colors && product.colors.length > 0 ? product.colors : ["Default"];
+    let initSize = sizes[0] || "";
+    let initColor = colors[0] || "";
+    outer: for (const s of sizes) {
+      for (const c of colors) {
+        if (getProductVariantStock(product, s, c) > 0) {
+          initSize = s;
+          initColor = c;
+          break outer;
+        }
+      }
+    }
+    setSelectedSize(initSize);
+    setSelectedColor(initColor);
     setQty(1);
     setCopied(false);
     setImageFit("contain");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [product.id]);
+  const selectedVariantStock = getProductVariantStock(product, selectedSize, selectedColor);
+  const selectedColorName = getColorLabel(selectedColor, lang);
+  useEffect(() => {
+    if (selectedVariantStock > 0 && qty > selectedVariantStock) {
+      setQty(selectedVariantStock);
+    } else if (selectedVariantStock <= 0) {
+      setQty(1);
+    }
+  }, [selectedSize, selectedColor, selectedVariantStock]);
   const title = lang === "ar" ? product.nameAr || product.nameFr : product.nameFr;
   const desc = lang === "ar" ? product.descAr || product.descFr : product.descFr;
   const isWish = wishlist.includes(product.id);
-  const isOut = !product.inStock || product.stock <= 0;
-  const isLow = product.stock > 0 && product.stock < 5;
+  const isProductCompletelyOut = !product.inStock || product.stock <= 0;
+  const isOut = isProductCompletelyOut || selectedVariantStock <= 0;
+  const isLow = !isOut && selectedVariantStock > 0 && selectedVariantStock <= 5;
   const productSlug = getProductSlug(product);
   const currentUrl = `${window.location.origin}/produit/${productSlug}`;
   const copyLink = () => {
@@ -938,13 +1133,20 @@ ${currentUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
   const handleDirectOrder = () => {
-    if (isOut) return;
+    if (isOut) {
+      showToast(
+        lang === "ar" ? `\u0627\u0644\u0645\u0642\u0627\u0633 "${selectedSize}" \u0628\u0627\u0644\u0644\u0648\u0646 "${selectedColorName}" \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u0645\u062E\u0632\u0648\u0646.` : `La taille "${selectedSize}" en couleur "${selectedColorName}" n'est pas en stock.`,
+        "error"
+      );
+      return;
+    }
     const checkoutItem = {
       productId: product.id,
       nameFr: product.nameFr,
       nameAr: product.nameAr,
       price: Number(product.price),
-      quantity: qty,
+      quantity: Math.min(qty, selectedVariantStock),
+      stock: selectedVariantStock,
       size: selectedSize,
       color: selectedColor,
       image: product.images && product.images[0] || "",
@@ -953,13 +1155,20 @@ ${currentUrl}`;
     onDirectCheckout(checkoutItem);
   };
   const orderViaWhatsApp = () => {
+    if (isOut) {
+      showToast(
+        lang === "ar" ? `\u0627\u0644\u0645\u0642\u0627\u0633 "${selectedSize}" \u0628\u0627\u0644\u0644\u0648\u0646 "${selectedColorName}" \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u0645\u062E\u0632\u0648\u0646.` : `La taille "${selectedSize}" en couleur "${selectedColorName}" n'est pas en stock.`,
+        "error"
+      );
+      return;
+    }
     const text = lang === "ar" ? `\u0627\u0644\u0633\u0644\u0627\u0645 \u0639\u0644\u064A\u0643\u0645 \u062F\u0627\u0631 \u0645\u0648\u062F\u0627\u0646\u0648\u0641\u0627 \u{1F44B}
 \u0623\u0631\u063A\u0628 \u0641\u064A \u062A\u0623\u0643\u064A\u062F \u0637\u0644\u0628 \u0647\u0630\u0647 \u0627\u0644\u0642\u0637\u0639\u0629 \u0627\u0644\u0641\u0627\u062E\u0631\u0629 (\u0627\u0644\u062F\u0641\u0639 \u0639\u0646\u062F \u0627\u0644\u0627\u0633\u062A\u0644\u0627\u0645):
 
 *${title}*
 - \u0627\u0644\u0633\u0639\u0631: ${product.price} \u062F\u0631\u0647\u0645 \u0645\u063A\u0631\u0628\u064A
 - \u0627\u0644\u0645\u0642\u0627\u0633 / \u0627\u0644\u062E\u064A\u0627\u0631: ${selectedSize || "\u0642\u064A\u0627\u0633\u064A"}
-- \u0627\u0644\u0644\u0648\u0646: ${selectedColor || "\u0642\u064A\u0627\u0633\u064A"}
+- \u0627\u0644\u0644\u0648\u0646: ${selectedColorName}
 - \u0627\u0644\u0643\u0645\u064A\u0629: ${qty}
 
 \u0627\u0644\u0631\u0627\u0628\u0637: ${currentUrl}
@@ -969,8 +1178,8 @@ Je souhaite commander cette pi\xE8ce en paiement \xE0 la livraison (COD) :
 
 *${title}*
 - Prix : ${product.price} MAD
-- Taille / Option : ${selectedSize || "Standard"}
-- Couleur : ${selectedColor || "Standard"}
+- Taille / Pointure / Format : ${selectedSize || "Standard"}
+- Couleur : ${selectedColorName}
 - Quantit\xE9 : ${qty}
 
 Lien : ${currentUrl}
@@ -1129,7 +1338,7 @@ Merci de confirmer la disponibilit\xE9 et le cr\xE9neau de livraison.`;
       className: "shrink-0 self-start sm:self-auto px-3 py-1 bg-noir text-white hover:bg-caramel text-[11px] font-semibold uppercase tracking-wider transition-colors"
     },
     copied ? "\u2713 Copi\xE9" : "Copier"
-  ))), /* @__PURE__ */ React.createElement("div", { className: "lg:col-span-5 flex flex-col" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between text-xs text-taupe-dark uppercase tracking-widest mb-3" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-caramel uppercase" }, product.category), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1 text-caramel font-semibold" }, /* @__PURE__ */ React.createElement("span", null, "\u2605 ", product.rating || 5, ".0"), /* @__PURE__ */ React.createElement("span", { className: "text-taupe text-[10px] lowercase font-normal" }, "(avis v\xE9rifi\xE9s)"))), /* @__PURE__ */ React.createElement("h1", { className: "font-serif italic text-3xl sm:text-4xl lg:text-5xl font-normal text-noir mb-4 leading-tight" }, title), /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline gap-3 mb-6 pb-4 border-b border-taupe/20" }, /* @__PURE__ */ React.createElement("span", { className: "text-2xl sm:text-3xl font-bold text-noir tabular-nums" }, Number(product.price).toLocaleString(), " MAD"), product.oldPrice && /* @__PURE__ */ React.createElement("span", { className: "text-sm sm:text-base text-taupe line-through tabular-nums" }, Number(product.oldPrice).toLocaleString(), " MAD"), product.oldPrice && /* @__PURE__ */ React.createElement("span", { className: "text-[11px] font-bold text-white bg-caramel px-2 py-0.5 rounded-xs" }, "-", Math.round((product.oldPrice - product.price) / product.oldPrice * 100), "%")), /* @__PURE__ */ React.createElement("div", { className: "p-3.5 bg-[#FAF7F2] border border-[#C28B53]/30 rounded-xs mb-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 text-xs font-semibold text-noir mb-1" }, /* @__PURE__ */ React.createElement("span", { className: "text-[#C28B53] animate-pulse" }, "\u26A1"), /* @__PURE__ */ React.createElement("span", null, "Commandez dans les prochaines ", /* @__PURE__ */ React.createElement("strong", { className: "text-[#C28B53] font-mono" }, String(countdown.hours).padStart(2, "0"), "h ", String(countdown.mins).padStart(2, "0"), "m"), " pour une exp\xE9dition le jour m\xEAme !")), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F69A}"), /* @__PURE__ */ React.createElement("span", null, "Livraison express \xE0 domicile partout au Maroc \xB7 Paiement apr\xE8s ouverture & v\xE9rification (COD)."))), /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, isOut ? /* @__PURE__ */ React.createElement("div", { className: "inline-flex items-center gap-2 text-xs font-semibold text-[#B91C1C]" }, /* @__PURE__ */ React.createElement("span", { className: "w-2 h-2 rounded-full bg-[#B91C1C]" }), /* @__PURE__ */ React.createElement("span", null, t.out_of_stock)) : isLow ? /* @__PURE__ */ React.createElement("div", { className: "inline-flex items-center gap-2 text-xs font-semibold text-[#B91C1C] animate-flame" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F525}"), /* @__PURE__ */ React.createElement("span", null, t.low_stock_alert.replace("\u{1F525} ", "").replace("{n}", product.stock))) : /* @__PURE__ */ React.createElement("div", { className: "inline-flex items-center gap-2 text-xs font-semibold text-[#065F46]" }, /* @__PURE__ */ React.createElement("span", { className: "w-2 h-2 rounded-full bg-[#25D366]" }), /* @__PURE__ */ React.createElement("span", null, t.product_in_stock_msg))), /* @__PURE__ */ React.createElement("p", { className: "text-xs sm:text-sm text-taupe-dark leading-relaxed mb-6 font-light" }, desc), product.sizes && product.sizes.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-5" }, /* @__PURE__ */ React.createElement("div", { className: "flex justify-between items-center mb-2" }, /* @__PURE__ */ React.createElement("label", { className: "text-xs font-bold uppercase tracking-wider text-noir" }, t.options_size), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", { className: "lg:col-span-5 flex flex-col" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between text-xs text-taupe-dark uppercase tracking-widest mb-3" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-caramel uppercase" }, product.category), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1 text-caramel font-semibold" }, /* @__PURE__ */ React.createElement("span", null, "\u2605 ", product.rating || 5, ".0"), /* @__PURE__ */ React.createElement("span", { className: "text-taupe text-[10px] lowercase font-normal" }, "(avis v\xE9rifi\xE9s)"))), /* @__PURE__ */ React.createElement("h1", { className: "font-serif italic text-3xl sm:text-4xl lg:text-5xl font-normal text-noir mb-4 leading-tight" }, title), /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline gap-3 mb-6 pb-4 border-b border-taupe/20" }, /* @__PURE__ */ React.createElement("span", { className: "text-2xl sm:text-3xl font-bold text-noir tabular-nums" }, Number(product.price).toLocaleString(), " MAD"), product.oldPrice && /* @__PURE__ */ React.createElement("span", { className: "text-sm sm:text-base text-taupe line-through tabular-nums" }, Number(product.oldPrice).toLocaleString(), " MAD"), product.oldPrice && /* @__PURE__ */ React.createElement("span", { className: "text-[11px] font-bold text-white bg-caramel px-2 py-0.5 rounded-xs" }, "-", Math.round((product.oldPrice - product.price) / product.oldPrice * 100), "%")), /* @__PURE__ */ React.createElement("div", { className: "p-3.5 bg-[#FAF7F2] border border-[#C28B53]/30 rounded-xs mb-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 text-xs font-semibold text-noir mb-1" }, /* @__PURE__ */ React.createElement("span", { className: "text-[#C28B53] animate-pulse" }, "\u26A1"), /* @__PURE__ */ React.createElement("span", null, "Commandez dans les prochaines ", /* @__PURE__ */ React.createElement("strong", { className: "text-[#C28B53] font-mono" }, String(countdown.hours).padStart(2, "0"), "h ", String(countdown.mins).padStart(2, "0"), "m"), " pour une exp\xE9dition le jour m\xEAme !")), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F69A}"), /* @__PURE__ */ React.createElement("span", null, "Livraison express \xE0 domicile partout au Maroc \xB7 Paiement apr\xE8s ouverture & v\xE9rification (COD)."))), /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, isProductCompletelyOut ? /* @__PURE__ */ React.createElement("div", { className: "p-3 bg-red-50 border border-red-300 rounded-xs flex items-center gap-2 text-xs font-bold text-[#B91C1C]" }, /* @__PURE__ */ React.createElement("span", { className: "w-2.5 h-2.5 rounded-full bg-[#B91C1C] shrink-0" }), /* @__PURE__ */ React.createElement("span", null, t.out_of_stock)) : isOut ? /* @__PURE__ */ React.createElement("div", { className: "p-3.5 bg-red-50 border border-red-300 rounded-xs text-xs font-semibold text-[#991B1B] space-y-1" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 font-bold" }, /* @__PURE__ */ React.createElement("span", null, "\u26A0\uFE0F"), /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? `\u0627\u0644\u0645\u0642\u0627\u0633 "${selectedSize || "\u0642\u064A\u0627\u0633\u064A"}" \u0628\u0627\u0644\u0644\u0648\u0646 "${selectedColorName}" \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u0645\u062E\u0632\u0648\u0646 \u062D\u0627\u0644\u064A\u0627\u064B.` : `Cette taille (${selectedSize || "Unique"}) en couleur ${selectedColorName} n'est pas en stock (\xE9puis\xE9e).`)), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-[#B91C1C] font-normal" }, lang === "ar" ? "\u064A\u0631\u062C\u0649 \u0627\u062E\u062A\u064A\u0627\u0631 \u0645\u0642\u0627\u0633 \u0622\u062E\u0631 \u0623\u0648 \u0644\u0648\u0646 \u0622\u062E\u0631 \u0645\u062A\u0648\u0641\u0631 \u0644\u0625\u062A\u0645\u0627\u0645 \u0627\u0644\u0637\u0644\u0628." : "Veuillez s\xE9lectionner une autre taille/pointure ou une autre couleur disponible ci-dessous.")) : isLow ? /* @__PURE__ */ React.createElement("div", { className: "p-3 bg-[#FFFBEB] border border-[#F59E0B]/40 rounded-xs inline-flex items-center gap-2 text-xs font-semibold text-[#B91C1C] animate-flame" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F525}"), /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? `\u0628\u0642\u064A \u0641\u0642\u0637 ${selectedVariantStock} \u0641\u064A \u0627\u0644\u0645\u062E\u0632\u0648\u0646 \u0644\u0644\u0645\u0642\u0627\u0633 ${selectedSize || "\u0642\u064A\u0627\u0633\u064A"} \u2014 \u0627\u0644\u0644\u0648\u0646 ${selectedColorName}!` : `Plus que ${selectedVariantStock} en stock pour la taille ${selectedSize || "Unique"} (Couleur : ${selectedColorName}) !`)) : /* @__PURE__ */ React.createElement("div", { className: "inline-flex items-center gap-2 text-xs font-semibold text-[#065F46] bg-[#ECFDF5] border border-[#A7F3D0] px-3 py-1.5 rounded-xs" }, /* @__PURE__ */ React.createElement("span", { className: "w-2 h-2 rounded-full bg-[#25D366]" }), /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? `\u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u0645\u062E\u0632\u0648\u0646 (${selectedVariantStock} \u0642\u0637\u0639 \u2014 \u0645\u0642\u0627\u0633 ${selectedSize || "\u0642\u064A\u0627\u0633\u064A"} / \u0644\u0648\u0646 ${selectedColorName})` : `En stock (${selectedVariantStock} disponible${selectedVariantStock > 1 ? "s" : ""} \u2014 Taille ${selectedSize || "Unique"} \xB7 Couleur ${selectedColorName})`))), /* @__PURE__ */ React.createElement("p", { className: "text-xs sm:text-sm text-taupe-dark leading-relaxed mb-6 font-light" }, desc), product.sizes && product.sizes.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-5" }, /* @__PURE__ */ React.createElement("div", { className: "flex justify-between items-center mb-2" }, /* @__PURE__ */ React.createElement("label", { className: "text-xs font-bold uppercase tracking-wider text-noir" }, t.options_size, " : ", /* @__PURE__ */ React.createElement("span", { className: "text-caramel font-mono" }, selectedSize)), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -1137,41 +1346,72 @@ Merci de confirmer la disponibilit\xE9 et le cr\xE9neau de livraison.`;
       className: "text-[11px] text-caramel hover:underline font-semibold flex items-center gap-1"
     },
     /* @__PURE__ */ React.createElement("span", null, "\u{1F4CF} Guide des Tailles")
-  ), /* @__PURE__ */ React.createElement("span", { className: "text-[11px] text-taupe font-mono" }, selectedSize))), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-2" }, product.sizes.map((size) => /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      key: size,
-      type: "button",
-      onClick: () => setSelectedSize(size),
-      className: `min-w-10 px-3.5 py-2 text-xs font-semibold border transition-all duration-200 ${selectedSize === size ? "border-noir bg-noir text-white shadow-xs" : "border-taupe/30 hover:border-noir text-noir bg-canvas"}`
-    },
-    size
-  )))), product.colors && product.colors.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex justify-between items-center mb-2" }, /* @__PURE__ */ React.createElement("label", { className: "text-xs font-bold uppercase tracking-wider text-noir" }, t.options_color)), /* @__PURE__ */ React.createElement("div", { className: "flex gap-2.5" }, product.colors.map((color) => /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      key: color,
-      type: "button",
-      onClick: () => setSelectedColor(color),
-      className: `w-8 h-8 rounded-full border-2 transition-transform duration-200 ${selectedColor === color ? "border-caramel scale-110 shadow-md ring-2 ring-caramel/20" : "border-transparent hover:scale-105"}`,
-      style: { backgroundColor: color },
-      title: color
-    }
-  )))), /* @__PURE__ */ React.createElement("div", { className: "space-y-3 pt-4 border-t border-taupe/20" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center border border-taupe/30 bg-card" }, /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-2" }, product.sizes.map((size) => {
+    const stockForThisSizeAndColor = getProductVariantStock(product, size, selectedColor);
+    const isThisSizeOutForColor = stockForThisSizeAndColor <= 0;
+    const isSelected = selectedSize === size;
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: size,
+        type: "button",
+        onClick: () => setSelectedSize(size),
+        className: `min-w-12 px-3.5 py-2 text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5 ${isSelected ? isThisSizeOutForColor ? "border-[#B91C1C] bg-[#FEE2E2] text-[#991B1B] shadow-xs" : "border-noir bg-noir text-white shadow-xs" : isThisSizeOutForColor ? "border-taupe/25 bg-card/50 text-taupe line-through opacity-75 hover:border-[#B91C1C]" : "border-taupe/30 hover:border-noir text-noir bg-canvas"}`,
+        title: isThisSizeOutForColor ? `${size} (${selectedColorName}) : \xC9puis\xE9 (0 en stock)` : `${size} (${selectedColorName}) : ${stockForThisSizeAndColor} en stock`
+      },
+      /* @__PURE__ */ React.createElement("span", null, size),
+      hasVariantStockMatrix(product) && /* @__PURE__ */ React.createElement("span", { className: `text-[10px] font-mono px-1 rounded-2xs ${isThisSizeOutForColor ? "bg-red-100 text-red-700 no-underline" : isSelected ? "bg-white/20 text-white" : "bg-card text-taupe-dark"}` }, isThisSizeOutForColor ? lang === "ar" ? "\u0646\u0641\u0630" : "\xC9puis\xE9" : stockForThisSizeAndColor)
+    );
+  }))), product.colors && product.colors.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex justify-between items-center mb-2" }, /* @__PURE__ */ React.createElement("label", { className: "text-xs font-bold uppercase tracking-wider text-noir" }, t.options_color, " : ", /* @__PURE__ */ React.createElement("span", { className: "text-caramel" }, selectedColorName))), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-2.5" }, product.colors.map((color) => {
+    const cLabel = getColorLabel(color, lang);
+    const cHex = getColorCss(color);
+    const stockForColorAndSelectedSize = getProductVariantStock(product, selectedSize, color);
+    const isColorOutForSize = stockForColorAndSelectedSize <= 0;
+    const isSelected = selectedColor === color;
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: color,
+        type: "button",
+        onClick: () => setSelectedColor(color),
+        className: `px-3 py-1.5 rounded-xs border text-xs font-semibold flex items-center gap-2 transition-all duration-200 ${isSelected ? isColorOutForSize ? "border-2 border-[#B91C1C] bg-[#FEE2E2]/60 text-[#991B1B] shadow-xs" : "border-2 border-caramel bg-white text-noir shadow-sm ring-2 ring-caramel/20" : isColorOutForSize ? "border-taupe/25 bg-card/50 text-taupe opacity-70 hover:border-[#B91C1C]" : "border-taupe/30 bg-white hover:border-noir text-noir"}`,
+        title: isColorOutForSize ? `${cLabel} (Taille ${selectedSize}) : \xC9puis\xE9 (0 en stock)` : `${cLabel} (Taille ${selectedSize}) : ${stockForColorAndSelectedSize} en stock`
+      },
+      /* @__PURE__ */ React.createElement(
+        "span",
+        {
+          className: "w-4 h-4 rounded-full border border-black/25 shrink-0 relative inline-block",
+          style: { backgroundColor: cHex }
+        }
+      ),
+      /* @__PURE__ */ React.createElement("span", { className: isColorOutForSize ? "line-through" : "" }, cLabel),
+      hasVariantStockMatrix(product) && /* @__PURE__ */ React.createElement("span", { className: `text-[10px] font-mono ${isColorOutForSize ? "text-red-600 font-bold" : "text-taupe-dark"}` }, "(", isColorOutForSize ? "0" : stockForColorAndSelectedSize, ")")
+    );
+  }))), /* @__PURE__ */ React.createElement("div", { className: "space-y-3 pt-4 border-t border-taupe/20" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center border border-taupe/30 bg-card" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
       onClick: () => setQty((q) => Math.max(1, q - 1)),
       className: "px-3.5 py-3 text-xs hover:bg-taupe/20 transition-colors",
-      disabled: qty <= 1
+      disabled: isOut || qty <= 1
     },
     "-"
-  ), /* @__PURE__ */ React.createElement("span", { className: "px-4 py-3 text-xs font-semibold tabular-nums min-w-10 text-center" }, qty), /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("span", { className: "px-4 py-3 text-xs font-semibold tabular-nums min-w-10 text-center" }, isOut ? 0 : qty), /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
-      onClick: () => setQty((q) => Math.min(product.stock || 99, q + 1)),
+      onClick: () => {
+        if (qty >= selectedVariantStock) {
+          showToast(
+            lang === "ar" ? `\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0627\u0644\u0645\u062A\u0648\u0641\u0631 \u0644\u0644\u0645\u0642\u0627\u0633 ${selectedSize} (${selectedColorName}) \u0647\u0648 ${selectedVariantStock}.` : `Stock maximum atteint : seulement ${selectedVariantStock} disponible(s) pour la taille ${selectedSize} en couleur ${selectedColorName}.`,
+            "warning"
+          );
+          return;
+        }
+        setQty((q) => Math.min(selectedVariantStock, q + 1));
+      },
       className: "px-3.5 py-3 text-xs hover:bg-taupe/20 transition-colors",
-      disabled: qty >= product.stock
+      disabled: isOut || qty >= selectedVariantStock
     },
     "+"
   )), /* @__PURE__ */ React.createElement(
@@ -1180,9 +1420,9 @@ Merci de confirmer la disponibilit\xE9 et le cr\xE9neau de livraison.`;
       type: "button",
       disabled: isOut,
       onClick: () => onAddToCart(product, selectedSize, selectedColor, qty),
-      className: `flex-1 py-3.5 px-4 text-xs font-semibold uppercase tracking-[0.15em] transition-all duration-200 shadow-sm ${isOut ? "bg-taupe/20 text-taupe-dark cursor-not-allowed" : "bg-noir text-white hover:bg-caramel active:scale-98"}`
+      className: `flex-1 py-3.5 px-4 text-xs font-semibold uppercase tracking-[0.15em] transition-all duration-200 shadow-sm ${isOut ? "bg-red-100 text-[#991B1B] border border-red-300 cursor-not-allowed" : "bg-noir text-white hover:bg-caramel active:scale-98"}`
     },
-    isOut ? t.out_of_stock : t.add_to_cart
+    isOut ? lang === "ar" ? `\u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 (${selectedSize} - ${selectedColorName})` : `Rupture (${selectedSize} \xB7 ${selectedColorName})` : t.add_to_cart
   )), /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -1191,16 +1431,16 @@ Merci de confirmer la disponibilit\xE9 et le cr\xE9neau de livraison.`;
       onClick: handleDirectOrder,
       className: `w-full py-3.5 px-4 text-xs font-semibold uppercase tracking-[0.18em] transition-all duration-200 shadow-md ${isOut ? "bg-taupe/20 text-taupe-dark cursor-not-allowed" : "bg-caramel text-white hover:bg-noir active:scale-98"}`
     },
-    isOut ? t.out_of_stock : t.product_buy_now_cod
+    isOut ? lang === "ar" ? `\u0646\u0641\u0630\u062A \u0627\u0644\u0643\u0645\u064A\u0629 \u0644\u0647\u0630\u0647 Taille \u0648\u0627\u0644\u0644\u0648\u0646` : `Cette taille (${selectedSize}) en couleur ${selectedColorName} n'est pas en stock` : t.product_buy_now_cod
   ), /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
       disabled: isOut,
       onClick: orderViaWhatsApp,
-      className: "w-full py-3.5 px-4 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold uppercase tracking-[0.14em] transition-all duration-200 shadow-md flex items-center justify-center gap-2 rounded-xs active:scale-98"
+      className: `w-full py-3.5 px-4 text-xs font-bold uppercase tracking-[0.14em] transition-all duration-200 shadow-md flex items-center justify-center gap-2 rounded-xs ${isOut ? "bg-taupe/25 text-taupe-dark cursor-not-allowed" : "bg-[#25D366] hover:bg-[#20ba59] text-white active:scale-98"}`
     },
-    /* @__PURE__ */ React.createElement(WhatsAppIcon, { className: "w-5 h-5 fill-white shrink-0" }),
+    /* @__PURE__ */ React.createElement(WhatsAppIcon, { className: "w-5 h-5 fill-current shrink-0" }),
     /* @__PURE__ */ React.createElement("span", null, "Commander directement par WhatsApp")
   )), /* @__PURE__ */ React.createElement("div", { className: "mt-8 pt-6 border-t border-taupe/20 space-y-3 text-xs text-taupe-dark" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("span", { className: "text-base" }, "\u{1F69A}"), /* @__PURE__ */ React.createElement("span", null, t.product_delivery_guarantee)), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("span", { className: "text-base" }, "\u{1F4B5}"), /* @__PURE__ */ React.createElement("span", null, t.product_cod_guarantee)), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("span", { className: "text-base" }, "\u{1F504}"), /* @__PURE__ */ React.createElement("span", null, t.product_exchange_guarantee)))))), /* @__PURE__ */ React.createElement("div", { className: "lg:hidden fixed bottom-0 start-0 end-0 z-30 bg-white/95 backdrop-blur-md border-t border-taupe/25 px-4 py-2.5 shadow-2xl flex items-center justify-between gap-3 animate-slide-up" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2.5 min-w-0" }, /* @__PURE__ */ React.createElement("div", { className: "w-11 h-11 shrink-0 bg-[#F7F5F0] border border-taupe/20 rounded-xs overflow-hidden flex items-center justify-center p-1" }, /* @__PURE__ */ React.createElement("img", { src: product.images && product.images[0] || "", alt: "", className: "w-full h-full object-contain" })), /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs font-bold text-noir truncate" }, title), /* @__PURE__ */ React.createElement("div", { className: "text-xs font-bold text-caramel" }, Number(product.price).toLocaleString(), " MAD"))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 shrink-0" }, /* @__PURE__ */ React.createElement(
     "button",
@@ -1727,45 +1967,80 @@ function App() {
     }
   }, [cartTotals.itemCount]);
   const addToCart = (product, sizeChoice, colorChoice, qty = 1) => {
-    if (!product.inStock || product.stock <= 0) {
-      showToast(t.out_of_stock, "error");
+    const size = sizeChoice || product.sizes && product.sizes[0] || "Unique";
+    const color = colorChoice || product.colors && product.colors[0] || "Default";
+    const colorLabel = getColorLabel(color, lang);
+    const variantStock = getProductVariantStock(product, size, color);
+    if (!product.inStock || product.stock <= 0 || variantStock <= 0) {
+      showToast(
+        lang === "ar" ? `\u0639\u0630\u0631\u0627\u064B\u060C \u0627\u0644\u0645\u0642\u0627\u0633 "${size}" \u0628\u0627\u0644\u0644\u0648\u0646 "${colorLabel}" \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u0645\u062E\u0632\u0648\u0646 \u062D\u0627\u0644\u064A\u0627\u064B.` : `D\xE9sol\xE9, la taille "${size}" en couleur "${colorLabel}" n'est pas en stock (\xE9puis\xE9e).`,
+        "error"
+      );
       return;
     }
-    const size = sizeChoice || product.sizes && product.sizes[0] || "";
-    const color = colorChoice || product.colors && product.colors[0] || "";
     const lineKey = `${product.id}_${size}_${color}`;
+    const existingInCart = cart.find((item) => item.lineKey === lineKey);
+    const currentInCartQty = existingInCart ? Number(existingInCart.quantity || 0) : 0;
+    if (currentInCartQty >= variantStock) {
+      showToast(
+        lang === "ar" ? `\u0644\u0642\u062F \u0648\u0635\u0644\u062A \u0625\u0644\u0649 \u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0627\u0644\u0645\u062A\u0648\u0641\u0631 (${variantStock}) \u0644\u0644\u0645\u0642\u0627\u0633 "${size}" \u0628\u0627\u0644\u0644\u0648\u0646 "${colorLabel}".` : `Quantit\xE9 maximale atteinte : il n'y a que ${variantStock} exemplaire(s) en stock pour la taille "${size}" en couleur "${colorLabel}".`,
+        "warning"
+      );
+      setCartOpen(true);
+      return;
+    }
+    const allowedNewQty = Math.min(variantStock, currentInCartQty + qty);
+    if (currentInCartQty + qty > variantStock) {
+      showToast(
+        lang === "ar" ? `\u062A\u0645\u062A \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0643\u0645\u064A\u0629 \u0627\u0644\u0645\u062A\u0648\u0641\u0631\u0629 \u0641\u0642\u0637 (${variantStock}) \u0644\u0644\u0645\u0642\u0627\u0633 "${size}" \u0628\u0627\u0644\u0644\u0648\u0646 "${colorLabel}".` : `Stock limit\xE9 : quantit\xE9 ajust\xE9e \xE0 ${variantStock} (maximum disponible pour la taille "${size}" en couleur "${colorLabel}").`,
+        "warning"
+      );
+    } else {
+      showToast(t.toast_added, "success");
+    }
     setLastAddedLineKey(lineKey);
     setBadgePulsing(true);
     setTimeout(() => setBadgePulsing(false), 700);
     setCart((prev) => {
       const existing = prev.find((item) => item.lineKey === lineKey);
       if (existing) {
-        const newQty = Math.min(product.stock, existing.quantity + qty);
-        return prev.map((item) => item.lineKey === lineKey ? { ...item, quantity: newQty } : item);
+        return prev.map(
+          (item) => item.lineKey === lineKey ? { ...item, quantity: allowedNewQty, stock: variantStock } : item
+        );
       } else {
-        return [...prev, {
-          lineKey,
-          productId: product.id,
-          nameFr: product.nameFr,
-          nameAr: product.nameAr,
-          price: product.price,
-          stock: product.stock,
-          size,
-          color,
-          quantity: Math.min(product.stock, qty),
-          image: product.images && product.images[0] || ""
-        }];
+        return [
+          ...prev,
+          {
+            lineKey,
+            productId: product.id,
+            nameFr: product.nameFr,
+            nameAr: product.nameAr,
+            price: product.price,
+            stock: variantStock,
+            size,
+            color,
+            quantity: allowedNewQty,
+            image: product.images && product.images[0] || ""
+          }
+        ];
       }
     });
-    showToast(t.toast_added, "success");
     setCartOpen(true);
   };
   const updateCartQty = (lineKey, newQty) => {
     setCart((prev) => {
       return prev.map((item) => {
         if (item.lineKey === lineKey) {
-          const clamped = Math.max(1, Math.min(item.stock, newQty));
-          return { ...item, quantity: clamped };
+          const liveProd = products.find((p) => Number(p.id) === Number(item.productId));
+          const maxAvail = liveProd ? getProductVariantStock(liveProd, item.size, item.color) : item.stock || 1;
+          if (newQty > maxAvail) {
+            showToast(
+              lang === "ar" ? `\u0627\u0644\u0643\u0645\u064A\u0629 \u0627\u0644\u0642\u0635\u0648\u0649 \u0627\u0644\u0645\u062A\u0648\u0641\u0631\u0629 \u0644\u0644\u0645\u0642\u0627\u0633 "${item.size}" (${getColorLabel(item.color, lang)}) \u0647\u064A ${maxAvail}.` : `Seulement ${maxAvail} disponible(s) en stock pour la taille "${item.size}" en couleur "${getColorLabel(item.color, lang)}".`,
+              "warning"
+            );
+          }
+          const clamped = Math.max(1, Math.min(Math.max(1, maxAvail), newQty));
+          return { ...item, quantity: clamped, stock: maxAvail };
         }
         return item;
       });
@@ -2613,14 +2888,14 @@ function App() {
           }
         )
       ),
-      /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0 flex flex-col justify-between self-stretch" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-start justify-between gap-2" }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React.createElement("h4", { className: "text-sm font-semibold text-noir truncate leading-tight", title: itemTitle }, itemTitle), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark mt-1 flex items-center gap-1.5 flex-wrap" }, item.size && /* @__PURE__ */ React.createElement("span", { className: "font-mono text-noir" }, item.size), item.size && item.color && /* @__PURE__ */ React.createElement("span", { className: "text-taupe/40" }, "\xB7"), item.color && /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0 flex flex-col justify-between self-stretch" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-start justify-between gap-2" }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React.createElement("h4", { className: "text-sm font-semibold text-noir truncate leading-tight", title: itemTitle }, itemTitle), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark mt-1 flex items-center gap-1.5 flex-wrap" }, item.size && /* @__PURE__ */ React.createElement("span", { className: "font-mono text-noir font-semibold" }, item.size), item.size && item.color && /* @__PURE__ */ React.createElement("span", { className: "text-taupe/40" }, "\xB7"), item.color && /* @__PURE__ */ React.createElement("span", { className: "inline-flex items-center gap-1" }, /* @__PURE__ */ React.createElement(
         "span",
         {
           className: "inline-block w-3 h-3 rounded-full border border-black/20 align-middle",
-          style: { backgroundColor: item.color },
-          title: item.color
+          style: { backgroundColor: getColorCss(item.color) },
+          title: getColorLabel(item.color, lang)
         }
-      ))), /* @__PURE__ */ React.createElement(
+      ), /* @__PURE__ */ React.createElement("span", { className: "text-noir font-medium" }, getColorLabel(item.color, lang))))), /* @__PURE__ */ React.createElement(
         "button",
         {
           type: "button",
@@ -2761,35 +3036,69 @@ function App() {
       className: `w-14 h-14 shrink-0 border-2 overflow-hidden transition-all p-1 bg-[#F7F5F0] flex items-center justify-center ${quickViewImageIdx === i ? "border-caramel scale-105" : "border-taupe/20 opacity-70 hover:opacity-100"}`
     },
     /* @__PURE__ */ React.createElement("img", { src: img, alt: "miniature", className: "w-full h-full object-contain" })
-  )))), /* @__PURE__ */ React.createElement("div", { className: "md:w-1/2 p-6 md:p-8 flex flex-col justify-between" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between text-xs text-taupe-dark uppercase tracking-wider mb-2" }, /* @__PURE__ */ React.createElement("span", null, quickViewProduct.category), /* @__PURE__ */ React.createElement("span", { className: "text-caramel font-semibold" }, "\u2605 ", quickViewProduct.rating || 5, ".0")), /* @__PURE__ */ React.createElement("h2", { className: "font-serif text-2xl sm:text-3xl font-semibold text-noir mb-3" }, lang === "ar" ? quickViewProduct.nameAr || quickViewProduct.nameFr : quickViewProduct.nameFr), /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline gap-3 mb-4" }, /* @__PURE__ */ React.createElement("span", { className: "text-2xl font-bold text-noir tabular-nums" }, Number(quickViewProduct.price).toLocaleString(), " MAD"), quickViewProduct.oldPrice && /* @__PURE__ */ React.createElement("span", { className: "text-sm text-taupe line-through tabular-nums" }, Number(quickViewProduct.oldPrice).toLocaleString(), " MAD")), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-taupe-dark leading-relaxed mb-6" }, lang === "ar" ? quickViewProduct.descAr || quickViewProduct.descFr : quickViewProduct.descFr), quickViewProduct.sizes && quickViewProduct.sizes.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-4" }, /* @__PURE__ */ React.createElement("label", { className: "block text-xs font-bold uppercase tracking-wider text-noir mb-2" }, t.options_size), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-2" }, quickViewProduct.sizes.map((size) => /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      key: size,
-      onClick: () => setQuickViewSize(size),
-      className: `px-3 py-1.5 text-xs font-semibold border transition-colors ${quickViewSize === size ? "border-noir bg-noir text-white" : "border-taupe/30 hover:border-noir text-noir"}`
-    },
-    size
-  )))), quickViewProduct.colors && quickViewProduct.colors.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("label", { className: "block text-xs font-bold uppercase tracking-wider text-noir mb-2" }, t.options_color), /* @__PURE__ */ React.createElement("div", { className: "flex gap-2" }, quickViewProduct.colors.map((color) => /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      key: color,
-      onClick: () => setQuickViewColor(color),
-      className: `w-7 h-7 rounded-full border-2 transition-transform ${quickViewColor === color ? "border-caramel scale-110 shadow-xs" : "border-transparent"}`,
-      style: { backgroundColor: color }
-    }
-  )))), quickViewProduct.stock > 0 && quickViewProduct.stock < 5 && /* @__PURE__ */ React.createElement("div", { className: "text-xs font-semibold text-[#B91C1C] mb-4" }, t.low_stock_alert.replace("{n}", quickViewProduct.stock))), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      type: "button",
-      disabled: !quickViewProduct.inStock || quickViewProduct.stock <= 0,
-      onClick: () => {
-        addToCart(quickViewProduct, quickViewSize, quickViewColor);
-        setQuickViewProduct(null);
+  )))), /* @__PURE__ */ React.createElement("div", { className: "md:w-1/2 p-6 md:p-8 flex flex-col justify-between" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between text-xs text-taupe-dark uppercase tracking-wider mb-2" }, /* @__PURE__ */ React.createElement("span", null, quickViewProduct.category), /* @__PURE__ */ React.createElement("span", { className: "text-caramel font-semibold" }, "\u2605 ", quickViewProduct.rating || 5, ".0")), /* @__PURE__ */ React.createElement("h2", { className: "font-serif text-2xl sm:text-3xl font-semibold text-noir mb-3" }, lang === "ar" ? quickViewProduct.nameAr || quickViewProduct.nameFr : quickViewProduct.nameFr), /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline gap-3 mb-4" }, /* @__PURE__ */ React.createElement("span", { className: "text-2xl font-bold text-noir tabular-nums" }, Number(quickViewProduct.price).toLocaleString(), " MAD"), quickViewProduct.oldPrice && /* @__PURE__ */ React.createElement("span", { className: "text-sm text-taupe line-through tabular-nums" }, Number(quickViewProduct.oldPrice).toLocaleString(), " MAD")), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-taupe-dark leading-relaxed mb-6" }, lang === "ar" ? quickViewProduct.descAr || quickViewProduct.descFr : quickViewProduct.descFr), quickViewProduct.sizes && quickViewProduct.sizes.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-4" }, /* @__PURE__ */ React.createElement("label", { className: "block text-xs font-bold uppercase tracking-wider text-noir mb-2" }, t.options_size, " : ", /* @__PURE__ */ React.createElement("span", { className: "text-caramel font-mono" }, quickViewSize)), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-2" }, quickViewProduct.sizes.map((size) => {
+    const st = getProductVariantStock(quickViewProduct, size, quickViewColor);
+    const isOutVar = st <= 0;
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: size,
+        onClick: () => setQuickViewSize(size),
+        className: `px-3 py-1.5 text-xs font-semibold border transition-colors flex items-center gap-1 ${quickViewSize === size ? isOutVar ? "border-[#B91C1C] bg-[#FEE2E2] text-[#991B1B]" : "border-noir bg-noir text-white" : isOutVar ? "border-taupe/25 text-taupe line-through opacity-70" : "border-taupe/30 hover:border-noir text-noir"}`
       },
-      className: `w-full py-3.5 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${!quickViewProduct.inStock || quickViewProduct.stock <= 0 ? "bg-taupe/20 text-taupe-dark cursor-not-allowed" : "bg-noir text-white hover:bg-caramel active:scale-95 shadow-xs"}`
-    },
-    !quickViewProduct.inStock || quickViewProduct.stock <= 0 ? t.out_of_stock : t.add_to_cart
-  ), /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ React.createElement("span", null, size),
+      hasVariantStockMatrix(quickViewProduct) && /* @__PURE__ */ React.createElement("span", { className: "text-[10px] font-mono opacity-85" }, "(", isOutVar ? "0" : st, ")")
+    );
+  }))), quickViewProduct.colors && quickViewProduct.colors.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-5" }, /* @__PURE__ */ React.createElement("label", { className: "block text-xs font-bold uppercase tracking-wider text-noir mb-2" }, t.options_color, " : ", /* @__PURE__ */ React.createElement("span", { className: "text-caramel" }, getColorLabel(quickViewColor, lang))), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-2" }, quickViewProduct.colors.map((color) => {
+    const cLabel = getColorLabel(color, lang);
+    const cHex = getColorCss(color);
+    const st = getProductVariantStock(quickViewProduct, quickViewSize, color);
+    const isOutVar = st <= 0;
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: color,
+        onClick: () => setQuickViewColor(color),
+        className: `px-2.5 py-1 rounded-xs border text-xs font-semibold flex items-center gap-1.5 transition-all ${quickViewColor === color ? isOutVar ? "border-2 border-[#B91C1C] bg-[#FEE2E2]/60 text-[#991B1B]" : "border-2 border-caramel bg-white text-noir shadow-xs" : isOutVar ? "border-taupe/25 text-taupe opacity-70 line-through" : "border-taupe/30 bg-white text-noir hover:border-noir"}`,
+        title: `${cLabel} : ${st} en stock`
+      },
+      /* @__PURE__ */ React.createElement(
+        "span",
+        {
+          className: "w-3.5 h-3.5 rounded-full border border-black/25 shrink-0",
+          style: { backgroundColor: cHex }
+        }
+      ),
+      /* @__PURE__ */ React.createElement("span", null, cLabel)
+    );
+  }))), (() => {
+    const qvStock = getProductVariantStock(quickViewProduct, quickViewSize, quickViewColor);
+    const qvColorName = getColorLabel(quickViewColor, lang);
+    if (!quickViewProduct.inStock || quickViewProduct.stock <= 0 || qvStock <= 0) {
+      return /* @__PURE__ */ React.createElement("div", { className: "p-2.5 bg-red-50 border border-red-300 text-[#991B1B] text-xs font-semibold mb-4 rounded-xs" }, "\u26A0\uFE0F ", lang === "ar" ? `\u0627\u0644\u0645\u0642\u0627\u0633 "${quickViewSize}" \u0628\u0627\u0644\u0644\u0648\u0646 "${qvColorName}" \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u0645\u062E\u0632\u0648\u0646.` : `La taille "${quickViewSize}" en couleur "${qvColorName}" n'est pas en stock (\xE9puis\xE9e).`);
+    }
+    if (qvStock <= 5) {
+      return /* @__PURE__ */ React.createElement("div", { className: "text-xs font-semibold text-[#B91C1C] mb-4" }, "\u{1F525} ", lang === "ar" ? `\u0628\u0642\u064A \u0641\u0642\u0637 ${qvStock} \u0641\u064A \u0627\u0644\u0645\u062E\u0632\u0648\u0646 \u0644\u0644\u0645\u0642\u0627\u0633 ${quickViewSize} (${qvColorName})!` : `Plus que ${qvStock} en stock pour la taille ${quickViewSize} (${qvColorName}) !`);
+    }
+    return /* @__PURE__ */ React.createElement("div", { className: "text-xs font-semibold text-[#065F46] mb-4" }, "\u2713 ", lang === "ar" ? `\u0645\u062A\u0648\u0641\u0631 \u0641\u064A \u0627\u0644\u0645\u062E\u0632\u0648\u0646 (${qvStock} \u2014 ${quickViewSize} / ${qvColorName})` : `En stock (${qvStock} disponibles \u2014 ${quickViewSize} \xB7 ${qvColorName})`);
+  })()), (() => {
+    const qvStock = getProductVariantStock(quickViewProduct, quickViewSize, quickViewColor);
+    const isQvOut = !quickViewProduct.inStock || quickViewProduct.stock <= 0 || qvStock <= 0;
+    const qvColorName = getColorLabel(quickViewColor, lang);
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        disabled: isQvOut,
+        onClick: () => {
+          addToCart(quickViewProduct, quickViewSize, quickViewColor);
+          setQuickViewProduct(null);
+        },
+        className: `w-full py-3.5 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${isQvOut ? "bg-red-100 text-[#991B1B] border border-red-300 cursor-not-allowed" : "bg-noir text-white hover:bg-caramel active:scale-95 shadow-xs"}`
+      },
+      isQvOut ? lang === "ar" ? `\u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 (${quickViewSize} - ${qvColorName})` : `Cette taille (${quickViewSize}) en ${qvColorName} n'est pas en stock` : t.add_to_cart
+    );
+  })(), /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -4225,7 +4534,23 @@ function AdminModal({
       /* @__PURE__ */ React.createElement("td", { className: "p-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 flex-wrap" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-noir" }, p.nameFr), globalRank === 1 && /* @__PURE__ */ React.createElement("span", { className: "text-[9px] uppercase tracking-wider font-bold text-caramel" }, "\u2022 1er de la liste")), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark font-arabic" }, p.nameAr), /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-taupe font-mono mt-0.5" }, "REF: ", p.id)),
       /* @__PURE__ */ React.createElement("td", { className: "p-3" }, /* @__PURE__ */ React.createElement("span", { className: "inline-block px-2 py-0.5 bg-canvas border border-taupe/20 text-[10px] text-noir" }, p.category)),
       /* @__PURE__ */ React.createElement("td", { className: "p-3" }, /* @__PURE__ */ React.createElement("div", { className: "font-bold text-noir tabular-nums" }, p.price, " MAD"), p.oldPrice && /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-taupe line-through tabular-nums" }, p.oldPrice, " MAD")),
-      /* @__PURE__ */ React.createElement("td", { className: "p-3" }, p.stock > 0 ? /* @__PURE__ */ React.createElement("span", { className: "text-emerald-700 font-semibold" }, p.stock, " ex.") : /* @__PURE__ */ React.createElement("span", { className: "text-red-600 font-semibold" }, "Rupture")),
+      /* @__PURE__ */ React.createElement("td", { className: "p-3" }, p.stock > 0 ? /* @__PURE__ */ React.createElement("span", { className: "text-emerald-700 font-semibold" }, p.stock, " ex. total") : /* @__PURE__ */ React.createElement("span", { className: "text-red-600 font-semibold" }, "Rupture (0)"), hasVariantStockMatrix(p) && /* @__PURE__ */ React.createElement("div", { className: "mt-1 flex flex-wrap gap-1 max-w-[210px]" }, Object.entries(p.variantStock).slice(0, 6).map(([k, v]) => {
+        const [sz, col] = String(k).split("__");
+        const qVal = Number(v) || 0;
+        return /* @__PURE__ */ React.createElement(
+          "span",
+          {
+            key: k,
+            className: `text-[9px] font-mono px-1 py-0.5 rounded-2xs border ${qVal > 0 ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-700 line-through"}`,
+            title: `Taille ${sz} \u2014 Couleur ${getColorLabel(col, "fr")} : ${qVal} en stock`
+          },
+          sz,
+          "\xB7",
+          getColorLabel(col, "fr"),
+          ":",
+          qVal
+        );
+      }), Object.keys(p.variantStock).length > 6 && /* @__PURE__ */ React.createElement("span", { className: "text-[9px] text-taupe-dark font-mono" }, "+", Object.keys(p.variantStock).length - 6))),
       /* @__PURE__ */ React.createElement("td", { className: "p-3 text-right" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-end gap-1.5 flex-wrap" }, /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -4871,7 +5196,7 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
   const [nameAr, setNameAr] = useState(initialData.nameAr || "");
   const [price, setPrice] = useState(initialData.price || "");
   const [oldPrice, setOldPrice] = useState(initialData.oldPrice || "");
-  const [stock, setStock] = useState(initialData.stock || 0);
+  const [stock, setStock] = useState(initialData.stock ?? 10);
   const [category, setCategory] = useState(initialData.category || PRODUCT_CATEGORIES[0]);
   const [badge, setBadge] = useState(initialData.badge || "new");
   const [imagesList, setImagesList] = useState(Array.isArray(initialData.images) ? [...initialData.images] : []);
@@ -4880,10 +5205,114 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
   const [dragOverImgIdx, setDragOverImgIdx] = useState(null);
   const [descFr, setDescFr] = useState(initialData.descFr || "");
   const [descAr, setDescAr] = useState(initialData.descAr || "");
-  const [sizesStr, setSizesStr] = useState((initialData.sizes || []).join(", "));
-  const [colorsStr, setColorsStr] = useState((initialData.colors || []).join(", "));
+  const [sizesStr, setSizesStr] = useState(
+    Array.isArray(initialData.sizes) && initialData.sizes.length > 0 ? initialData.sizes.join(", ") : "Unique"
+  );
+  const [colorsStr, setColorsStr] = useState(
+    Array.isArray(initialData.colors) && initialData.colors.length > 0 ? initialData.colors.join(", ") : "Noir:#171717"
+  );
+  const [variantStockMap, setVariantStockMap] = useState(() => {
+    if (initialData.variantStock && typeof initialData.variantStock === "object" && Object.keys(initialData.variantStock).length > 0) {
+      return { ...initialData.variantStock };
+    }
+    const initSizes = Array.isArray(initialData.sizes) && initialData.sizes.length > 0 ? initialData.sizes : ["Unique"];
+    const initColors = Array.isArray(initialData.colors) && initialData.colors.length > 0 ? initialData.colors : ["#171717"];
+    const map = {};
+    const combosCount = Math.max(1, initSizes.length * initColors.length);
+    const defaultPerCombo = initialData.id ? Math.max(1, Math.floor((Number(initialData.stock) || 5) / combosCount)) : 5;
+    initSizes.forEach((s) => {
+      initColors.forEach((c) => {
+        map[makeVariantKey(s, c)] = defaultPerCombo;
+      });
+    });
+    return map;
+  });
+  const [bulkFillValue, setBulkFillValue] = useState(5);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const parsedSizes = useMemo(() => {
+    const arr = sizesStr.split(",").map((s) => s.trim()).filter(Boolean);
+    return arr.length > 0 ? arr : ["Unique"];
+  }, [sizesStr]);
+  const parsedColors = useMemo(() => {
+    const arr = colorsStr.split(",").map((s) => s.trim()).filter(Boolean);
+    return arr.length > 0 ? arr : ["Noir:#171717"];
+  }, [colorsStr]);
+  const getCellQty = (size, color) => {
+    const exactKey = makeVariantKey(size, color);
+    if (variantStockMap[exactKey] !== void 0) {
+      return Math.max(0, Number(variantStockMap[exactKey]) || 0);
+    }
+    const cLabel = getColorLabel(color, "fr").toLowerCase();
+    for (const [k, v] of Object.entries(variantStockMap)) {
+      const [ks, kc] = String(k).split("__");
+      if (ks && kc && ks.trim().toLowerCase() === size.toLowerCase() && (kc.trim().toLowerCase() === color.toLowerCase() || getColorLabel(kc, "fr").toLowerCase() === cLabel)) {
+        return Math.max(0, Number(v) || 0);
+      }
+    }
+    return 0;
+  };
+  const setCellQty = (size, color, val) => {
+    const cleanQty = Math.max(0, Math.floor(Number(val) || 0));
+    const key = makeVariantKey(size, color);
+    setVariantStockMap((prev) => ({
+      ...prev,
+      [key]: cleanQty
+    }));
+  };
+  const totalCalculatedStock = useMemo(() => {
+    let sum = 0;
+    parsedSizes.forEach((sz) => {
+      parsedColors.forEach((col) => {
+        sum += getCellQty(sz, col);
+      });
+    });
+    return sum;
+  }, [parsedSizes, parsedColors, variantStockMap]);
+  useEffect(() => {
+    setStock(totalCalculatedStock);
+  }, [totalCalculatedStock]);
+  const handleApplyBulkQty = () => {
+    const q = Math.max(0, Math.floor(Number(bulkFillValue) || 0));
+    const next = { ...variantStockMap };
+    parsedSizes.forEach((sz) => {
+      parsedColors.forEach((col) => {
+        next[makeVariantKey(sz, col)] = q;
+      });
+    });
+    setVariantStockMap(next);
+  };
+  const handleAddPresetColor = (preset) => {
+    const tokenStr = `${preset.labelFr}:${preset.hex}`;
+    const currentList = colorsStr.split(",").map((s) => s.trim()).filter(Boolean);
+    const alreadyExists = currentList.some(
+      (c) => getColorLabel(c, "fr").toLowerCase() === preset.labelFr.toLowerCase() || c.toUpperCase() === preset.hex.toUpperCase()
+    );
+    if (!alreadyExists) {
+      const updated = [...currentList, tokenStr];
+      setColorsStr(updated.join(", "));
+      setVariantStockMap((prev) => {
+        const copy = { ...prev };
+        parsedSizes.forEach((sz) => {
+          copy[makeVariantKey(sz, tokenStr)] = 5;
+        });
+        return copy;
+      });
+    }
+  };
+  const handleApplySizePreset = (presetSizesArr) => {
+    setSizesStr(presetSizesArr.join(", "));
+    setVariantStockMap((prev) => {
+      const copy = { ...prev };
+      presetSizesArr.forEach((sz) => {
+        parsedColors.forEach((col) => {
+          const k = makeVariantKey(sz, col);
+          if (copy[k] === void 0) copy[k] = 5;
+        });
+      });
+      return copy;
+    });
+  };
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -4943,8 +5372,17 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
     try {
       const pendingUrl = (newImageUrl || "").trim();
       const finalImages = pendingUrl ? [...imagesList, pendingUrl] : [...imagesList];
-      const sizes = sizesStr.split(",").map((s) => s.trim()).filter(Boolean);
-      const colors = colorsStr.split(",").map((s) => s.trim()).filter(Boolean);
+      const sizes = parsedSizes;
+      const colors = parsedColors;
+      const cleanVariantStock = {};
+      let sumStock = 0;
+      sizes.forEach((sz) => {
+        colors.forEach((col) => {
+          const q = getCellQty(sz, col);
+          cleanVariantStock[makeVariantKey(sz, col)] = q;
+          sumStock += q;
+        });
+      });
       const payload = {
         id: initialData.id,
         position: initialData.position,
@@ -4952,10 +5390,11 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
         nameAr,
         price: Number(price),
         oldPrice: oldPrice ? Number(oldPrice) : null,
-        stock: Number(stock),
-        inStock: Number(stock) > 0,
+        stock: sumStock,
+        inStock: sumStock > 0,
+        variantStock: cleanVariantStock,
         category,
-        badge,
+        badge: sumStock <= 0 ? "out" : badge === "out" ? "new" : badge,
         isNew: badge === "new",
         rating: initialData.rating || 5,
         images: finalImages.length > 0 ? finalImages : ['data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="%23f3f1ec"/><text x="200" y="200" fill="%23999" text-anchor="middle">MODANOVA</text></svg>'],
@@ -4983,7 +5422,7 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
       onError("Erreur de connexion");
     }
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4" }, /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 bg-black/60 backdrop-blur-xs", onClick: onClose }), /* @__PURE__ */ React.createElement("div", { className: "relative bg-canvas w-full max-w-2xl max-h-[90vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-6 sm:p-8" }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, className: "absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg" }, "\u2715"), /* @__PURE__ */ React.createElement("h3", { className: "font-serif text-2xl font-bold text-noir mb-4" }, initialData.id ? "Modifier le Produit" : "Ajouter un Produit"), /* @__PURE__ */ React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4 text-xs" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1" }, "Nom (FR) *"), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4" }, /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 bg-black/60 backdrop-blur-xs", onClick: onClose }), /* @__PURE__ */ React.createElement("div", { className: "relative bg-canvas w-full max-w-3xl max-h-[92vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-6 sm:p-8" }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, className: "absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg" }, "\u2715"), /* @__PURE__ */ React.createElement("h3", { className: "font-serif text-2xl font-bold text-noir mb-4" }, initialData.id ? "Modifier le Produit" : "Ajouter un Produit"), /* @__PURE__ */ React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4 text-xs" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1" }, "Nom (FR) *"), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "text",
@@ -5018,14 +5457,14 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
       onChange: (e) => setOldPrice(e.target.value),
       className: "w-full bg-card border border-taupe/30 p-2"
     }
-  )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1" }, "Stock *"), /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1" }, "Stock Total (Calcul\xE9 auto)"), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "number",
-      required: true,
+      readOnly: true,
       value: stock,
-      onChange: (e) => setStock(e.target.value),
-      className: "w-full bg-card border border-taupe/30 p-2"
+      className: "w-full bg-[#EFECE6] border border-taupe/30 p-2 font-bold text-noir cursor-not-allowed",
+      title: "Le stock total est calcul\xE9 automatiquement \xE0 partir des quantit\xE9s de chaque taille et couleur ci-dessous"
     }
   ))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1" }, "Cat\xE9gorie *"), /* @__PURE__ */ React.createElement(
     "select",
@@ -5179,25 +5618,107 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
       className: "px-3 py-1.5 bg-noir hover:bg-caramel text-white text-[11px] font-semibold rounded-xs transition-colors shrink-0"
     },
     "+ Ajouter URL"
-  )))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1" }, "Tailles / Formats (virgules)"), /* @__PURE__ */ React.createElement(
+  )))), /* @__PURE__ */ React.createElement("div", { className: "border border-taupe/30 bg-white p-4 rounded-xs space-y-4 shadow-2xs" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-taupe/15 pb-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "font-bold uppercase text-xs text-noir block" }, "\u{1F4E6} Gestion des Quantit\xE9s par Taille / Pointure & par Couleur"), /* @__PURE__ */ React.createElement("span", { className: "text-[11px] text-taupe-dark" }, "D\xE9finissez le stock exact pour chaque combinaison (V\xEAtements, Chaussures et Accessoires). D\xE8s qu'une taille d'une couleur tombe \xE0 0, le client est inform\xE9 qu'elle est \xE9puis\xE9e.")), /* @__PURE__ */ React.createElement("span", { className: "px-2.5 py-1 bg-noir text-[#E6C687] font-mono text-[11px] font-bold rounded-xs shrink-0" }, "Total : ", totalCalculatedStock, " en stock")), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-4" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1 text-noir" }, "Tailles / Pointures / Formats (s\xE9par\xE9s par virgule) *"), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "text",
       value: sizesStr,
       onChange: (e) => setSizesStr(e.target.value),
-      placeholder: "40, 41, 42...",
-      className: "w-full bg-card border border-taupe/30 p-2"
+      placeholder: "Ex: S, M, L, XL ou 40, 41, 42, 43 ou Unique",
+      className: "w-full bg-card border border-taupe/30 p-2 font-mono text-xs"
     }
-  )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1" }, "Couleurs Hex (virgules)"), /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5 mt-1.5" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => handleApplySizePreset(["S", "M", "L", "XL", "XXL"]),
+      className: "px-2 py-0.5 bg-canvas hover:bg-noir hover:text-white border border-taupe/30 text-[10px] font-semibold rounded-2xs transition-colors"
+    },
+    "\u{1F455} V\xEAtements (S, M, L, XL, XXL)"
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => handleApplySizePreset(["40", "41", "42", "43", "44", "45"]),
+      className: "px-2 py-0.5 bg-canvas hover:bg-noir hover:text-white border border-taupe/30 text-[10px] font-semibold rounded-2xs transition-colors"
+    },
+    "\u{1F45E} Chaussures (40 \xE0 45)"
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => handleApplySizePreset(["Unique"]),
+      className: "px-2 py-0.5 bg-canvas hover:bg-noir hover:text-white border border-taupe/30 text-[10px] font-semibold rounded-2xs transition-colors"
+    },
+    "\u{1F45C} Accessoires (Taille Unique)"
+  ))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1 text-noir" }, "Couleurs (s\xE9par\xE9es par virgule) *"), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "text",
       value: colorsStr,
       onChange: (e) => setColorsStr(e.target.value),
-      placeholder: "#171717, #3D2B1F...",
-      className: "w-full bg-card border border-taupe/30 p-2"
+      placeholder: "Ex: Noir:#171717, Marron:#3D2B1F, Blanc:#FFFFFF",
+      className: "w-full bg-card border border-taupe/30 p-2 font-mono text-xs"
     }
-  ))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1" }, "Description (FR)"), /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1 mt-1.5" }, PRESET_COLOR_PALETTE.map((p) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      key: p.labelFr,
+      type: "button",
+      onClick: () => handleAddPresetColor(p),
+      className: "px-1.5 py-0.5 bg-canvas hover:bg-noir hover:text-white border border-taupe/30 text-[10px] font-medium rounded-2xs flex items-center gap-1 transition-colors",
+      title: `Ajouter la couleur ${p.labelFr}`
+    },
+    /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        className: "w-2.5 h-2.5 rounded-full border border-black/30 inline-block",
+        style: { backgroundColor: p.hex }
+      }
+    ),
+    /* @__PURE__ */ React.createElement("span", null, "+", p.labelFr)
+  ))))), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center justify-between gap-2 bg-[#FAF7F2] border border-taupe/20 px-3 py-2 rounded-xs" }, /* @__PURE__ */ React.createElement("span", { className: "text-[11px] font-semibold text-noir" }, "\u26A1 Remplissage rapide : appliquer une m\xEAme quantit\xE9 \xE0 toutes les tailles & couleurs :"), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "number",
+      min: "0",
+      value: bulkFillValue,
+      onChange: (e) => setBulkFillValue(e.target.value),
+      className: "w-16 bg-white border border-taupe/30 px-2 py-1 text-center font-mono font-bold text-xs"
+    }
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: handleApplyBulkQty,
+      className: "px-3 py-1 bg-noir hover:bg-caramel text-white text-[11px] font-semibold rounded-2xs transition-colors"
+    },
+    "Appliquer partout"
+  ))), /* @__PURE__ */ React.createElement("div", { className: "overflow-x-auto border border-taupe/25 rounded-xs" }, /* @__PURE__ */ React.createElement("table", { className: "w-full text-left border-collapse text-xs" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { className: "bg-canvas border-b border-taupe/25 text-noir font-bold" }, /* @__PURE__ */ React.createElement("th", { className: "p-2.5 border-r border-taupe/20 min-w-[130px]" }, "Couleur \\ Taille"), parsedSizes.map((sz) => /* @__PURE__ */ React.createElement("th", { key: sz, className: "p-2.5 text-center border-r border-taupe/15 font-mono min-w-[76px]" }, sz)), /* @__PURE__ */ React.createElement("th", { className: "p-2.5 text-center bg-[#EFECE6] font-mono min-w-[80px]" }, "Sous-total"))), /* @__PURE__ */ React.createElement("tbody", { className: "divide-y divide-taupe/15" }, parsedColors.map((col) => {
+    const cName = getColorLabel(col, "fr");
+    const cHex = getColorCss(col);
+    const rowSum = parsedSizes.reduce((acc, sz) => acc + getCellQty(sz, col), 0);
+    return /* @__PURE__ */ React.createElement("tr", { key: col, className: "hover:bg-canvas/50" }, /* @__PURE__ */ React.createElement("td", { className: "p-2.5 border-r border-taupe/20 font-semibold text-noir" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        className: "w-4 h-4 rounded-full border border-black/25 shrink-0",
+        style: { backgroundColor: cHex }
+      }
+    ), /* @__PURE__ */ React.createElement("span", null, cName))), parsedSizes.map((sz) => {
+      const cellVal = getCellQty(sz, col);
+      const isZero = cellVal <= 0;
+      return /* @__PURE__ */ React.createElement("td", { key: sz, className: "p-2 text-center border-r border-taupe/15" }, /* @__PURE__ */ React.createElement(
+        "input",
+        {
+          type: "number",
+          min: "0",
+          value: cellVal,
+          onChange: (e) => setCellQty(sz, col, e.target.value),
+          className: `w-16 text-center font-mono font-bold px-1.5 py-1 border rounded-2xs focus:outline-none ${isZero ? "bg-red-50 border-red-300 text-red-700" : "bg-white border-emerald-400 text-noir focus:border-caramel"}`
+        }
+      ), /* @__PURE__ */ React.createElement("div", { className: `text-[9px] mt-0.5 font-semibold ${isZero ? "text-red-600" : "text-emerald-700"}` }, isZero ? "\xC9puis\xE9 (0)" : `${cellVal} en stock`));
+    }), /* @__PURE__ */ React.createElement("td", { className: "p-2.5 text-center font-mono font-bold bg-[#FAF9F6] text-noir" }, rowSum, " ex."));
+  }))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block font-bold uppercase mb-1" }, "Description (FR)"), /* @__PURE__ */ React.createElement(
     "textarea",
     {
       rows: "2",
@@ -5228,7 +5749,7 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
       type: "submit",
       className: "px-6 py-2 bg-noir text-white font-semibold uppercase tracking-wider hover:bg-caramel transition-colors"
     },
-    "Enregistrer"
+    "Enregistrer sur Firebase"
   )))));
 }
 const rootEl = document.getElementById("root");

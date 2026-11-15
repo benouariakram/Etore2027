@@ -982,6 +982,81 @@ app.put('/api/products/reorder', async (req: Request, res: Response) => {
   return res.json({ ok: true, products: productsStore });
 });
 
+// Helper: Color readable name in French for error/order messages
+function formatColorLabelFr(rawColor: string): string {
+  const c = String(rawColor || '').trim();
+  if (!c) return 'Standard';
+  if (c.includes(':')) {
+    return c.split(':')[0].trim() || c;
+  }
+  const upper = c.toUpperCase();
+  const hexMap: Record<string, string> = {
+    '#171717': 'Noir',
+    '#000000': 'Noir',
+    '#121212': 'Noir',
+    '#1C1C1C': 'Noir',
+    '#3D2B1F': 'Marron Foncé',
+    '#4A3525': 'Marron',
+    '#5C4033': 'Marron',
+    '#8B4513': 'Marron Cognac',
+    '#C28B53': 'Camel / Caramel',
+    '#D2B48C': 'Beige / Sable',
+    '#9E8C7A': 'Taupe / Beige',
+    '#F5F5DC': 'Beige',
+    '#FAF9F6': 'Blanc Cassé',
+    '#FFFFFF': 'Blanc',
+    '#F3F1EC': 'Ivoire / Crème',
+    '#1E293B': 'Bleu Marine',
+    '#1E3A8A': 'Bleu Marine',
+    '#0F172A': 'Bleu Nuit',
+    '#4B5563': 'Gris Anthracite',
+    '#6B7280': 'Gris',
+    '#9CA3AF': 'Gris Clair',
+    '#065F46': 'Vert Émeraude',
+    '#14532D': 'Vert Kaki / Olive',
+    '#7F1D1D': 'Bordeaux',
+    '#991B1B': 'Rouge Bordeaux',
+    '#D4AF37': 'Or / Doré',
+    '#E6C687': 'Or Champagne',
+    '#C0C0C0': 'Argent'
+  };
+  return hexMap[upper] || c;
+}
+
+function makeVariantKey(size: string, color: string): string {
+  const s = String(size || 'Unique').trim();
+  const c = String(color || 'Default').trim();
+  return `${s}__${c}`;
+}
+
+function getVariantStockValue(prod: any, size: string, color: string): number {
+  const vs = prod?.variantStock;
+  if (vs && typeof vs === 'object' && Object.keys(vs).length > 0) {
+    const exactKey = makeVariantKey(size, color);
+    if (vs[exactKey] !== undefined) {
+      return Math.max(0, Number(vs[exactKey]) || 0);
+    }
+    // Case-insensitive or trimmed fallback lookup
+    const targetLower = exactKey.toLowerCase();
+    for (const [k, v] of Object.entries(vs)) {
+      if (String(k).trim().toLowerCase() === targetLower) {
+        return Math.max(0, Number(v) || 0);
+      }
+    }
+    // If product only has sizes or only has colors in variantStock
+    const sTrim = String(size || '').trim();
+    const cTrim = String(color || '').trim();
+    for (const [k, v] of Object.entries(vs)) {
+      const [ks, kc] = String(k).split('__');
+      if (ks && kc && ks.trim().toLowerCase() === sTrim.toLowerCase() && (kc.trim().toLowerCase() === cTrim.toLowerCase() || formatColorLabelFr(kc).toLowerCase() === formatColorLabelFr(cTrim).toLowerCase())) {
+        return Math.max(0, Number(v) || 0);
+      }
+    }
+    return 0;
+  }
+  return Math.max(0, Number(prod?.stock) || 0);
+}
+
 // Upsert product (Admin — Persisted to Firebase Firestore, new products placed 1st)
 app.put('/api/products', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
@@ -998,12 +1073,29 @@ app.put('/api/products', async (req: Request, res: Response) => {
   const existingCreatedAt = idx >= 0 ? productsStore[idx].createdAt : undefined;
   const existingPosition = idx >= 0 ? productsStore[idx].position : undefined;
 
+  // Sanitize variantStock if provided
+  let sanitizedVariantStock: Record<string, number> | undefined = undefined;
+  if (product.variantStock && typeof product.variantStock === 'object') {
+    sanitizedVariantStock = {};
+    for (const [k, v] of Object.entries(product.variantStock)) {
+      if (k && String(k).trim()) {
+        sanitizedVariantStock[String(k).trim()] = Math.max(0, Math.floor(Number(v) || 0));
+      }
+    }
+  }
+
+  let computedTotalStock = Math.max(0, Math.floor(Number(product.stock) || 0));
+  if (sanitizedVariantStock && Object.keys(sanitizedVariantStock).length > 0) {
+    computedTotalStock = Object.values(sanitizedVariantStock).reduce((acc, q) => acc + q, 0);
+  }
+
   const payload = {
     ...product,
     id,
     price: Number(product.price) || 0,
-    stock: Number(product.stock) || 0,
-    inStock: Number(product.stock) > 0,
+    stock: computedTotalStock,
+    inStock: computedTotalStock > 0,
+    variantStock: sanitizedVariantStock || (idx >= 0 ? productsStore[idx].variantStock : undefined) || {},
     position: isNewProduct ? 1 : (typeof product.position === 'number' ? product.position : (existingPosition ?? idx + 1)),
     createdAt: isNewProduct ? nowIso : (existingCreatedAt || product.createdAt || nowIso),
     updatedAt: nowIso
@@ -1317,7 +1409,7 @@ app.post('/api/orders', async (req: Request, res: Response) => {
 
   let subtotal = 0;
   const verifiedItems: any[] = [];
-  const stockChanges: { prod: any; qty: number }[] = [];
+  const stockChanges: { prod: any; qty: number; size: string; color: string }[] = [];
 
   for (const item of items) {
     const prod = productsStore.find((p: any) => p.id === Number(item.productId || item.id));
@@ -1326,9 +1418,24 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     }
 
     const qty = Math.max(1, parseInt(item.quantity || item.qty, 10) || 1);
-    if (prod.stock < qty) {
+    const chosenSize = String(item.size || (prod.sizes && prod.sizes[0]) || "Unique").trim();
+    const chosenColor = String(item.color || (prod.colors && prod.colors[0]) || "Default").trim();
+    const colorLabel = formatColorLabelFr(chosenColor);
+
+    const hasVariants = prod.variantStock && typeof prod.variantStock === 'object' && Object.keys(prod.variantStock).length > 0;
+    const availableStock = hasVariants
+      ? getVariantStockValue(prod, chosenSize, chosenColor)
+      : Math.max(0, Number(prod.stock) || 0);
+
+    if (availableStock <= 0) {
       return res.status(409).json({
-        error: `Stock insuffisant pour "${prod.nameFr}". Disponible : ${prod.stock}`
+        error: `Désolé, la taille "${chosenSize}" en couleur "${colorLabel}" pour "${prod.nameFr}" n'est plus en stock (épuisée).`
+      });
+    }
+
+    if (availableStock < qty) {
+      return res.status(409).json({
+        error: `Stock insuffisant pour "${prod.nameFr}" (Taille : ${chosenSize}, Couleur : ${colorLabel}). Disponible en stock : ${availableStock}.`
       });
     }
 
@@ -1341,18 +1448,39 @@ app.post('/api/orders', async (req: Request, res: Response) => {
       nameAr: prod.nameAr,
       price: linePrice,
       quantity: qty,
-      size: item.size || (prod.sizes && prod.sizes[0]) || "",
-      color: item.color || (prod.colors && prod.colors[0]) || "",
+      size: chosenSize,
+      color: chosenColor,
+      colorLabel,
       image: (prod.images && prod.images[0]) || ""
     });
 
-    stockChanges.push({ prod, qty });
+    stockChanges.push({ prod, qty, size: chosenSize, color: chosenColor });
   }
 
-  // Apply stock decrement atomically
-  for (const { prod, qty } of stockChanges) {
-    prod.stock -= qty;
-    prod.inStock = prod.stock > 0;
+  // Apply stock decrement atomically per variant (size × color) and total product stock
+  for (const { prod, qty, size, color } of stockChanges) {
+    if (prod.variantStock && typeof prod.variantStock === 'object' && Object.keys(prod.variantStock).length > 0) {
+      const exactKey = makeVariantKey(size, color);
+      let matchedKey = exactKey;
+      if (prod.variantStock[matchedKey] === undefined) {
+        const sLower = size.toLowerCase();
+        const cLower = color.toLowerCase();
+        for (const k of Object.keys(prod.variantStock)) {
+          const [ks, kc] = String(k).split('__');
+          if (ks && kc && ks.trim().toLowerCase() === sLower && (kc.trim().toLowerCase() === cLower || formatColorLabelFr(kc).toLowerCase() === formatColorLabelFr(color).toLowerCase())) {
+            matchedKey = k;
+            break;
+          }
+        }
+      }
+      const curVal = Math.max(0, Number(prod.variantStock[matchedKey]) || 0);
+      prod.variantStock[matchedKey] = Math.max(0, curVal - qty);
+      prod.stock = Object.values(prod.variantStock).reduce((sum: number, v: any) => sum + Math.max(0, Number(v) || 0), 0);
+      prod.inStock = prod.stock > 0;
+    } else {
+      prod.stock = Math.max(0, (Number(prod.stock) || 0) - qty);
+      prod.inStock = prod.stock > 0;
+    }
   }
 
   let discount = 0;

@@ -1297,6 +1297,179 @@
       }
 
       // ========================================================================
+      // Variant Stock (Taille / Pointure / Format × Couleur) & Color Helpers
+      // ========================================================================
+      const PRESET_COLOR_PALETTE = [
+        { labelFr: 'Noir', labelAr: 'أسود', hex: '#171717' },
+        { labelFr: 'Blanc', labelAr: 'أبيض', hex: '#FFFFFF' },
+        { labelFr: 'Marron', labelAr: 'بني', hex: '#3D2B1F' },
+        { labelFr: 'Camel', labelAr: 'جملي', hex: '#C28B53' },
+        { labelFr: 'Beige', labelAr: 'بيج', hex: '#D2B48C' },
+        { labelFr: 'Bleu Marine', labelAr: 'أزرق داكن', hex: '#1E293B' },
+        { labelFr: 'Gris', labelAr: 'رمادي', hex: '#4B5563' },
+        { labelFr: 'Vert', labelAr: 'أخضر', hex: '#14532D' },
+        { labelFr: 'Bordeaux', labelAr: 'خمري', hex: '#7F1D1D' }
+      ];
+
+      function getColorLabel(rawColor, lang = 'fr') {
+        const c = String(rawColor || '').trim();
+        if (!c) return lang === 'ar' ? 'قياسي' : 'Standard';
+        if (c.includes(':')) {
+          return c.split(':')[0].trim() || c;
+        }
+        const upper = c.toUpperCase();
+        const mapFr = {
+          '#171717': 'Noir',
+          '#000000': 'Noir',
+          '#121212': 'Noir',
+          '#1C1C1C': 'Noir',
+          '#3D2B1F': 'Marron',
+          '#4A3525': 'Marron',
+          '#5C4033': 'Marron',
+          '#8B4513': 'Cognac',
+          '#C28B53': 'Camel',
+          '#D2B48C': 'Beige',
+          '#9E8C7A': 'Taupe / Beige',
+          '#F5F5DC': 'Beige',
+          '#FAF9F6': 'Blanc Cassé',
+          '#FFFFFF': 'Blanc',
+          '#F3F1EC': 'Ivoire',
+          '#1E293B': 'Bleu Marine',
+          '#1E3A8A': 'Bleu Marine',
+          '#0F172A': 'Bleu Nuit',
+          '#4B5563': 'Gris',
+          '#6B7280': 'Gris',
+          '#9CA3AF': 'Gris Clair',
+          '#065F46': 'Vert Émeraude',
+          '#14532D': 'Vert',
+          '#7F1D1D': 'Bordeaux',
+          '#991B1B': 'Bordeaux',
+          '#D4AF37': 'Or',
+          '#E6C687': 'Or',
+          '#C0C0C0': 'Argent'
+        };
+        const mapAr = {
+          '#171717': 'أسود',
+          '#000000': 'أسود',
+          '#121212': 'أسود',
+          '#1C1C1C': 'أسود',
+          '#3D2B1F': 'بني',
+          '#4A3525': 'بني',
+          '#5C4033': 'بني',
+          '#8B4513': 'بني فاتح',
+          '#C28B53': 'جملي',
+          '#D2B48C': 'بيج',
+          '#9E8C7A': 'بيج',
+          '#FAF9F6': 'أبيض',
+          '#FFFFFF': 'أبيض',
+          '#F3F1EC': 'عاجي',
+          '#1E293B': 'أزرق داكن',
+          '#1E3A8A': 'أزرق داكن',
+          '#4B5563': 'رمادي',
+          '#6B7280': 'رمادي',
+          '#065F46': 'أخضر',
+          '#14532D': 'أخضر',
+          '#7F1D1D': 'خمري',
+          '#991B1B': 'أحمر داكن'
+        };
+        if (lang === 'ar' && mapAr[upper]) return mapAr[upper];
+        if (mapFr[upper]) return mapFr[upper];
+        return c;
+      }
+
+      function getColorCss(rawColor) {
+        const c = String(rawColor || '').trim();
+        if (!c) return '#171717';
+        if (c.includes(':')) {
+          const hexPart = c.split(':')[1]?.trim();
+          if (hexPart) return hexPart;
+        }
+        if (c.startsWith('#') || c.startsWith('rgb')) return c;
+        const lower = c.toLowerCase();
+        const nameToHex = {
+          'noir': '#171717',
+          'black': '#171717',
+          'blanc': '#FFFFFF',
+          'white': '#FFFFFF',
+          'marron': '#3D2B1F',
+          'marron foncé': '#3D2B1F',
+          'cognac': '#8B4513',
+          'camel': '#C28B53',
+          'caramel': '#C28B53',
+          'beige': '#D2B48C',
+          'taupe': '#9E8C7A',
+          'bleu': '#1E3A8A',
+          'bleu marine': '#1E293B',
+          'bleu nuit': '#0F172A',
+          'gris': '#4B5563',
+          'gris clair': '#9CA3AF',
+          'vert': '#14532D',
+          'kaki': '#14532D',
+          'bordeaux': '#7F1D1D',
+          'rouge': '#991B1B',
+          'or': '#D4AF37',
+          'argent': '#C0C0C0'
+        };
+        return nameToHex[lower] || '#171717';
+      }
+
+      function makeVariantKey(size, color) {
+        const s = String(size || 'Unique').trim();
+        const c = String(color || 'Default').trim();
+        return `${s}__${c}`;
+      }
+
+      function hasVariantStockMatrix(product) {
+        return Boolean(
+          product &&
+          product.variantStock &&
+          typeof product.variantStock === 'object' &&
+          Object.keys(product.variantStock).length > 0
+        );
+      }
+
+      function getProductVariantStock(product, size, color) {
+        if (!product) return 0;
+        const effSize = String(size || (product.sizes && product.sizes[0]) || 'Unique').trim();
+        const effColor = String(color || (product.colors && product.colors[0]) || 'Default').trim();
+        if (hasVariantStockMatrix(product)) {
+          const vs = product.variantStock;
+          const exactKey = makeVariantKey(effSize, effColor);
+          if (vs[exactKey] !== undefined) {
+            return Math.max(0, Number(vs[exactKey]) || 0);
+          }
+          const targetLower = exactKey.toLowerCase();
+          for (const [k, v] of Object.entries(vs)) {
+            if (String(k).trim().toLowerCase() === targetLower) {
+              return Math.max(0, Number(v) || 0);
+            }
+          }
+          const cLabelLower = getColorLabel(effColor, 'fr').toLowerCase();
+          for (const [k, v] of Object.entries(vs)) {
+            const [ks, kc] = String(k).split('__');
+            if (
+              ks &&
+              kc &&
+              ks.trim().toLowerCase() === effSize.toLowerCase() &&
+              (kc.trim().toLowerCase() === effColor.toLowerCase() || getColorLabel(kc, 'fr').toLowerCase() === cLabelLower)
+            ) {
+              return Math.max(0, Number(v) || 0);
+            }
+          }
+          return 0;
+        }
+        return Math.max(0, Number(product.stock) || 0);
+      }
+
+      // Check if a given size has stock across ANY color (or the selected color)
+      function getTotalStockForSize(product, size) {
+        if (!product) return 0;
+        if (!hasVariantStockMatrix(product)) return Math.max(0, Number(product.stock) || 0);
+        const colors = Array.isArray(product.colors) && product.colors.length > 0 ? product.colors : ['Default'];
+        return colors.reduce((sum, col) => sum + getProductVariantStock(product, size, col), 0);
+      }
+
+      // ========================================================================
       // SUB-COMPONENT: DEDICATED PRODUCT PAGE VIEW (Unique Shareable Index Link)
       // ========================================================================
       function ProductDetailPage({
@@ -1313,8 +1486,27 @@
         showToast
       }) {
         const [activeImageIdx, setActiveImageIdx] = useState(0);
-        const [selectedSize, setSelectedSize] = useState((product.sizes && product.sizes[0]) || '');
-        const [selectedColor, setSelectedColor] = useState((product.colors && product.colors[0]) || '');
+        const [selectedSize, setSelectedSize] = useState(() => {
+          const sizes = (product.sizes && product.sizes.length > 0) ? product.sizes : ['Unique'];
+          const colors = (product.colors && product.colors.length > 0) ? product.colors : ['Default'];
+          // Default to first size that has stock if possible
+          for (const s of sizes) {
+            for (const c of colors) {
+              if (getProductVariantStock(product, s, c) > 0) return s;
+            }
+          }
+          return sizes[0] || '';
+        });
+        const [selectedColor, setSelectedColor] = useState(() => {
+          const sizes = (product.sizes && product.sizes.length > 0) ? product.sizes : ['Unique'];
+          const colors = (product.colors && product.colors.length > 0) ? product.colors : ['Default'];
+          for (const s of sizes) {
+            for (const c of colors) {
+              if (getProductVariantStock(product, s, c) > 0) return c;
+            }
+          }
+          return colors[0] || '';
+        });
         const [qty, setQty] = useState(1);
         const [copied, setCopied] = useState(false);
         const [imageFit, setImageFit] = useState('contain');
@@ -1378,19 +1570,44 @@
         // Reset state if product changes
         useEffect(() => {
           setActiveImageIdx(0);
-          setSelectedSize((product.sizes && product.sizes[0]) || '');
-          setSelectedColor((product.colors && product.colors[0]) || '');
+          const sizes = (product.sizes && product.sizes.length > 0) ? product.sizes : ['Unique'];
+          const colors = (product.colors && product.colors.length > 0) ? product.colors : ['Default'];
+          let initSize = sizes[0] || '';
+          let initColor = colors[0] || '';
+          outer: for (const s of sizes) {
+            for (const c of colors) {
+              if (getProductVariantStock(product, s, c) > 0) {
+                initSize = s;
+                initColor = c;
+                break outer;
+              }
+            }
+          }
+          setSelectedSize(initSize);
+          setSelectedColor(initColor);
           setQty(1);
           setCopied(false);
           setImageFit('contain');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }, [product.id]);
 
+        const selectedVariantStock = getProductVariantStock(product, selectedSize, selectedColor);
+        const selectedColorName = getColorLabel(selectedColor, lang);
+
+        useEffect(() => {
+          if (selectedVariantStock > 0 && qty > selectedVariantStock) {
+            setQty(selectedVariantStock);
+          } else if (selectedVariantStock <= 0) {
+            setQty(1);
+          }
+        }, [selectedSize, selectedColor, selectedVariantStock]);
+
         const title = lang === 'ar' ? (product.nameAr || product.nameFr) : product.nameFr;
         const desc = lang === 'ar' ? (product.descAr || product.descFr) : product.descFr;
         const isWish = wishlist.includes(product.id);
-        const isOut = !product.inStock || product.stock <= 0;
-        const isLow = product.stock > 0 && product.stock < 5;
+        const isProductCompletelyOut = !product.inStock || product.stock <= 0;
+        const isOut = isProductCompletelyOut || selectedVariantStock <= 0;
+        const isLow = !isOut && selectedVariantStock > 0 && selectedVariantStock <= 5;
         const productSlug = getProductSlug(product);
         const currentUrl = `${window.location.origin}/produit/${productSlug}`;
 
@@ -1413,13 +1630,22 @@
         };
 
         const handleDirectOrder = () => {
-          if (isOut) return;
+          if (isOut) {
+            showToast(
+              lang === 'ar'
+                ? `المقاس "${selectedSize}" باللون "${selectedColorName}" غير متوفر في المخزون.`
+                : `La taille "${selectedSize}" en couleur "${selectedColorName}" n'est pas en stock.`,
+              'error'
+            );
+            return;
+          }
           const checkoutItem = {
             productId: product.id,
             nameFr: product.nameFr,
             nameAr: product.nameAr,
             price: Number(product.price),
-            quantity: qty,
+            quantity: Math.min(qty, selectedVariantStock),
+            stock: selectedVariantStock,
             size: selectedSize,
             color: selectedColor,
             image: (product.images && product.images[0]) || '',
@@ -1429,9 +1655,18 @@
         };
 
         const orderViaWhatsApp = () => {
+          if (isOut) {
+            showToast(
+              lang === 'ar'
+                ? `المقاس "${selectedSize}" باللون "${selectedColorName}" غير متوفر في المخزون.`
+                : `La taille "${selectedSize}" en couleur "${selectedColorName}" n'est pas en stock.`,
+              'error'
+            );
+            return;
+          }
           const text = lang === 'ar'
-            ? `السلام عليكم دار مودانوفا 👋\nأرغب في تأكيد طلب هذه القطعة الفاخرة (الدفع عند الاستلام):\n\n*${title}*\n- السعر: ${product.price} درهم مغربي\n- المقاس / الخيار: ${selectedSize || 'قياسي'}\n- اللون: ${selectedColor || 'قياسي'}\n- الكمية: ${qty}\n\nالرابط: ${currentUrl}\n\nيرجى التواصل معي لتأكيد موعد التوصيل والعنوان.`
-            : `Bonjour Maison MODANOVA 👋\nJe souhaite commander cette pièce en paiement à la livraison (COD) :\n\n*${title}*\n- Prix : ${product.price} MAD\n- Taille / Option : ${selectedSize || 'Standard'}\n- Couleur : ${selectedColor || 'Standard'}\n- Quantité : ${qty}\n\nLien : ${currentUrl}\n\nMerci de confirmer la disponibilité et le créneau de livraison.`;
+            ? `السلام عليكم دار مودانوفا 👋\nأرغب في تأكيد طلب هذه القطعة الفاخرة (الدفع عند الاستلام):\n\n*${title}*\n- السعر: ${product.price} درهم مغربي\n- المقاس / الخيار: ${selectedSize || 'قياسي'}\n- اللون: ${selectedColorName}\n- الكمية: ${qty}\n\nالرابط: ${currentUrl}\n\nيرجى التواصل معي لتأكيد موعد التوصيل والعنوان.`
+            : `Bonjour Maison MODANOVA 👋\nJe souhaite commander cette pièce en paiement à la livraison (COD) :\n\n*${title}*\n- Prix : ${product.price} MAD\n- Taille / Pointure / Format : ${selectedSize || 'Standard'}\n- Couleur : ${selectedColorName}\n- Quantité : ${qty}\n\nLien : ${currentUrl}\n\nMerci de confirmer la disponibilité et le créneau de livraison.`;
           window.open(`https://wa.me/212600773716?text=${encodeURIComponent(text)}`, '_blank');
         };
 
@@ -1721,22 +1956,46 @@
                     </div>
                   </div>
 
-                  {/* Live Stock Notification */}
+                  {/* Live Stock Notification per Size & Color */}
                   <div className="mb-6">
-                    {isOut ? (
-                      <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#B91C1C]">
-                        <span className="w-2 h-2 rounded-full bg-[#B91C1C]" />
+                    {isProductCompletelyOut ? (
+                      <div className="p-3 bg-red-50 border border-red-300 rounded-xs flex items-center gap-2 text-xs font-bold text-[#B91C1C]">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#B91C1C] shrink-0" />
                         <span>{t.out_of_stock}</span>
                       </div>
+                    ) : isOut ? (
+                      <div className="p-3.5 bg-red-50 border border-red-300 rounded-xs text-xs font-semibold text-[#991B1B] space-y-1">
+                        <div className="flex items-center gap-2 font-bold">
+                          <span>⚠️</span>
+                          <span>
+                            {lang === 'ar'
+                              ? `المقاس "${selectedSize || 'قياسي'}" باللون "${selectedColorName}" غير متوفر في المخزون حالياً.`
+                              : `Cette taille (${selectedSize || 'Unique'}) en couleur ${selectedColorName} n'est pas en stock (épuisée).`}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#B91C1C] font-normal">
+                          {lang === 'ar'
+                            ? 'يرجى اختيار مقاس آخر أو لون آخر متوفر لإتمام الطلب.'
+                            : 'Veuillez sélectionner une autre taille/pointure ou une autre couleur disponible ci-dessous.'}
+                        </p>
+                      </div>
                     ) : isLow ? (
-                      <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#B91C1C] animate-flame">
+                      <div className="p-3 bg-[#FFFBEB] border border-[#F59E0B]/40 rounded-xs inline-flex items-center gap-2 text-xs font-semibold text-[#B91C1C] animate-flame">
                         <span>🔥</span>
-                        <span>{t.low_stock_alert.replace('🔥 ', '').replace('{n}', product.stock)}</span>
+                        <span>
+                          {lang === 'ar'
+                            ? `بقي فقط ${selectedVariantStock} في المخزون للمقاس ${selectedSize || 'قياسي'} — اللون ${selectedColorName}!`
+                            : `Plus que ${selectedVariantStock} en stock pour la taille ${selectedSize || 'Unique'} (Couleur : ${selectedColorName}) !`}
+                        </span>
                       </div>
                     ) : (
-                      <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#065F46]">
+                      <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#065F46] bg-[#ECFDF5] border border-[#A7F3D0] px-3 py-1.5 rounded-xs">
                         <span className="w-2 h-2 rounded-full bg-[#25D366]" />
-                        <span>{t.product_in_stock_msg}</span>
+                        <span>
+                          {lang === 'ar'
+                            ? `متوفر في المخزون (${selectedVariantStock} قطع — مقاس ${selectedSize || 'قياسي'} / لون ${selectedColorName})`
+                            : `En stock (${selectedVariantStock} disponible${selectedVariantStock > 1 ? 's' : ''} — Taille ${selectedSize || 'Unique'} · Couleur ${selectedColorName})`}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1746,12 +2005,12 @@
                     {desc}
                   </p>
 
-                  {/* Size Selector with Size Guide Button */}
+                  {/* Size Selector with Per-Variant Availability & Size Guide Button */}
                   {product.sizes && product.sizes.length > 0 && (
                     <div className="mb-5">
                       <div className="flex justify-between items-center mb-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-noir">
-                          {t.options_size}
+                          {t.options_size} : <span className="text-caramel font-mono">{selectedSize}</span>
                         </label>
                         <div className="flex items-center gap-3">
                           <button
@@ -1761,51 +2020,101 @@
                           >
                             <span>📏 Guide des Tailles</span>
                           </button>
-                          <span className="text-[11px] text-taupe font-mono">{selectedSize}</span>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {product.sizes.map(size => (
-                          <button
-                            key={size}
-                            type="button"
-                            onClick={() => setSelectedSize(size)}
-                            className={`min-w-10 px-3.5 py-2 text-xs font-semibold border transition-all duration-200 ${
-                              selectedSize === size
-                                ? 'border-noir bg-noir text-white shadow-xs'
-                                : 'border-taupe/30 hover:border-noir text-noir bg-canvas'
-                            }`}
-                          >
-                            {size}
-                          </button>
-                        ))}
+                        {product.sizes.map(size => {
+                          const stockForThisSizeAndColor = getProductVariantStock(product, size, selectedColor);
+                          const isThisSizeOutForColor = stockForThisSizeAndColor <= 0;
+                          const isSelected = selectedSize === size;
+                          return (
+                            <button
+                              key={size}
+                              type="button"
+                              onClick={() => setSelectedSize(size)}
+                              className={`min-w-12 px-3.5 py-2 text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5 ${
+                                isSelected
+                                  ? isThisSizeOutForColor
+                                    ? 'border-[#B91C1C] bg-[#FEE2E2] text-[#991B1B] shadow-xs'
+                                    : 'border-noir bg-noir text-white shadow-xs'
+                                  : isThisSizeOutForColor
+                                  ? 'border-taupe/25 bg-card/50 text-taupe line-through opacity-75 hover:border-[#B91C1C]'
+                                  : 'border-taupe/30 hover:border-noir text-noir bg-canvas'
+                              }`}
+                              title={
+                                isThisSizeOutForColor
+                                  ? `${size} (${selectedColorName}) : Épuisé (0 en stock)`
+                                  : `${size} (${selectedColorName}) : ${stockForThisSizeAndColor} en stock`
+                              }
+                            >
+                              <span>{size}</span>
+                              {hasVariantStockMatrix(product) && (
+                                <span className={`text-[10px] font-mono px-1 rounded-2xs ${
+                                  isThisSizeOutForColor
+                                    ? 'bg-red-100 text-red-700 no-underline'
+                                    : isSelected
+                                    ? 'bg-white/20 text-white'
+                                    : 'bg-card text-taupe-dark'
+                                }`}>
+                                  {isThisSizeOutForColor ? (lang === 'ar' ? 'نفذ' : 'Épuisé') : stockForThisSizeAndColor}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
 
-                  {/* Color Selector */}
+                  {/* Color Selector with Per-Variant Availability & Readable Color Name */}
                   {product.colors && product.colors.length > 0 && (
                     <div className="mb-6">
                       <div className="flex justify-between items-center mb-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-noir">
-                          {t.options_color}
+                          {t.options_color} : <span className="text-caramel">{selectedColorName}</span>
                         </label>
                       </div>
-                      <div className="flex gap-2.5">
-                        {product.colors.map(color => (
-                          <button
-                            key={color}
-                            type="button"
-                            onClick={() => setSelectedColor(color)}
-                            className={`w-8 h-8 rounded-full border-2 transition-transform duration-200 ${
-                              selectedColor === color
-                                ? 'border-caramel scale-110 shadow-md ring-2 ring-caramel/20'
-                                : 'border-transparent hover:scale-105'
-                            }`}
-                            style={{ backgroundColor: color }}
-                            title={color}
-                          />
-                        ))}
+                      <div className="flex flex-wrap gap-2.5">
+                        {product.colors.map(color => {
+                          const cLabel = getColorLabel(color, lang);
+                          const cHex = getColorCss(color);
+                          const stockForColorAndSelectedSize = getProductVariantStock(product, selectedSize, color);
+                          const isColorOutForSize = stockForColorAndSelectedSize <= 0;
+                          const isSelected = selectedColor === color;
+
+                          return (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => setSelectedColor(color)}
+                              className={`px-3 py-1.5 rounded-xs border text-xs font-semibold flex items-center gap-2 transition-all duration-200 ${
+                                isSelected
+                                  ? isColorOutForSize
+                                    ? 'border-2 border-[#B91C1C] bg-[#FEE2E2]/60 text-[#991B1B] shadow-xs'
+                                    : 'border-2 border-caramel bg-white text-noir shadow-sm ring-2 ring-caramel/20'
+                                  : isColorOutForSize
+                                  ? 'border-taupe/25 bg-card/50 text-taupe opacity-70 hover:border-[#B91C1C]'
+                                  : 'border-taupe/30 bg-white hover:border-noir text-noir'
+                              }`}
+                              title={
+                                isColorOutForSize
+                                  ? `${cLabel} (Taille ${selectedSize}) : Épuisé (0 en stock)`
+                                  : `${cLabel} (Taille ${selectedSize}) : ${stockForColorAndSelectedSize} en stock`
+                              }
+                            >
+                              <span
+                                className="w-4 h-4 rounded-full border border-black/25 shrink-0 relative inline-block"
+                                style={{ backgroundColor: cHex }}
+                              />
+                              <span className={isColorOutForSize ? 'line-through' : ''}>{cLabel}</span>
+                              {hasVariantStockMatrix(product) && (
+                                <span className={`text-[10px] font-mono ${isColorOutForSize ? 'text-red-600 font-bold' : 'text-taupe-dark'}`}>
+                                  ({isColorOutForSize ? '0' : stockForColorAndSelectedSize})
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -1819,18 +2128,29 @@
                           type="button"
                           onClick={() => setQty(q => Math.max(1, q - 1))}
                           className="px-3.5 py-3 text-xs hover:bg-taupe/20 transition-colors"
-                          disabled={qty <= 1}
+                          disabled={isOut || qty <= 1}
                         >
                           -
                         </button>
                         <span className="px-4 py-3 text-xs font-semibold tabular-nums min-w-10 text-center">
-                          {qty}
+                          {isOut ? 0 : qty}
                         </span>
                         <button
                           type="button"
-                          onClick={() => setQty(q => Math.min(product.stock || 99, q + 1))}
+                          onClick={() => {
+                            if (qty >= selectedVariantStock) {
+                              showToast(
+                                lang === 'ar'
+                                  ? `الحد الأقصى المتوفر للمقاس ${selectedSize} (${selectedColorName}) هو ${selectedVariantStock}.`
+                                  : `Stock maximum atteint : seulement ${selectedVariantStock} disponible(s) pour la taille ${selectedSize} en couleur ${selectedColorName}.`,
+                                'warning'
+                              );
+                              return;
+                            }
+                            setQty(q => Math.min(selectedVariantStock, q + 1));
+                          }}
                           className="px-3.5 py-3 text-xs hover:bg-taupe/20 transition-colors"
-                          disabled={qty >= product.stock}
+                          disabled={isOut || qty >= selectedVariantStock}
                         >
                           +
                         </button>
@@ -1843,11 +2163,15 @@
                         onClick={() => onAddToCart(product, selectedSize, selectedColor, qty)}
                         className={`flex-1 py-3.5 px-4 text-xs font-semibold uppercase tracking-[0.15em] transition-all duration-200 shadow-sm ${
                           isOut
-                            ? 'bg-taupe/20 text-taupe-dark cursor-not-allowed'
+                            ? 'bg-red-100 text-[#991B1B] border border-red-300 cursor-not-allowed'
                             : 'bg-noir text-white hover:bg-caramel active:scale-98'
                         }`}
                       >
-                        {isOut ? t.out_of_stock : t.add_to_cart}
+                        {isOut
+                          ? (lang === 'ar'
+                              ? `غير متوفر (${selectedSize} - ${selectedColorName})`
+                              : `Rupture (${selectedSize} · ${selectedColorName})`)
+                          : t.add_to_cart}
                       </button>
                     </div>
 
@@ -1862,7 +2186,11 @@
                           : 'bg-caramel text-white hover:bg-noir active:scale-98'
                       }`}
                     >
-                      {isOut ? t.out_of_stock : t.product_buy_now_cod}
+                      {isOut
+                        ? (lang === 'ar'
+                            ? `نفذت الكمية لهذه Taille واللون`
+                            : `Cette taille (${selectedSize}) en couleur ${selectedColorName} n'est pas en stock`)
+                        : t.product_buy_now_cod}
                     </button>
 
                     {/* 1-Click WhatsApp Direct Order Button (Official WhatsApp Brand Green) */}
@@ -1870,9 +2198,13 @@
                       type="button"
                       disabled={isOut}
                       onClick={orderViaWhatsApp}
-                      className="w-full py-3.5 px-4 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold uppercase tracking-[0.14em] transition-all duration-200 shadow-md flex items-center justify-center gap-2 rounded-xs active:scale-98"
+                      className={`w-full py-3.5 px-4 text-xs font-bold uppercase tracking-[0.14em] transition-all duration-200 shadow-md flex items-center justify-center gap-2 rounded-xs ${
+                        isOut
+                          ? 'bg-taupe/25 text-taupe-dark cursor-not-allowed'
+                          : 'bg-[#25D366] hover:bg-[#20ba59] text-white active:scale-98'
+                      }`}
                     >
-                      <WhatsAppIcon className="w-5 h-5 fill-white shrink-0" />
+                      <WhatsAppIcon className="w-5 h-5 fill-current shrink-0" />
                       <span>Commander directement par WhatsApp</span>
                     </button>
                   </div>
@@ -2565,16 +2897,49 @@
           }
         }, [cartTotals.itemCount]);
 
-        // --- Cart Actions ---
+        // --- Cart Actions (Strict Per-Size & Per-Color Stock Validation) ---
         const addToCart = (product, sizeChoice, colorChoice, qty = 1) => {
-          if (!product.inStock || product.stock <= 0) {
-            showToast(t.out_of_stock, 'error');
+          const size = sizeChoice || (product.sizes && product.sizes[0]) || 'Unique';
+          const color = colorChoice || (product.colors && product.colors[0]) || 'Default';
+          const colorLabel = getColorLabel(color, lang);
+          const variantStock = getProductVariantStock(product, size, color);
+
+          if (!product.inStock || product.stock <= 0 || variantStock <= 0) {
+            showToast(
+              lang === 'ar'
+                ? `عذراً، المقاس "${size}" باللون "${colorLabel}" غير متوفر في المخزون حالياً.`
+                : `Désolé, la taille "${size}" en couleur "${colorLabel}" n'est pas en stock (épuisée).`,
+              'error'
+            );
             return;
           }
 
-          const size = sizeChoice || (product.sizes && product.sizes[0]) || '';
-          const color = colorChoice || (product.colors && product.colors[0]) || '';
           const lineKey = `${product.id}_${size}_${color}`;
+          const existingInCart = cart.find(item => item.lineKey === lineKey);
+          const currentInCartQty = existingInCart ? Number(existingInCart.quantity || 0) : 0;
+
+          if (currentInCartQty >= variantStock) {
+            showToast(
+              lang === 'ar'
+                ? `لقد وصلت إلى الحد الأقصى المتوفر (${variantStock}) للمقاس "${size}" باللون "${colorLabel}".`
+                : `Quantité maximale atteinte : il n'y a que ${variantStock} exemplaire(s) en stock pour la taille "${size}" en couleur "${colorLabel}".`,
+              'warning'
+            );
+            setCartOpen(true);
+            return;
+          }
+
+          const allowedNewQty = Math.min(variantStock, currentInCartQty + qty);
+          if (currentInCartQty + qty > variantStock) {
+            showToast(
+              lang === 'ar'
+                ? `تمت إضافة الكمية المتوفرة فقط (${variantStock}) للمقاس "${size}" باللون "${colorLabel}".`
+                : `Stock limité : quantité ajustée à ${variantStock} (maximum disponible pour la taille "${size}" en couleur "${colorLabel}").`,
+              'warning'
+            );
+          } else {
+            showToast(t.toast_added, 'success');
+          }
 
           // Trigger pulse and bounce tracking
           setLastAddedLineKey(lineKey);
@@ -2584,25 +2949,30 @@
           setCart(prev => {
             const existing = prev.find(item => item.lineKey === lineKey);
             if (existing) {
-              const newQty = Math.min(product.stock, existing.quantity + qty);
-              return prev.map(item => item.lineKey === lineKey ? { ...item, quantity: newQty } : item);
+              return prev.map(item =>
+                item.lineKey === lineKey
+                  ? { ...item, quantity: allowedNewQty, stock: variantStock }
+                  : item
+              );
             } else {
-              return [...prev, {
-                lineKey,
-                productId: product.id,
-                nameFr: product.nameFr,
-                nameAr: product.nameAr,
-                price: product.price,
-                stock: product.stock,
-                size,
-                color,
-                quantity: Math.min(product.stock, qty),
-                image: (product.images && product.images[0]) || ''
-              }];
+              return [
+                ...prev,
+                {
+                  lineKey,
+                  productId: product.id,
+                  nameFr: product.nameFr,
+                  nameAr: product.nameAr,
+                  price: product.price,
+                  stock: variantStock,
+                  size,
+                  color,
+                  quantity: allowedNewQty,
+                  image: (product.images && product.images[0]) || ''
+                }
+              ];
             }
           });
 
-          showToast(t.toast_added, 'success');
           setCartOpen(true);
         };
 
@@ -2610,8 +2980,20 @@
           setCart(prev => {
             return prev.map(item => {
               if (item.lineKey === lineKey) {
-                const clamped = Math.max(1, Math.min(item.stock, newQty));
-                return { ...item, quantity: clamped };
+                const liveProd = products.find(p => Number(p.id) === Number(item.productId));
+                const maxAvail = liveProd
+                  ? getProductVariantStock(liveProd, item.size, item.color)
+                  : (item.stock || 1);
+                if (newQty > maxAvail) {
+                  showToast(
+                    lang === 'ar'
+                      ? `الكمية القصوى المتوفرة للمقاس "${item.size}" (${getColorLabel(item.color, lang)}) هي ${maxAvail}.`
+                      : `Seulement ${maxAvail} disponible(s) en stock pour la taille "${item.size}" en couleur "${getColorLabel(item.color, lang)}".`,
+                    'warning'
+                  );
+                }
+                const clamped = Math.max(1, Math.min(Math.max(1, maxAvail), newQty));
+                return { ...item, quantity: clamped, stock: maxAvail };
               }
               return item;
             });
@@ -4031,14 +4413,17 @@
                                     {itemTitle}
                                   </h4>
                                   <div className="text-[11px] text-taupe-dark mt-1 flex items-center gap-1.5 flex-wrap">
-                                    {item.size && <span className="font-mono text-noir">{item.size}</span>}
+                                    {item.size && <span className="font-mono text-noir font-semibold">{item.size}</span>}
                                     {item.size && item.color && <span className="text-taupe/40">·</span>}
                                     {item.color && (
-                                      <span
-                                        className="inline-block w-3 h-3 rounded-full border border-black/20 align-middle"
-                                        style={{ backgroundColor: item.color }}
-                                        title={item.color}
-                                      />
+                                      <span className="inline-flex items-center gap-1">
+                                        <span
+                                          className="inline-block w-3 h-3 rounded-full border border-black/20 align-middle"
+                                          style={{ backgroundColor: getColorCss(item.color) }}
+                                          title={getColorLabel(item.color, lang)}
+                                        />
+                                        <span className="text-noir font-medium">{getColorLabel(item.color, lang)}</span>
+                                      </span>
                                     )}
                                   </div>
                                 </div>
@@ -4284,74 +4669,140 @@
                         {lang === 'ar' ? (quickViewProduct.descAr || quickViewProduct.descFr) : quickViewProduct.descFr}
                       </p>
 
-                      {/* Size Selector */}
+                      {/* Size Selector in Quick View */}
                       {quickViewProduct.sizes && quickViewProduct.sizes.length > 0 && (
                         <div className="mb-4">
                           <label className="block text-xs font-bold uppercase tracking-wider text-noir mb-2">
-                            {t.options_size}
+                            {t.options_size} : <span className="text-caramel font-mono">{quickViewSize}</span>
                           </label>
                           <div className="flex flex-wrap gap-2">
-                            {quickViewProduct.sizes.map(size => (
-                              <button
-                                key={size}
-                                onClick={() => setQuickViewSize(size)}
-                                className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
-                                  quickViewSize === size
-                                    ? 'border-noir bg-noir text-white'
-                                    : 'border-taupe/30 hover:border-noir text-noir'
-                                }`}
-                              >
-                                {size}
-                              </button>
-                            ))}
+                            {quickViewProduct.sizes.map(size => {
+                              const st = getProductVariantStock(quickViewProduct, size, quickViewColor);
+                              const isOutVar = st <= 0;
+                              return (
+                                <button
+                                  key={size}
+                                  onClick={() => setQuickViewSize(size)}
+                                  className={`px-3 py-1.5 text-xs font-semibold border transition-colors flex items-center gap-1 ${
+                                    quickViewSize === size
+                                      ? isOutVar
+                                        ? 'border-[#B91C1C] bg-[#FEE2E2] text-[#991B1B]'
+                                        : 'border-noir bg-noir text-white'
+                                      : isOutVar
+                                      ? 'border-taupe/25 text-taupe line-through opacity-70'
+                                      : 'border-taupe/30 hover:border-noir text-noir'
+                                  }`}
+                                >
+                                  <span>{size}</span>
+                                  {hasVariantStockMatrix(quickViewProduct) && (
+                                    <span className="text-[10px] font-mono opacity-85">
+                                      ({isOutVar ? '0' : st})
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
 
-                      {/* Color Selector */}
+                      {/* Color Selector in Quick View */}
                       {quickViewProduct.colors && quickViewProduct.colors.length > 0 && (
-                        <div className="mb-6">
+                        <div className="mb-5">
                           <label className="block text-xs font-bold uppercase tracking-wider text-noir mb-2">
-                            {t.options_color}
+                            {t.options_color} : <span className="text-caramel">{getColorLabel(quickViewColor, lang)}</span>
                           </label>
-                          <div className="flex gap-2">
-                            {quickViewProduct.colors.map(color => (
-                              <button
-                                key={color}
-                                onClick={() => setQuickViewColor(color)}
-                                className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                                  quickViewColor === color ? 'border-caramel scale-110 shadow-xs' : 'border-transparent'
-                                }`}
-                                style={{ backgroundColor: color }}
-                              />
-                            ))}
+                          <div className="flex flex-wrap gap-2">
+                            {quickViewProduct.colors.map(color => {
+                              const cLabel = getColorLabel(color, lang);
+                              const cHex = getColorCss(color);
+                              const st = getProductVariantStock(quickViewProduct, quickViewSize, color);
+                              const isOutVar = st <= 0;
+                              return (
+                                <button
+                                  key={color}
+                                  onClick={() => setQuickViewColor(color)}
+                                  className={`px-2.5 py-1 rounded-xs border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                                    quickViewColor === color
+                                      ? isOutVar
+                                        ? 'border-2 border-[#B91C1C] bg-[#FEE2E2]/60 text-[#991B1B]'
+                                        : 'border-2 border-caramel bg-white text-noir shadow-xs'
+                                      : isOutVar
+                                      ? 'border-taupe/25 text-taupe opacity-70 line-through'
+                                      : 'border-taupe/30 bg-white text-noir hover:border-noir'
+                                  }`}
+                                  title={`${cLabel} : ${st} en stock`}
+                                >
+                                  <span
+                                    className="w-3.5 h-3.5 rounded-full border border-black/25 shrink-0"
+                                    style={{ backgroundColor: cHex }}
+                                  />
+                                  <span>{cLabel}</span>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
 
-                      {/* Low Stock Warning */}
-                      {quickViewProduct.stock > 0 && quickViewProduct.stock < 5 && (
-                        <div className="text-xs font-semibold text-[#B91C1C] mb-4">
-                          {t.low_stock_alert.replace('{n}', quickViewProduct.stock)}
-                        </div>
-                      )}
+                      {/* Live Per-Variant Stock Status in Quick View */}
+                      {(() => {
+                        const qvStock = getProductVariantStock(quickViewProduct, quickViewSize, quickViewColor);
+                        const qvColorName = getColorLabel(quickViewColor, lang);
+                        if (!quickViewProduct.inStock || quickViewProduct.stock <= 0 || qvStock <= 0) {
+                          return (
+                            <div className="p-2.5 bg-red-50 border border-red-300 text-[#991B1B] text-xs font-semibold mb-4 rounded-xs">
+                              ⚠️ {lang === 'ar'
+                                ? `المقاس "${quickViewSize}" باللون "${qvColorName}" غير متوفر في المخزون.`
+                                : `La taille "${quickViewSize}" en couleur "${qvColorName}" n'est pas en stock (épuisée).`}
+                            </div>
+                          );
+                        }
+                        if (qvStock <= 5) {
+                          return (
+                            <div className="text-xs font-semibold text-[#B91C1C] mb-4">
+                              🔥 {lang === 'ar'
+                                ? `بقي فقط ${qvStock} في المخزون للمقاس ${quickViewSize} (${qvColorName})!`
+                                : `Plus que ${qvStock} en stock pour la taille ${quickViewSize} (${qvColorName}) !`}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="text-xs font-semibold text-[#065F46] mb-4">
+                            ✓ {lang === 'ar'
+                              ? `متوفر في المخزون (${qvStock} — ${quickViewSize} / ${qvColorName})`
+                              : `En stock (${qvStock} disponibles — ${quickViewSize} · ${qvColorName})`}
+                          </div>
+                        );
+                      })()}
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={!quickViewProduct.inStock || quickViewProduct.stock <= 0}
-                      onClick={() => {
-                        addToCart(quickViewProduct, quickViewSize, quickViewColor);
-                        setQuickViewProduct(null);
-                      }}
-                      className={`w-full py-3.5 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
-                        !quickViewProduct.inStock || quickViewProduct.stock <= 0
-                          ? 'bg-taupe/20 text-taupe-dark cursor-not-allowed'
-                          : 'bg-noir text-white hover:bg-caramel active:scale-95 shadow-xs'
-                      }`}
-                    >
-                      {!quickViewProduct.inStock || quickViewProduct.stock <= 0 ? t.out_of_stock : t.add_to_cart}
-                    </button>
+                    {(() => {
+                      const qvStock = getProductVariantStock(quickViewProduct, quickViewSize, quickViewColor);
+                      const isQvOut = !quickViewProduct.inStock || quickViewProduct.stock <= 0 || qvStock <= 0;
+                      const qvColorName = getColorLabel(quickViewColor, lang);
+                      return (
+                        <button
+                          type="button"
+                          disabled={isQvOut}
+                          onClick={() => {
+                            addToCart(quickViewProduct, quickViewSize, quickViewColor);
+                            setQuickViewProduct(null);
+                          }}
+                          className={`w-full py-3.5 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                            isQvOut
+                              ? 'bg-red-100 text-[#991B1B] border border-red-300 cursor-not-allowed'
+                              : 'bg-noir text-white hover:bg-caramel active:scale-95 shadow-xs'
+                          }`}
+                        >
+                          {isQvOut
+                            ? (lang === 'ar'
+                                ? `غير متوفر (${quickViewSize} - ${qvColorName})`
+                                : `Cette taille (${quickViewSize}) en ${qvColorName} n'est pas en stock`)
+                            : t.add_to_cart}
+                        </button>
+                      );
+                    })()}
 
                     <button
                       type="button"
@@ -6381,9 +6832,35 @@
                                   </td>
                                   <td className="p-3">
                                     {p.stock > 0 ? (
-                                      <span className="text-emerald-700 font-semibold">{p.stock} ex.</span>
+                                      <span className="text-emerald-700 font-semibold">{p.stock} ex. total</span>
                                     ) : (
-                                      <span className="text-red-600 font-semibold">Rupture</span>
+                                      <span className="text-red-600 font-semibold">Rupture (0)</span>
+                                    )}
+                                    {hasVariantStockMatrix(p) && (
+                                      <div className="mt-1 flex flex-wrap gap-1 max-w-[210px]">
+                                        {Object.entries(p.variantStock).slice(0, 6).map(([k, v]) => {
+                                          const [sz, col] = String(k).split('__');
+                                          const qVal = Number(v) || 0;
+                                          return (
+                                            <span
+                                              key={k}
+                                              className={`text-[9px] font-mono px-1 py-0.5 rounded-2xs border ${
+                                                qVal > 0
+                                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                                  : 'bg-red-50 border-red-200 text-red-700 line-through'
+                                              }`}
+                                              title={`Taille ${sz} — Couleur ${getColorLabel(col, 'fr')} : ${qVal} en stock`}
+                                            >
+                                              {sz}·{getColorLabel(col, 'fr')}:{qVal}
+                                            </span>
+                                          );
+                                        })}
+                                        {Object.keys(p.variantStock).length > 6 && (
+                                          <span className="text-[9px] text-taupe-dark font-mono">
+                                            +{Object.keys(p.variantStock).length - 6}
+                                          </span>
+                                        )}
+                                      </div>
                                     )}
                                   </td>
                                   <td className="p-3 text-right">
@@ -7651,7 +8128,7 @@
         const [nameAr, setNameAr] = useState(initialData.nameAr || '');
         const [price, setPrice] = useState(initialData.price || '');
         const [oldPrice, setOldPrice] = useState(initialData.oldPrice || '');
-        const [stock, setStock] = useState(initialData.stock || 0);
+        const [stock, setStock] = useState(initialData.stock ?? 10);
         const [category, setCategory] = useState(initialData.category || PRODUCT_CATEGORIES[0]);
         const [badge, setBadge] = useState(initialData.badge || 'new');
         const [imagesList, setImagesList] = useState(Array.isArray(initialData.images) ? [...initialData.images] : []);
@@ -7660,10 +8137,132 @@
         const [dragOverImgIdx, setDragOverImgIdx] = useState(null);
         const [descFr, setDescFr] = useState(initialData.descFr || '');
         const [descAr, setDescAr] = useState(initialData.descAr || '');
-        const [sizesStr, setSizesStr] = useState((initialData.sizes || []).join(', '));
-        const [colorsStr, setColorsStr] = useState((initialData.colors || []).join(', '));
+        const [sizesStr, setSizesStr] = useState(
+          Array.isArray(initialData.sizes) && initialData.sizes.length > 0
+            ? initialData.sizes.join(', ')
+            : 'Unique'
+        );
+        const [colorsStr, setColorsStr] = useState(
+          Array.isArray(initialData.colors) && initialData.colors.length > 0
+            ? initialData.colors.join(', ')
+            : 'Noir:#171717'
+        );
+        const [variantStockMap, setVariantStockMap] = useState(() => {
+          if (initialData.variantStock && typeof initialData.variantStock === 'object' && Object.keys(initialData.variantStock).length > 0) {
+            return { ...initialData.variantStock };
+          }
+          // Pre-populate evenly or with initial stock for existing sizes × colors
+          const initSizes = Array.isArray(initialData.sizes) && initialData.sizes.length > 0 ? initialData.sizes : ['Unique'];
+          const initColors = Array.isArray(initialData.colors) && initialData.colors.length > 0 ? initialData.colors : ['#171717'];
+          const map = {};
+          const combosCount = Math.max(1, initSizes.length * initColors.length);
+          const defaultPerCombo = initialData.id
+            ? Math.max(1, Math.floor((Number(initialData.stock) || 5) / combosCount))
+            : 5;
+          initSizes.forEach(s => {
+            initColors.forEach(c => {
+              map[makeVariantKey(s, c)] = defaultPerCombo;
+            });
+          });
+          return map;
+        });
+        const [bulkFillValue, setBulkFillValue] = useState(5);
         const [uploading, setUploading] = useState(false);
         const [uploadError, setUploadError] = useState('');
+
+        const parsedSizes = useMemo(() => {
+          const arr = sizesStr.split(',').map(s => s.trim()).filter(Boolean);
+          return arr.length > 0 ? arr : ['Unique'];
+        }, [sizesStr]);
+
+        const parsedColors = useMemo(() => {
+          const arr = colorsStr.split(',').map(s => s.trim()).filter(Boolean);
+          return arr.length > 0 ? arr : ['Noir:#171717'];
+        }, [colorsStr]);
+
+        // Helper to read quantity for (size, color) in the form
+        const getCellQty = (size, color) => {
+          const exactKey = makeVariantKey(size, color);
+          if (variantStockMap[exactKey] !== undefined) {
+            return Math.max(0, Number(variantStockMap[exactKey]) || 0);
+          }
+          const cLabel = getColorLabel(color, 'fr').toLowerCase();
+          for (const [k, v] of Object.entries(variantStockMap)) {
+            const [ks, kc] = String(k).split('__');
+            if (ks && kc && ks.trim().toLowerCase() === size.toLowerCase() && (kc.trim().toLowerCase() === color.toLowerCase() || getColorLabel(kc, 'fr').toLowerCase() === cLabel)) {
+              return Math.max(0, Number(v) || 0);
+            }
+          }
+          return 0;
+        };
+
+        const setCellQty = (size, color, val) => {
+          const cleanQty = Math.max(0, Math.floor(Number(val) || 0));
+          const key = makeVariantKey(size, color);
+          setVariantStockMap(prev => ({
+            ...prev,
+            [key]: cleanQty
+          }));
+        };
+
+        // Keep total stock synchronized with the sum of all active (size × color) cells
+        const totalCalculatedStock = useMemo(() => {
+          let sum = 0;
+          parsedSizes.forEach(sz => {
+            parsedColors.forEach(col => {
+              sum += getCellQty(sz, col);
+            });
+          });
+          return sum;
+        }, [parsedSizes, parsedColors, variantStockMap]);
+
+        useEffect(() => {
+          setStock(totalCalculatedStock);
+        }, [totalCalculatedStock]);
+
+        const handleApplyBulkQty = () => {
+          const q = Math.max(0, Math.floor(Number(bulkFillValue) || 0));
+          const next = { ...variantStockMap };
+          parsedSizes.forEach(sz => {
+            parsedColors.forEach(col => {
+              next[makeVariantKey(sz, col)] = q;
+            });
+          });
+          setVariantStockMap(next);
+        };
+
+        const handleAddPresetColor = (preset) => {
+          const tokenStr = `${preset.labelFr}:${preset.hex}`;
+          const currentList = colorsStr.split(',').map(s => s.trim()).filter(Boolean);
+          const alreadyExists = currentList.some(
+            c => getColorLabel(c, 'fr').toLowerCase() === preset.labelFr.toLowerCase() || c.toUpperCase() === preset.hex.toUpperCase()
+          );
+          if (!alreadyExists) {
+            const updated = [...currentList, tokenStr];
+            setColorsStr(updated.join(', '));
+            setVariantStockMap(prev => {
+              const copy = { ...prev };
+              parsedSizes.forEach(sz => {
+                copy[makeVariantKey(sz, tokenStr)] = 5;
+              });
+              return copy;
+            });
+          }
+        };
+
+        const handleApplySizePreset = (presetSizesArr) => {
+          setSizesStr(presetSizesArr.join(', '));
+          setVariantStockMap(prev => {
+            const copy = { ...prev };
+            presetSizesArr.forEach(sz => {
+              parsedColors.forEach(col => {
+                const k = makeVariantKey(sz, col);
+                if (copy[k] === undefined) copy[k] = 5;
+              });
+            });
+            return copy;
+          });
+        };
 
         const handleFileUpload = async (e) => {
           const files = Array.from(e.target.files || []);
@@ -7732,8 +8331,19 @@
           try {
             const pendingUrl = (newImageUrl || '').trim();
             const finalImages = pendingUrl ? [...imagesList, pendingUrl] : [...imagesList];
-            const sizes = sizesStr.split(',').map(s => s.trim()).filter(Boolean);
-            const colors = colorsStr.split(',').map(s => s.trim()).filter(Boolean);
+            const sizes = parsedSizes;
+            const colors = parsedColors;
+
+            // Build clean variantStock dictionary for all active sizes × colors
+            const cleanVariantStock = {};
+            let sumStock = 0;
+            sizes.forEach(sz => {
+              colors.forEach(col => {
+                const q = getCellQty(sz, col);
+                cleanVariantStock[makeVariantKey(sz, col)] = q;
+                sumStock += q;
+              });
+            });
 
             const payload = {
               id: initialData.id,
@@ -7742,10 +8352,11 @@
               nameAr,
               price: Number(price),
               oldPrice: oldPrice ? Number(oldPrice) : null,
-              stock: Number(stock),
-              inStock: Number(stock) > 0,
+              stock: sumStock,
+              inStock: sumStock > 0,
+              variantStock: cleanVariantStock,
               category,
-              badge,
+              badge: sumStock <= 0 ? 'out' : (badge === 'out' ? 'new' : badge),
               isNew: badge === 'new',
               rating: initialData.rating || 5,
               images: finalImages.length > 0 ? finalImages : ['data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="%23f3f1ec"/><text x="200" y="200" fill="%23999" text-anchor="middle">MODANOVA</text></svg>'],
@@ -7779,7 +8390,7 @@
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={onClose} />
-            <div className="relative bg-canvas w-full max-w-2xl max-h-[90vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-6 sm:p-8">
+            <div className="relative bg-canvas w-full max-w-3xl max-h-[92vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-6 sm:p-8">
               <button onClick={onClose} className="absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg">✕</button>
 
               <h3 className="font-serif text-2xl font-bold text-noir mb-4">
@@ -7831,13 +8442,13 @@
                     />
                   </div>
                   <div>
-                    <label className="block font-bold uppercase mb-1">Stock *</label>
+                    <label className="block font-bold uppercase mb-1">Stock Total (Calculé auto)</label>
                     <input
                       type="number"
-                      required
+                      readOnly
                       value={stock}
-                      onChange={(e) => setStock(e.target.value)}
-                      className="w-full bg-card border border-taupe/30 p-2"
+                      className="w-full bg-[#EFECE6] border border-taupe/30 p-2 font-bold text-noir cursor-not-allowed"
+                      title="Le stock total est calculé automatiquement à partir des quantités de chaque taille et couleur ci-dessous"
                     />
                   </div>
                 </div>
@@ -8081,26 +8692,181 @@
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold uppercase mb-1">Tailles / Formats (virgules)</label>
-                    <input
-                      type="text"
-                      value={sizesStr}
-                      onChange={(e) => setSizesStr(e.target.value)}
-                      placeholder="40, 41, 42..."
-                      className="w-full bg-card border border-taupe/30 p-2"
-                    />
+                {/* ========================================================= */}
+                {/* TAILLES / POINTURES / FORMATS & COULEURS + MATRICE STOCK  */}
+                {/* ========================================================= */}
+                <div className="border border-taupe/30 bg-white p-4 rounded-xs space-y-4 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-taupe/15 pb-3">
+                    <div>
+                      <span className="font-bold uppercase text-xs text-noir block">
+                        📦 Gestion des Quantités par Taille / Pointure & par Couleur
+                      </span>
+                      <span className="text-[11px] text-taupe-dark">
+                        Définissez le stock exact pour chaque combinaison (Vêtements, Chaussures et Accessoires). Dès qu'une taille d'une couleur tombe à 0, le client est informé qu'elle est épuisée.
+                      </span>
+                    </div>
+                    <span className="px-2.5 py-1 bg-noir text-[#E6C687] font-mono text-[11px] font-bold rounded-xs shrink-0">
+                      Total : {totalCalculatedStock} en stock
+                    </span>
                   </div>
-                  <div>
-                    <label className="block font-bold uppercase mb-1">Couleurs Hex (virgules)</label>
-                    <input
-                      type="text"
-                      value={colorsStr}
-                      onChange={(e) => setColorsStr(e.target.value)}
-                      placeholder="#171717, #3D2B1F..."
-                      className="w-full bg-card border border-taupe/30 p-2"
-                    />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Sizes Input + Quick Presets */}
+                    <div>
+                      <label className="block font-bold uppercase mb-1 text-noir">
+                        Tailles / Pointures / Formats (séparés par virgule) *
+                      </label>
+                      <input
+                        type="text"
+                        value={sizesStr}
+                        onChange={(e) => setSizesStr(e.target.value)}
+                        placeholder="Ex: S, M, L, XL ou 40, 41, 42, 43 ou Unique"
+                        className="w-full bg-card border border-taupe/30 p-2 font-mono text-xs"
+                      />
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleApplySizePreset(['S', 'M', 'L', 'XL', 'XXL'])}
+                          className="px-2 py-0.5 bg-canvas hover:bg-noir hover:text-white border border-taupe/30 text-[10px] font-semibold rounded-2xs transition-colors"
+                        >
+                          👕 Vêtements (S, M, L, XL, XXL)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplySizePreset(['40', '41', '42', '43', '44', '45'])}
+                          className="px-2 py-0.5 bg-canvas hover:bg-noir hover:text-white border border-taupe/30 text-[10px] font-semibold rounded-2xs transition-colors"
+                        >
+                          👞 Chaussures (40 à 45)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplySizePreset(['Unique'])}
+                          className="px-2 py-0.5 bg-canvas hover:bg-noir hover:text-white border border-taupe/30 text-[10px] font-semibold rounded-2xs transition-colors"
+                        >
+                          👜 Accessoires (Taille Unique)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Colors Input + Quick Presets */}
+                    <div>
+                      <label className="block font-bold uppercase mb-1 text-noir">
+                        Couleurs (séparées par virgule) *
+                      </label>
+                      <input
+                        type="text"
+                        value={colorsStr}
+                        onChange={(e) => setColorsStr(e.target.value)}
+                        placeholder="Ex: Noir:#171717, Marron:#3D2B1F, Blanc:#FFFFFF"
+                        className="w-full bg-card border border-taupe/30 p-2 font-mono text-xs"
+                      />
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {PRESET_COLOR_PALETTE.map(p => (
+                          <button
+                            key={p.labelFr}
+                            type="button"
+                            onClick={() => handleAddPresetColor(p)}
+                            className="px-1.5 py-0.5 bg-canvas hover:bg-noir hover:text-white border border-taupe/30 text-[10px] font-medium rounded-2xs flex items-center gap-1 transition-colors"
+                            title={`Ajouter la couleur ${p.labelFr}`}
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-full border border-black/30 inline-block"
+                              style={{ backgroundColor: p.hex }}
+                            />
+                            <span>+{p.labelFr}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Bulk Fill Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 bg-[#FAF7F2] border border-taupe/20 px-3 py-2 rounded-xs">
+                    <span className="text-[11px] font-semibold text-noir">
+                      ⚡ Remplissage rapide : appliquer une même quantité à toutes les tailles & couleurs :
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        value={bulkFillValue}
+                        onChange={(e) => setBulkFillValue(e.target.value)}
+                        className="w-16 bg-white border border-taupe/30 px-2 py-1 text-center font-mono font-bold text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyBulkQty}
+                        className="px-3 py-1 bg-noir hover:bg-caramel text-white text-[11px] font-semibold rounded-2xs transition-colors"
+                      >
+                        Appliquer partout
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Interactive Size × Color Quantity Matrix Table */}
+                  <div className="overflow-x-auto border border-taupe/25 rounded-xs">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-canvas border-b border-taupe/25 text-noir font-bold">
+                          <th className="p-2.5 border-r border-taupe/20 min-w-[130px]">
+                            Couleur \ Taille
+                          </th>
+                          {parsedSizes.map(sz => (
+                            <th key={sz} className="p-2.5 text-center border-r border-taupe/15 font-mono min-w-[76px]">
+                              {sz}
+                            </th>
+                          ))}
+                          <th className="p-2.5 text-center bg-[#EFECE6] font-mono min-w-[80px]">
+                            Sous-total
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-taupe/15">
+                        {parsedColors.map(col => {
+                          const cName = getColorLabel(col, 'fr');
+                          const cHex = getColorCss(col);
+                          const rowSum = parsedSizes.reduce((acc, sz) => acc + getCellQty(sz, col), 0);
+                          return (
+                            <tr key={col} className="hover:bg-canvas/50">
+                              <td className="p-2.5 border-r border-taupe/20 font-semibold text-noir">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="w-4 h-4 rounded-full border border-black/25 shrink-0"
+                                    style={{ backgroundColor: cHex }}
+                                  />
+                                  <span>{cName}</span>
+                                </div>
+                              </td>
+                              {parsedSizes.map(sz => {
+                                const cellVal = getCellQty(sz, col);
+                                const isZero = cellVal <= 0;
+                                return (
+                                  <td key={sz} className="p-2 text-center border-r border-taupe/15">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={cellVal}
+                                      onChange={(e) => setCellQty(sz, col, e.target.value)}
+                                      className={`w-16 text-center font-mono font-bold px-1.5 py-1 border rounded-2xs focus:outline-none ${
+                                        isZero
+                                          ? 'bg-red-50 border-red-300 text-red-700'
+                                          : 'bg-white border-emerald-400 text-noir focus:border-caramel'
+                                      }`}
+                                    />
+                                    <div className={`text-[9px] mt-0.5 font-semibold ${isZero ? 'text-red-600' : 'text-emerald-700'}`}>
+                                      {isZero ? 'Épuisé (0)' : `${cellVal} en stock`}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                              <td className="p-2.5 text-center font-mono font-bold bg-[#FAF9F6] text-noir">
+                                {rowSum} ex.
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
@@ -8137,7 +8903,7 @@
                     type="submit"
                     className="px-6 py-2 bg-noir text-white font-semibold uppercase tracking-wider hover:bg-caramel transition-colors"
                   >
-                    Enregistrer
+                    Enregistrer sur Firebase
                   </button>
                 </div>
               </form>
