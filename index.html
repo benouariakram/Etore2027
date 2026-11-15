@@ -5,15 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MODANOVA — Men's Essentials | Luxe Minimaliste Maroc</title>
     <meta name="description" content="Maison masculine de luxe contemporain au Maroc. Pièces d'exception, coupes précises et essentiels sartoriaux. Paiement à la livraison (COD)." />
-    <meta property="og:title" content="MODANOVA — Men's Essentials" />
-    <meta property="og:description" content="Luxe contemporain masculin au Maroc. Paiement à la livraison partout au Maroc." />
+    <!-- DYNAMIC_OG_META -->
+    <meta property="og:title" content="MODANOVA — Men's Essentials | Luxe Minimaliste Maroc" />
+    <meta property="og:description" content="Luxe contemporain masculin au Maroc. Pièces d'exception & Paiement à la livraison partout au Maroc." />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MODANOVA" />
+    <meta property="og:image" content="/og-logo.jpg" />
+    <meta property="og:image:secure_url" content="/og-logo.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="MODANOVA Fashion Logo" />
+    <meta property="og:image" content="/og-logo-square.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="600" />
+    <meta property="og:image:height" content="600" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MODANOVA — Men's Essentials | Luxe Minimaliste Maroc" />
+    <meta name="twitter:description" content="Luxe contemporain masculin au Maroc. Paiement à la livraison partout au Maroc." />
+    <meta name="twitter:image" content="/og-logo.jpg" />
 
-    <!-- Favicon MODANOVA (Luxury Monogram Crest) -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="shortcut icon" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <!-- Favicon & Logo MODANOVA -->
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/logo.png" />
 
     <!-- Google Fonts: Cormorant Garamond, Plus Jakarta Sans, Cairo -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -4420,6 +4436,15 @@
                 loginError={adminLoginError}
                 onLogin={handleAdminLogin}
                 onLogout={handleAdminLogout}
+                onUpdateAdminAuth={(newToken, newUser) => {
+                  if (newToken) {
+                    setAdminToken(newToken);
+                    sessionStorage.setItem('modanova_admin_token', newToken);
+                  }
+                  if (newUser) {
+                    setAdminUser(newUser);
+                  }
+                }}
                 kpis={adminKPIs}
                 activeTab={adminActiveTab}
                 setActiveTab={setAdminActiveTab}
@@ -4559,7 +4584,7 @@
                         <span>Télécharger</span>
                       </button>
                       <a
-                        href={adminOpen ? buildAdminCustomerWhatsAppLink(currentInvoiceOrder, lang) : buildWhatsAppLink(currentInvoiceOrder, lang)}
+                        href={adminOpen ? buildAdminCustomerWhatsAppLink(currentInvoiceOrder, lang) : (currentInvoiceOrder._adminWhatsappUrl || buildWhatsAppLink(currentInvoiceOrder, lang))}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-semibold rounded-xs transition-colors flex items-center gap-1.5 shadow-2xs"
@@ -4577,6 +4602,33 @@
                       </button>
                     </div>
                   </div>
+
+                  {/* Automatic WhatsApp Notification Status Banner for Customer / Admin */}
+                  {!adminOpen && (
+                    <div className="bg-[#ECFDF5] border-b border-[#A7F3D0] px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#065F46]">
+                      <div className="flex items-center gap-2">
+                        <WhatsAppIcon className="w-4 h-4 fill-[#25D366] shrink-0" />
+                        <span>
+                          {currentInvoiceOrder._sentViaApi
+                            ? (lang === 'ar'
+                                ? '✅ تم إرسال إشعار طلبكم تلقائياً إلى واتساب إدارة مودانوفا.'
+                                : '✅ Notification automatique envoyée sur le WhatsApp de l’administration MODANOVA.')
+                            : (lang === 'ar'
+                                ? '📲 تم تسجيل طلبكم! اضغط على الزر الأخضر لإرسال الإشعار المباشر عبر واتساب.'
+                                : '📲 Commande enregistrée ! Cliquez sur le bouton vert pour envoyer la notification directe sur WhatsApp.')}
+                        </span>
+                      </div>
+                      <a
+                        href={currentInvoiceOrder._adminWhatsappUrl || buildWhatsAppLink(currentInvoiceOrder, lang)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold text-[11px] rounded-xs flex items-center gap-1.5 self-start sm:self-auto shrink-0 shadow-2xs"
+                      >
+                        <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
+                        <span>{lang === 'ar' ? 'إرسال عبر واتساب الآن' : 'Notifier sur WhatsApp'}</span>
+                      </a>
+                    </div>
+                  )}
 
                   {/* Rendered Invoice Preview */}
                   <div
@@ -4638,7 +4690,26 @@
 
             const data = await res.json();
             if (res.ok && data.order) {
-              onSuccess(data.order);
+              const enrichedOrder = {
+                ...data.order,
+                _adminWhatsappUrl: data.adminWhatsappUrl || buildWhatsAppLink(data.order, lang),
+                _sentViaApi: Boolean(data.sentViaApi),
+                _autoRedirectCustomerToWhatsapp: data.autoRedirectCustomerToWhatsapp !== false
+              };
+              // If autoRedirectCustomerToWhatsapp is active and background API wasn't configured yet,
+              // automatically trigger the WhatsApp notification link so the admin receives it immediately
+              if (enrichedOrder._autoRedirectCustomerToWhatsapp && !enrichedOrder._sentViaApi && enrichedOrder._adminWhatsappUrl) {
+                try {
+                  const waAnchor = document.createElement('a');
+                  waAnchor.href = enrichedOrder._adminWhatsappUrl;
+                  waAnchor.target = '_blank';
+                  waAnchor.rel = 'noopener noreferrer';
+                  document.body.appendChild(waAnchor);
+                  waAnchor.click();
+                  document.body.removeChild(waAnchor);
+                } catch {}
+              }
+              onSuccess(enrichedOrder);
             } else {
               onError(data.error || 'Erreur lors de la commande');
             }
@@ -4938,7 +5009,7 @@
       // ========================================================================
       function AdminModal({
         token, adminUser, setAdminUser, adminPass, setAdminPass, loginError,
-        onLogin, onLogout, kpis, activeTab, setActiveTab, products, orders,
+        onLogin, onLogout, onUpdateAdminAuth, kpis, activeTab, setActiveTab, products, orders,
         lang, t, onClose, onRefreshOrders, onDeleteOrderLocal, onRefreshProducts, onReorderProductsLocal, onDeleteProductLocal, onEditProduct,
         onAddProduct, onViewInvoice, showToast, onViewProductPage, onCopyProductLink,
         heroSlides, onSaveSlider, cms, onSaveCms, testimonials, onRefreshTestimonials
@@ -4999,6 +5070,219 @@
         });
         const [testimonialSaving, setTestimonialSaving] = useState(false);
         const [showLoginPassword, setShowLoginPassword] = useState(false);
+
+        // Security (Password Change) & Automatic WhatsApp Notifications state
+        const [secNewUser, setSecNewUser] = useState(adminUser || 'admin');
+        const [secCurrentPass, setSecCurrentPass] = useState('');
+        const [secNewPass, setSecNewPass] = useState('');
+        const [secConfirmPass, setSecConfirmPass] = useState('');
+        const [showSecCurrentPass, setShowSecCurrentPass] = useState(false);
+        const [showSecNewPass, setShowSecNewPass] = useState(false);
+        const [secSavingPass, setSecSavingPass] = useState(false);
+        const [secPassMessage, setSecPassMessage] = useState(null);
+
+        const [waConfig, setWaConfig] = useState({
+          adminWhatsappNumber: '212600773716',
+          whatsappAutoNotifyEnabled: true,
+          autoRedirectCustomerToWhatsapp: true,
+          callmebotApiKey: '',
+          whatsappWebhookUrl: ''
+        });
+        const [waSaving, setWaSaving] = useState(false);
+        const [waTesting, setWaTesting] = useState(false);
+        const [liveNewOrderAlert, setLiveNewOrderAlert] = useState(null);
+        const knownOrderIdsRef = useRef(null);
+
+        // Load Admin Security & WhatsApp Config when authenticated
+        useEffect(() => {
+          if (!token) return;
+          fetch('/api/admin/config', {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (data) {
+                if (data.adminUser) setSecNewUser(data.adminUser);
+                setWaConfig({
+                  adminWhatsappNumber: data.adminWhatsappNumber || '212600773716',
+                  whatsappAutoNotifyEnabled: data.whatsappAutoNotifyEnabled !== false,
+                  autoRedirectCustomerToWhatsapp: data.autoRedirectCustomerToWhatsapp !== false,
+                  callmebotApiKey: data.callmebotApiKey || '',
+                  whatsappWebhookUrl: data.whatsappWebhookUrl || ''
+                });
+              }
+            })
+            .catch(() => {});
+        }, [token]);
+
+        // Live Order Watcher (checks every 15s for new orders and alerts admin with chime + WhatsApp link)
+        useEffect(() => {
+          if (!token) return;
+          if (Array.isArray(orders) && knownOrderIdsRef.current === null) {
+            knownOrderIdsRef.current = new Set(orders.map(o => o.id));
+          }
+          const interval = setInterval(async () => {
+            try {
+              const res = await fetch('/api/orders', {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              if (!res.ok) return;
+              const latestOrders = await res.json();
+              if (!Array.isArray(latestOrders)) return;
+              if (knownOrderIdsRef.current === null) {
+                knownOrderIdsRef.current = new Set(latestOrders.map(o => o.id));
+                return;
+              }
+              const newlyArrived = latestOrders.filter(o => o && o.id && !knownOrderIdsRef.current.has(o.id));
+              if (newlyArrived.length > 0) {
+                newlyArrived.forEach(o => knownOrderIdsRef.current.add(o.id));
+                const newest = newlyArrived[0];
+                setLiveNewOrderAlert(newest);
+                if (onRefreshOrders) onRefreshOrders();
+                showToast(`🔔 Nouvelle commande reçue : ${newest.id} (${newest.customerName} — ${newest.total} MAD)`, 'success');
+                try {
+                  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                  const osc = ctx.createOscillator();
+                  const gain = ctx.createGain();
+                  osc.type = 'sine';
+                  osc.frequency.setValueAtTime(880, ctx.currentTime);
+                  osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.15);
+                  gain.gain.setValueAtTime(0.18, ctx.currentTime);
+                  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+                  osc.connect(gain);
+                  gain.connect(ctx.destination);
+                  osc.start();
+                  osc.stop(ctx.currentTime + 0.6);
+                } catch {}
+              }
+            } catch {}
+          }, 15000);
+          return () => clearInterval(interval);
+        }, [token, orders]);
+
+        const handleChangeAdminPassword = async (e) => {
+          e.preventDefault();
+          setSecPassMessage(null);
+          if (!secCurrentPass) {
+            setSecPassMessage({ type: 'error', text: 'Veuillez saisir votre mot de passe actuel.' });
+            return;
+          }
+          if (!secNewPass || secNewPass.trim().length < 4) {
+            setSecPassMessage({ type: 'error', text: 'Le nouveau mot de passe doit contenir au moins 4 caractères.' });
+            return;
+          }
+          if (secNewPass !== secConfirmPass) {
+            setSecPassMessage({ type: 'error', text: 'La confirmation du nouveau mot de passe ne correspond pas.' });
+            return;
+          }
+          setSecSavingPass(true);
+          try {
+            const res = await fetch('/api/admin/password', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                currentPassword: secCurrentPass,
+                newPassword: secNewPass,
+                newUser: secNewUser
+              })
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+              if (onUpdateAdminAuth && data.token) {
+                onUpdateAdminAuth(data.token, data.adminUser || secNewUser);
+              }
+              setSecCurrentPass('');
+              setSecNewPass('');
+              setSecConfirmPass('');
+              setSecPassMessage({
+                type: 'success',
+                text: '✅ Mot de passe administrateur modifié et sauvegardé définitivement sur Firebase !'
+              });
+              showToast('Mot de passe administrateur mis à jour avec succès !', 'success');
+            } else {
+              setSecPassMessage({
+                type: 'error',
+                text: data.error || 'Erreur lors du changement de mot de passe.'
+              });
+              showToast(data.error || 'Mot de passe actuel incorrect', 'error');
+            }
+          } catch {
+            setSecPassMessage({ type: 'error', text: 'Erreur de connexion au serveur.' });
+          } finally {
+            setSecSavingPass(false);
+          }
+        };
+
+        const handleSaveWaConfig = async (e) => {
+          if (e && e.preventDefault) e.preventDefault();
+          setWaSaving(true);
+          try {
+            const res = await fetch('/api/admin/config', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(waConfig)
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+              showToast('Configuration des notifications WhatsApp sauvegardée sur Firebase !', 'success');
+            } else {
+              showToast(data.error || 'Erreur lors de la sauvegarde', 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion au serveur', 'error');
+          } finally {
+            setWaSaving(false);
+          }
+        };
+
+        const handleTestWhatsAppNotification = async () => {
+          setWaTesting(true);
+          try {
+            // Save current draft first so test uses the latest phone/API key
+            await fetch('/api/admin/config', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(waConfig)
+            });
+            const res = await fetch('/api/admin/test-whatsapp', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              }
+            });
+            const data = await res.json();
+            if (res.ok) {
+              if (data.sentViaApi) {
+                showToast('✅ Notification WhatsApp automatique envoyée avec succès sur votre téléphone !', 'success');
+              } else if (data.adminWhatsappUrl) {
+                showToast('📲 Ouverture de la notification WhatsApp de test...', 'info');
+                const a = document.createElement('a');
+                a.href = data.adminWhatsappUrl;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              }
+            } else {
+              showToast(data.error || 'Erreur lors du test WhatsApp', 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion lors du test WhatsApp', 'error');
+          } finally {
+            setWaTesting(false);
+          }
+        };
 
         useEffect(() => {
           if (heroSlides && heroSlides.length > 0) {
@@ -5627,6 +5911,23 @@
                     {(testimonials || []).length}
                   </span>
                 </button>
+
+                <button
+                  onClick={() => setActiveTab('security')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
+                    activeTab === 'security'
+                      ? 'bg-[#E6C687] text-[#141414] font-bold shadow-xs'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>🔒</span>
+                    <span>Sécurité & WhatsApp</span>
+                  </span>
+                  <span className="text-[9px] bg-[#25D366]/25 text-[#25D366] px-1.5 py-0.5 rounded-xs font-mono font-bold">
+                    PRO
+                  </span>
+                </button>
               </nav>
 
               {/* Sidebar Footer */}
@@ -5652,6 +5953,51 @@
             {/* ========================================================= */}
             <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#F5F4F0]">
               
+              {/* Live Incoming Order Alert Banner */}
+              {liveNewOrderAlert && (
+                <div className="bg-[#065F46] text-white px-6 py-3 flex flex-wrap items-center justify-between gap-3 shadow-md shrink-0 animate-fade-up">
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="text-lg">🔔</span>
+                    <div>
+                      <span className="font-bold uppercase tracking-wider text-[#A7F3D0] mr-2">
+                        Nouvelle Commande Reçue !
+                      </span>
+                      <span>
+                        <strong>{liveNewOrderAlert.id}</strong> — {liveNewOrderAlert.customerName} ({liveNewOrderAlert.customerPhone}) • {liveNewOrderAlert.city} • <strong>{Number(liveNewOrderAlert.total).toLocaleString()} MAD</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={buildAdminCustomerWhatsAppLink(liveNewOrderAlert, lang)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-bold rounded-xs flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <WhatsAppIcon className="w-3.5 h-3.5 fill-white" />
+                      <span>Contacter Client sur WhatsApp</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('orders');
+                        setLiveNewOrderAlert(null);
+                      }}
+                      className="px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded-xs"
+                    >
+                      Voir la commande
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLiveNewOrderAlert(null)}
+                      className="text-white/70 hover:text-white px-1.5"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Workspace Top Header Bar */}
               <header className="px-6 py-4 bg-white border-b border-taupe/20 flex items-center justify-between shadow-xs shrink-0">
                 <div>
@@ -5661,6 +6007,7 @@
                     {activeTab === 'slider' && "Slider de la Page d'Accueil"}
                     {activeTab === 'cms' && 'Gestion du Contenu Fixe (CMS)'}
                     {activeTab === 'testimonials' && 'Avis & Témoignages Clients'}
+                    {activeTab === 'security' && 'Sécurité Admin, Notifications WhatsApp & Logo de Partage'}
                   </h2>
                   <p className="text-xs text-taupe-dark">
                     {activeTab === 'products' && 'Gérez vos créations, photos Firebase, prix et stocks.'}
@@ -5668,6 +6015,7 @@
                     {activeTab === 'slider' && 'Personnalisez vos 3 bannières et uploadez des fonds haute définition.'}
                     {activeTab === 'cms' && 'Modifiez les textes et photos du site sans toucher au code source.'}
                     {activeTab === 'testimonials' && 'Ajoutez, modifiez ou supprimez les retours d’expérience de vos clients.'}
+                    {activeTab === 'security' && 'Changez votre mot de passe administrateur et configurez les alertes WhatsApp automatiques des commandes.'}
                   </p>
                 </div>
 
@@ -6829,6 +7177,338 @@
                         ))
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* ======================================================= */}
+                {/* TAB 6: SECURITY (PASSWORD) & AUTOMATIC WHATSAPP ALERTS  */}
+                {/* ======================================================= */}
+                {activeTab === 'security' && (
+                  <div className="space-y-6 max-w-5xl">
+                    
+                    {/* 1. CHANGER LE MOT DE PASSE ADMINISTRATEUR */}
+                    <div className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs">
+                      <div className="flex items-start justify-between gap-4 border-b border-taupe/15 pb-4 mb-5">
+                        <div>
+                          <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
+                            <span>🔑</span>
+                            <span>Changer le Mot de Passe Administrateur</span>
+                          </h3>
+                          <p className="text-xs text-taupe-dark mt-0.5">
+                            Modifiez vos identifiants d'accès au Panel Administrateur. Le nouveau mot de passe est chiffré et enregistré de manière permanente dans votre base de données Firebase.
+                          </p>
+                        </div>
+                        <span className="px-2.5 py-1 bg-noir text-[#E6C687] text-[10px] font-mono uppercase tracking-wider rounded-xs shrink-0">
+                          Firebase Auth Sync
+                        </span>
+                      </div>
+
+                      <form onSubmit={handleChangeAdminPassword} className="space-y-4 max-w-xl">
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                            Identifiant Administrateur
+                          </label>
+                          <input
+                            type="text"
+                            value={secNewUser}
+                            onChange={(e) => setSecNewUser(e.target.value)}
+                            placeholder="admin"
+                            className="w-full bg-[#FAF9F6] border border-taupe/30 px-3.5 py-2.5 text-xs text-noir font-semibold focus:border-caramel"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                            Mot de Passe Actuel *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showSecCurrentPass ? 'text' : 'password'}
+                              value={secCurrentPass}
+                              onChange={(e) => setSecCurrentPass(e.target.value)}
+                              placeholder="Saisissez votre mot de passe actuel"
+                              className="w-full bg-[#FAF9F6] border border-taupe/30 px-3.5 py-2.5 pr-16 text-xs text-noir focus:border-caramel"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowSecCurrentPass(p => !p)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-taupe-dark hover:text-noir"
+                            >
+                              {showSecCurrentPass ? 'Masquer' : 'Afficher'}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                              Nouveau Mot de Passe *
+                            </label>
+                            <div className="relative">
+                              <input
+                                type={showSecNewPass ? 'text' : 'password'}
+                                value={secNewPass}
+                                onChange={(e) => setSecNewPass(e.target.value)}
+                                placeholder="Nouveau mot de passe"
+                                className="w-full bg-[#FAF9F6] border border-taupe/30 px-3.5 py-2.5 pr-16 text-xs text-noir focus:border-caramel"
+                                required
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowSecNewPass(p => !p)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-taupe-dark hover:text-noir"
+                              >
+                                {showSecNewPass ? 'Masquer' : 'Afficher'}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                              Confirmer le Nouveau Mot de Passe *
+                            </label>
+                            <input
+                              type={showSecNewPass ? 'text' : 'password'}
+                              value={secConfirmPass}
+                              onChange={(e) => setSecConfirmPass(e.target.value)}
+                              placeholder="Répétez le nouveau mot de passe"
+                              className="w-full bg-[#FAF9F6] border border-taupe/30 px-3.5 py-2.5 text-xs text-noir focus:border-caramel"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        {secPassMessage && (
+                          <div className={`p-3 text-xs border rounded-xs ${
+                            secPassMessage.type === 'success'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-semibold'
+                              : 'bg-red-50 border-red-300 text-red-800'
+                          }`}>
+                            {secPassMessage.text}
+                          </div>
+                        )}
+
+                        <div className="pt-2">
+                          <button
+                            type="submit"
+                            disabled={secSavingPass}
+                            className="px-6 py-2.5 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shadow-xs"
+                          >
+                            {secSavingPass ? '⏳ Mise à jour en cours...' : '🔒 Mettre à jour le Mot de Passe'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* 2. NOTIFICATIONS AUTOMATIQUES WHATSAPP DES COMMANDES */}
+                    <div className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-taupe/15 pb-4 mb-5">
+                        <div>
+                          <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
+                            <WhatsAppIcon className="w-5 h-5 fill-[#25D366]" />
+                            <span>Notifications Automatiques WhatsApp (Nouvelles Commandes)</span>
+                          </h3>
+                          <p className="text-xs text-taupe-dark mt-0.5">
+                            Recevez automatiquement les détails complets sur votre WhatsApp dès qu'un client passe une commande sur le site.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleTestWhatsAppNotification}
+                          disabled={waTesting}
+                          className="px-4 py-2 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shrink-0 shadow-xs"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 fill-white" />
+                          <span>{waTesting ? 'Test en cours...' : '📲 Tester la Notification WhatsApp'}</span>
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleSaveWaConfig} className="space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                              Votre Numéro WhatsApp Administrateur (Réception des commandes)
+                            </label>
+                            <input
+                              type="text"
+                              value={waConfig.adminWhatsappNumber}
+                              onChange={(e) => setWaConfig(p => ({ ...p, adminWhatsappNumber: e.target.value }))}
+                              placeholder="212600773716"
+                              className="w-full bg-[#FAF9F6] border border-taupe/30 px-3.5 py-2.5 text-xs text-noir font-mono focus:border-caramel"
+                            />
+                            <p className="text-[11px] text-taupe-dark mt-1">
+                              Format international avec indicatif Maroc (ex: <strong>212600773716</strong>).
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col justify-center space-y-2.5 bg-[#FAF9F6] border border-taupe/20 p-3.5 rounded-xs">
+                            <label className="flex items-center gap-2.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={waConfig.whatsappAutoNotifyEnabled}
+                                onChange={(e) => setWaConfig(p => ({ ...p, whatsappAutoNotifyEnabled: e.target.checked }))}
+                                className="w-4 h-4 accent-[#25D366]"
+                              />
+                              <span className="text-xs font-bold text-noir">
+                                Activer les alertes WhatsApp automatiques à chaque commande
+                              </span>
+                            </label>
+
+                            <label className="flex items-center gap-2.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={waConfig.autoRedirectCustomerToWhatsapp}
+                                onChange={(e) => setWaConfig(p => ({ ...p, autoRedirectCustomerToWhatsapp: e.target.checked }))}
+                                className="w-4 h-4 accent-noir"
+                              />
+                              <span className="text-xs text-noir">
+                                Ouvrir automatiquement WhatsApp chez le client dès la validation de sa commande
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* CallMeBot Instant Background Notification Setup */}
+                        <div className="bg-[#F0FDF4] border border-[#BBF7D0] p-4 rounded-xs space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#065F46] uppercase tracking-wider flex items-center gap-1.5">
+                              <span>⚡</span>
+                              <span>Mode 100% Automatique en Arrière-Plan (CallMeBot WhatsApp API — Gratuit)</span>
+                            </span>
+                            <span className="text-[10px] bg-[#25D366] text-white px-2 py-0.5 rounded-xs font-bold">
+                              Recommandé
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#065F46]/90 leading-relaxed">
+                            Pour recevoir un message WhatsApp automatique instantané même si le client ferme la page immédiatement après sa commande, activez votre clé gratuite CallMeBot en 30 secondes :
+                          </p>
+                          <ol className="text-xs text-[#065F46] list-decimal list-inside space-y-1 font-medium bg-white/80 p-3 rounded-xs border border-[#BBF7D0]">
+                            <li>
+                              Ajoutez le numéro <strong>+34 644 52 74 88</strong> sur votre téléphone et envoyez-lui par WhatsApp ce message exact :{' '}
+                              <code className="bg-[#DCFCE7] px-1.5 py-0.5 rounded font-mono text-[#065F46] select-all">
+                                I allow callmebot to send me messages
+                              </code>
+                            </li>
+                            <li>
+                              CallMeBot vous répondra immédiatement sur WhatsApp avec votre code <strong>apikey</strong> (ex: <em>1234567</em>) et le numéro exact. Collez ce code ci-dessous :
+                            </li>
+                          </ol>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                            <div>
+                              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#065F46] mb-1">
+                                Clé API CallMeBot (API Key)
+                              </label>
+                              <input
+                                type="text"
+                                value={waConfig.callmebotApiKey}
+                                onChange={(e) => setWaConfig(p => ({ ...p, callmebotApiKey: e.target.value }))}
+                                placeholder="Ex: 4829103 (Reçu par WhatsApp)"
+                                className="w-full bg-white border border-[#86EFAC] px-3.5 py-2 text-xs text-noir font-mono focus:border-[#25D366]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                                Webhook Personnalisé (Optionnel : Make / UltraMsg / Zapier)
+                              </label>
+                              <input
+                                type="text"
+                                value={waConfig.whatsappWebhookUrl}
+                                onChange={(e) => setWaConfig(p => ({ ...p, whatsappWebhookUrl: e.target.value }))}
+                                placeholder="https://hook.eu1.make.com/..."
+                                className="w-full bg-white border border-taupe/30 px-3.5 py-2 text-xs text-noir font-mono focus:border-caramel"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                          <button
+                            type="submit"
+                            disabled={waSaving}
+                            className="px-6 py-2.5 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shadow-xs"
+                          >
+                            {waSaving ? '⏳ Sauvegarde...' : '💾 Enregistrer la Configuration WhatsApp'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* 3. APERÇU DU LOGO DE PARTAGE WHATSAPP & MESSENGER (OPENGRAPH) */}
+                    <div className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-taupe/15 pb-4 mb-5">
+                        <div>
+                          <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
+                            <span>🌐</span>
+                            <span>Aperçu du Lien sur WhatsApp, Statut WhatsApp & Messenger</span>
+                          </h3>
+                          <p className="text-xs text-taupe-dark mt-0.5">
+                            Votre logo officiel <strong>MODANOVA FASHION</strong> est configuré en haute définition pour s'afficher automatiquement lorsque vous partagez le lien de votre site.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const shareUrl = window.location.origin;
+                            const waShare = `https://wa.me/?text=${encodeURIComponent(`Découvrez la collection MODANOVA — Men's Essentials : ${shareUrl}`)}`;
+                            window.open(waShare, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="px-4 py-2 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shrink-0 shadow-xs"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 fill-white" />
+                          <span>Partager le Lien sur WhatsApp</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        {/* Simulated WhatsApp Link Preview Card */}
+                        <div className="bg-[#E5DDD5] p-4 rounded-xs border border-taupe/30">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-taupe-dark mb-2">
+                            Aperçu en direct sur WhatsApp / Messenger :
+                          </div>
+                          <div className="bg-[#DCF8C6] p-2.5 rounded-lg shadow-xs max-w-sm">
+                            <div className="bg-white/90 rounded overflow-hidden border border-black/5 mb-1.5">
+                              <img
+                                src="/og-logo.jpg"
+                                alt="MODANOVA Logo Preview"
+                                className="w-full h-40 object-contain bg-white p-2 border-b border-black/5"
+                              />
+                              <div className="p-2.5">
+                                <div className="text-xs font-bold text-noir truncate">
+                                  MODANOVA — Men's Essentials | Luxe Minimaliste Maroc
+                                </div>
+                                <div className="text-[11px] text-taupe-dark line-clamp-2 mt-0.5">
+                                  Luxe contemporain masculin au Maroc. Pièces d'exception & Paiement à la livraison partout au Maroc.
+                                </div>
+                                <div className="text-[10px] text-taupe font-mono mt-1 truncate">
+                                  {window.location.host || 'modanova.ma'}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-xs text-[#075E54] font-medium underline break-all">
+                              {window.location.origin}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3 text-xs text-taupe-dark leading-relaxed">
+                          <div className="p-3.5 bg-[#FAF9F6] border border-taupe/20 rounded-xs space-y-2">
+                            <div className="font-bold text-noir">
+                              ✅ Configuration OpenGraph & Favicon Active :
+                            </div>
+                            <ul className="list-disc list-inside space-y-1 text-[11px]">
+                              <li><strong>Image de partage large (1200×630 JPG) :</strong> <code>/og-logo.jpg</code></li>
+                              <li><strong>Image de partage carrée WhatsApp (600×600 JPG) :</strong> <code>/og-logo-square.jpg</code></li>
+                              <li><strong>Icône d'onglet & iPhone/Android :</strong> <code>/logo.png</code> & <code>/favicon.ico</code></li>
+                              <li><strong>Sauvegarde permanente :</strong> Votre logo est également sauvegardé dans Firebase Firestore.</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 )}
 

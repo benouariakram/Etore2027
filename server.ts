@@ -76,6 +76,35 @@ const ALLOWED_STATUSES = [
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "modanova2025";
 
+function hashPassword(rawPass: string): string {
+  return crypto
+    .createHmac("sha256", "modanova-admin-pwd-salt-2025")
+    .update(String(rawPass || ""))
+    .digest("hex");
+}
+
+interface AdminConfig {
+  adminUser: string;
+  passwordHash: string;
+  customPasswordSet: boolean;
+  adminWhatsappPhone: string;
+  whatsappAutoNotifyEnabled: boolean;
+  autoRedirectCustomerToWhatsapp: boolean;
+  callmebotApiKey: string;
+  whatsappWebhookUrl: string;
+}
+
+let adminConfigStore: AdminConfig = {
+  adminUser: ADMIN_USER,
+  passwordHash: hashPassword(ADMIN_PASS),
+  customPasswordSet: false,
+  adminWhatsappPhone: "+212600773716",
+  whatsappAutoNotifyEnabled: true,
+  autoRedirectCustomerToWhatsapp: true,
+  callmebotApiKey: process.env.CALLMEBOT_API_KEY || "",
+  whatsappWebhookUrl: process.env.WHATSAPP_WEBHOOK_URL || ""
+};
+
 // Timing-safe string comparison to protect against side-channel timing attacks
 function timingSafeCompare(a: string, b: string): boolean {
   try {
@@ -97,15 +126,116 @@ function generateToken(secret: string): string {
     .digest("hex");
 }
 
+function verifyPasswordInput(rawInput: string): boolean {
+  const inputHash = hashPassword(String(rawInput || ""));
+  if (timingSafeCompare(inputHash, adminConfigStore.passwordHash)) {
+    return true;
+  }
+  if (!adminConfigStore.customPasswordSet) {
+    return (
+      timingSafeCompare(String(rawInput || ""), ADMIN_PASS) ||
+      timingSafeCompare(String(rawInput || ""), "modanova2025") ||
+      timingSafeCompare(String(rawInput || ""), "ettore2025")
+    );
+  }
+  return false;
+}
+
 function verifyAdmin(req: Request): boolean {
   const authHeader = req.headers["authorization"] || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) return false;
+  if (timingSafeCompare(token, generateToken(adminConfigStore.passwordHash))) {
+    return true;
+  }
+  if (!adminConfigStore.customPasswordSet) {
+    return (
+      timingSafeCompare(token, generateToken(ADMIN_PASS)) ||
+      timingSafeCompare(token, generateToken("modanova2025")) ||
+      timingSafeCompare(token, generateToken("ettore2025"))
+    );
+  }
+  return false;
+}
+
+function formatAdminWhatsappDigits(phone: string): string {
+  let digits = String(phone || "+212600773716").replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.startsWith("0") && digits.length === 10) {
+    digits = "212" + digits.slice(1);
+  }
+  return digits || "212600773716";
+}
+
+function buildOrderWhatsAppAlertText(order: any): string {
+  const itemsLines = (order.items || [])
+    .map((it: any) => `• ${it.quantity}x ${it.nameFr}${it.size ? ` (Taille: ${it.size})` : ""} — ${it.price * it.quantity} MAD`)
+    .join("\n");
   return (
-    timingSafeCompare(token, generateToken(ADMIN_PASS)) ||
-    timingSafeCompare(token, generateToken("modanova2025")) ||
-    timingSafeCompare(token, generateToken("ettore2025"))
+    `🛍️ *NOUVELLE COMMANDE MODANOVA*\n` +
+    `━━━━━━━━━━━━━━━\n` +
+    `📦 *N° Commande :* ${order.id}\n` +
+    `👤 *Client :* ${order.customerName}\n` +
+    `📞 *Téléphone :* ${order.customerPhone}\n` +
+    `🏙️ *Ville :* ${order.city}\n` +
+    `📍 *Adresse :* ${order.address}\n` +
+    (order.notes ? `📝 *Note :* ${order.notes}\n` : "") +
+    `━━━━━━━━━━━━━━━\n` +
+    `🛒 *Articles :*\n${itemsLines}\n` +
+    `━━━━━━━━━━━━━━━\n` +
+    `💰 *TOTAL COD : ${order.total} MAD*`
   );
+}
+
+async function sendAdminWhatsAppOrderAlert(order: any): Promise<{ sentViaApi: boolean; whatsappUrl: string }> {
+  const targetDigits = formatAdminWhatsappDigits(adminConfigStore.adminWhatsappPhone || cmsStore?.whatsappNumber || "+212600773716");
+  const alertText = buildOrderWhatsAppAlertText(order);
+  const whatsappUrl = `https://wa.me/${targetDigits}?text=${encodeURIComponent(alertText)}`;
+
+  if (!adminConfigStore.whatsappAutoNotifyEnabled) {
+    return { sentViaApi: false, whatsappUrl };
+  }
+
+  let sentViaApi = false;
+
+  // 1. Automatic CallMeBot WhatsApp API push (if API key configured)
+  const apiKey = String(adminConfigStore.callmebotApiKey || "").trim();
+  if (apiKey) {
+    try {
+      const callmebotUrl = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(targetDigits)}&text=${encodeURIComponent(alertText)}&apikey=${encodeURIComponent(apiKey)}`;
+      const resp = await fetch(callmebotUrl, { method: "GET" });
+      if (resp.ok) {
+        sentViaApi = true;
+        console.log(`[WhatsApp Auto-Notify] Sent order ${order.id} alert via CallMeBot to +${targetDigits}`);
+      }
+    } catch (err) {
+      console.warn("[WhatsApp Auto-Notify] CallMeBot error:", err);
+    }
+  }
+
+  // 2. Custom WhatsApp Webhook push (if Webhook URL configured)
+  const webhookUrl = String(adminConfigStore.whatsappWebhookUrl || "").trim();
+  if (webhookUrl) {
+    try {
+      const resp = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: `+${targetDigits}`,
+          text: alertText,
+          order
+        })
+      });
+      if (resp.ok) {
+        sentViaApi = true;
+        console.log(`[WhatsApp Auto-Notify] Sent order ${order.id} alert via Webhook`);
+      }
+    } catch (err) {
+      console.warn("[WhatsApp Auto-Notify] Webhook error:", err);
+    }
+  }
+
+  return { sentViaApi, whatsappUrl };
 }
 
 // High-speed JSX bundle compiler with in-memory caching
@@ -418,6 +548,9 @@ function loadPersistedStore() {
       if (Array.isArray(parsed.testimonials) && parsed.testimonials.length > 0) {
         testimonialsStore = parsed.testimonials;
       }
+      if (parsed.adminConfig && typeof parsed.adminConfig === 'object') {
+        adminConfigStore = { ...adminConfigStore, ...parsed.adminConfig };
+      }
     }
   } catch (err) {
     console.warn('Could not load persisted store:', err);
@@ -438,7 +571,8 @@ function savePersistedStore() {
           deletedOrderIds: Array.from(deletedOrderIds),
           slider: sliderStore,
           cms: cmsStore,
-          testimonials: testimonialsStore
+          testimonials: testimonialsStore,
+          adminConfig: adminConfigStore
         },
         null,
         2
@@ -465,9 +599,47 @@ async function syncWithFirestoreOnBoot() {
       saveCmsSettings,
       fetchTestimonialsSettings,
       saveTestimonialsSettings,
+      fetchAdminConfig,
+      saveAdminConfig,
+      saveFirestoreMedia,
+      getFirestoreMedia,
       isCatalogInitialized,
       markCatalogInitialized
     } = await import('./src/firebase.ts');
+
+    // 0. Admin Security & WhatsApp Config sync
+    const remoteAdminConfig = await fetchAdminConfig();
+    if (remoteAdminConfig && typeof remoteAdminConfig === 'object') {
+      adminConfigStore = { ...adminConfigStore, ...remoteAdminConfig };
+      console.log(`[Firestore] Loaded Admin Security & WhatsApp config from Firebase.`);
+    } else {
+      await saveAdminConfig(adminConfigStore);
+    }
+
+    // Ensure brand social preview logos (og-logo.jpg, og-logo-square.jpg, logo.png) are backed up in Firestore media
+    const brandLogoFiles = [
+      { file: 'og-logo.jpg', mime: 'image/jpeg' },
+      { file: 'og-logo-square.jpg', mime: 'image/jpeg' },
+      { file: 'logo.png', mime: 'image/png' }
+    ];
+    for (const item of brandLogoFiles) {
+      const publicFilePath = path.resolve(__dirname, 'public', item.file);
+      if (fs.existsSync(publicFilePath)) {
+        const existingMedia = await getFirestoreMedia(item.file);
+        if (!existingMedia) {
+          const b64 = fs.readFileSync(publicFilePath).toString('base64');
+          await saveFirestoreMedia(item.file, `data:${item.mime};base64,${b64}`, item.mime);
+        }
+      } else {
+        const existingMedia = await getFirestoreMedia(item.file);
+        if (existingMedia && typeof existingMedia.dataUrl === 'string') {
+          const m = existingMedia.dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+          if (m && m[2]) {
+            fs.writeFileSync(publicFilePath, Buffer.from(m[2], 'base64'));
+          }
+        }
+      }
+    }
 
     // 1. Products sync
     const remoteProducts = await fetchFirestoreProducts();
@@ -538,20 +710,176 @@ app.post('/api/login', (req: Request, res: Response) => {
   }
 
   const { user, pass } = req.body || {};
-  const isUserValid = timingSafeCompare(String(user || ''), ADMIN_USER);
-  const isPassValid =
-    timingSafeCompare(String(pass || ''), ADMIN_PASS) ||
-    timingSafeCompare(String(pass || ''), "modanova2025") ||
-    timingSafeCompare(String(pass || ''), "ettore2025");
+  const expectedUser = adminConfigStore.adminUser || ADMIN_USER;
+  const isUserValid =
+    timingSafeCompare(String(user || '').trim(), expectedUser) ||
+    timingSafeCompare(String(user || '').trim(), ADMIN_USER);
+  const isPassValid = verifyPasswordInput(String(pass || ''));
 
   if (isUserValid && isPassValid) {
     // Reset rate limit on success
     loginAttempts.delete(ip);
-    const token = generateToken(ADMIN_PASS);
-    return res.json({ ok: true, token, user: ADMIN_USER });
+    const token = generateToken(adminConfigStore.passwordHash);
+    return res.json({ ok: true, token, user: expectedUser });
   }
 
   return res.status(401).json({ error: "Identifiants incorrects" });
+});
+
+// Public Config (for WhatsApp order auto-notification settings)
+app.get('/api/public-config', (req: Request, res: Response) => {
+  return res.json({
+    adminWhatsappPhone: adminConfigStore.adminWhatsappPhone || cmsStore?.whatsappNumber || "+212600773716",
+    whatsappAutoNotifyEnabled: adminConfigStore.whatsappAutoNotifyEnabled !== false,
+    autoRedirectCustomerToWhatsapp: adminConfigStore.autoRedirectCustomerToWhatsapp !== false
+  });
+});
+
+// Admin Config GET (Admin — WhatsApp Notification & Security Settings)
+app.get('/api/admin/config', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  try {
+    const { fetchAdminConfig } = await import('./src/firebase.ts');
+    const remote = await fetchAdminConfig();
+    if (remote && typeof remote === 'object') {
+      adminConfigStore = { ...adminConfigStore, ...remote };
+      savePersistedStore();
+    }
+  } catch {}
+  const phoneVal = adminConfigStore.adminWhatsappPhone || "+212600773716";
+  return res.json({
+    adminUser: adminConfigStore.adminUser || ADMIN_USER,
+    customPasswordSet: Boolean(adminConfigStore.customPasswordSet),
+    adminWhatsappPhone: phoneVal,
+    adminWhatsappNumber: phoneVal,
+    whatsappAutoNotifyEnabled: adminConfigStore.whatsappAutoNotifyEnabled !== false,
+    autoRedirectCustomerToWhatsapp: adminConfigStore.autoRedirectCustomerToWhatsapp !== false,
+    callmebotApiKey: adminConfigStore.callmebotApiKey || "",
+    whatsappWebhookUrl: adminConfigStore.whatsappWebhookUrl || ""
+  });
+});
+
+// Admin Config PUT (Admin — Save WhatsApp Auto-Notification Settings to Firebase)
+app.put('/api/admin/config', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const {
+    adminWhatsappPhone,
+    adminWhatsappNumber,
+    whatsappAutoNotifyEnabled,
+    autoRedirectCustomerToWhatsapp,
+    callmebotApiKey,
+    whatsappWebhookUrl
+  } = req.body || {};
+
+  const incomingPhone = adminWhatsappPhone !== undefined ? adminWhatsappPhone : adminWhatsappNumber;
+
+  adminConfigStore = {
+    ...adminConfigStore,
+    adminWhatsappPhone: incomingPhone !== undefined ? String(incomingPhone).trim() : adminConfigStore.adminWhatsappPhone,
+    whatsappAutoNotifyEnabled: whatsappAutoNotifyEnabled !== undefined ? Boolean(whatsappAutoNotifyEnabled) : adminConfigStore.whatsappAutoNotifyEnabled,
+    autoRedirectCustomerToWhatsapp: autoRedirectCustomerToWhatsapp !== undefined ? Boolean(autoRedirectCustomerToWhatsapp) : adminConfigStore.autoRedirectCustomerToWhatsapp,
+    callmebotApiKey: callmebotApiKey !== undefined ? String(callmebotApiKey).trim() : adminConfigStore.callmebotApiKey,
+    whatsappWebhookUrl: whatsappWebhookUrl !== undefined ? String(whatsappWebhookUrl).trim() : adminConfigStore.whatsappWebhookUrl
+  };
+  savePersistedStore();
+
+  try {
+    const { saveAdminConfig } = await import('./src/firebase.ts');
+    await saveAdminConfig(adminConfigStore);
+  } catch (err) {
+    console.warn('Error saving adminConfig to Firestore:', err);
+  }
+
+  return res.json({
+    ok: true,
+    config: {
+      adminUser: adminConfigStore.adminUser,
+      customPasswordSet: adminConfigStore.customPasswordSet,
+      adminWhatsappPhone: adminConfigStore.adminWhatsappPhone,
+      adminWhatsappNumber: adminConfigStore.adminWhatsappPhone,
+      whatsappAutoNotifyEnabled: adminConfigStore.whatsappAutoNotifyEnabled,
+      autoRedirectCustomerToWhatsapp: adminConfigStore.autoRedirectCustomerToWhatsapp,
+      callmebotApiKey: adminConfigStore.callmebotApiKey,
+      whatsappWebhookUrl: adminConfigStore.whatsappWebhookUrl
+    }
+  });
+});
+
+// Change Admin Password (Admin — Persisted in Firebase Firestore)
+app.put('/api/admin/password', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const { currentPassword, newPassword, confirmPassword, newUsername, newUser } = req.body || {};
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: "Veuillez renseigner le mot de passe actuel et le nouveau mot de passe." });
+  }
+  if (!verifyPasswordInput(String(currentPassword))) {
+    return res.status(403).json({ error: "Le mot de passe actuel est incorrect." });
+  }
+  if (String(newPassword).length < 4) {
+    return res.status(400).json({ error: "Le nouveau mot de passe doit contenir au moins 4 caractères." });
+  }
+  if (confirmPassword !== undefined && String(newPassword) !== String(confirmPassword)) {
+    return res.status(400).json({ error: "La confirmation du mot de passe ne correspond pas." });
+  }
+
+  const candidateUser = newUsername || newUser;
+  const updatedUser = candidateUser && String(candidateUser).trim().length >= 3
+    ? String(candidateUser).trim()
+    : (adminConfigStore.adminUser || ADMIN_USER);
+
+  adminConfigStore = {
+    ...adminConfigStore,
+    adminUser: updatedUser,
+    passwordHash: hashPassword(String(newPassword)),
+    customPasswordSet: true
+  };
+  savePersistedStore();
+
+  try {
+    const { saveAdminConfig } = await import('./src/firebase.ts');
+    await saveAdminConfig(adminConfigStore);
+  } catch (err) {
+    console.error('Error saving new password to Firestore:', err);
+  }
+
+  const newToken = generateToken(adminConfigStore.passwordHash);
+  return res.json({
+    ok: true,
+    token: newToken,
+    user: adminConfigStore.adminUser,
+    adminUser: adminConfigStore.adminUser,
+    message: "Votre mot de passe administrateur a été modifié et sauvegardé sur Firebase."
+  });
+});
+
+// Test Automatic WhatsApp Notification (Admin)
+app.post('/api/admin/test-whatsapp', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const sampleOrder = {
+    id: "CMD-TEST01",
+    customerName: "Client Test MODANOVA",
+    customerPhone: "0600000000",
+    city: "Casablanca",
+    address: "Boulevard d'Anfa, Casablanca",
+    notes: "Test de notification WhatsApp automatique",
+    items: [{ nameFr: "Article Test MODANOVA", quantity: 1, price: 650, size: "42" }],
+    total: 650
+  };
+  const result = await sendAdminWhatsAppOrderAlert(sampleOrder);
+  return res.json({
+    ok: true,
+    sentViaApi: result.sentViaApi,
+    whatsappUrl: result.whatsappUrl,
+    adminWhatsappUrl: result.whatsappUrl
+  });
 });
 
 // Seed
@@ -1069,7 +1397,24 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     console.warn('Firestore order sync note:', err);
   }
 
-  return res.status(201).json({ ok: true, order: newOrder });
+  // Trigger Automatic WhatsApp Notification to Admin
+  let adminWhatsappUrl = "";
+  let sentViaApi = false;
+  try {
+    const notifyResult = await sendAdminWhatsAppOrderAlert(newOrder);
+    adminWhatsappUrl = notifyResult.whatsappUrl;
+    sentViaApi = notifyResult.sentViaApi;
+  } catch (err) {
+    console.warn('WhatsApp notification note:', err);
+  }
+
+  return res.status(201).json({
+    ok: true,
+    order: newOrder,
+    adminWhatsappUrl,
+    sentViaApi,
+    autoRedirectCustomerToWhatsapp: adminConfigStore.autoRedirectCustomerToWhatsapp !== false
+  });
 });
 
 // Order tracking (Public)
@@ -1170,6 +1515,37 @@ app.delete('/api/orders/:id', async (req: Request, res: Response) => {
   return res.json({ ok: true, id: orderId, remaining: ordersStore.length });
 });
 
+// Helper to inject absolute OpenGraph image & URL tags for WhatsApp / Messenger / Facebook link previews
+function injectSocialMetaTags(html: string, req: Request): string {
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const proto = typeof forwardedProto === 'string' ? forwardedProto.split(',')[0].trim() : (req.protocol || 'https');
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'modanova.ma';
+  const origin = `${proto === 'http' && !String(host).includes('localhost') ? 'https' : proto}://${host}`;
+  const fullUrl = `${origin}${req.originalUrl || '/'}`;
+  const ogLogoLandscape = `${origin}/og-logo.jpg`;
+  const ogLogoSquare = `${origin}/og-logo-square.jpg`;
+
+  const dynamicOgTags = `
+    <meta property="og:url" content="${fullUrl}" />
+    <meta property="og:site_name" content="MODANOVA — Men's Essentials" />
+    <meta property="og:image" content="${ogLogoLandscape}" />
+    <meta property="og:image:secure_url" content="${ogLogoLandscape}" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="MODANOVA — Fashion & Men's Essentials" />
+    <meta property="og:image" content="${ogLogoSquare}" />
+    <meta property="og:image:secure_url" content="${ogLogoSquare}" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="600" />
+    <meta property="og:image:height" content="600" />
+    <meta name="twitter:image" content="${ogLogoLandscape}" />
+    <link rel="image_src" href="${ogLogoLandscape}" />
+    <meta itemprop="image" content="${ogLogoLandscape}" />`;
+
+  return html.replace('<!-- DYNAMIC_OG_META -->', dynamicOgTags);
+}
+
 // Setup Vite in Dev or serve static in Prod
 async function startServer() {
   const uploadsDir = path.resolve(__dirname, 'public/uploads');
@@ -1177,7 +1553,7 @@ async function startServer() {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
 
-  // Sync all products, orders, slider, CMS, and testimonials with Firebase Firestore on boot
+  // Sync all products, orders, slider, CMS, testimonials, and adminConfig with Firebase Firestore on boot
   await syncWithFirestoreOnBoot();
 
   // Precompile app bundle once on boot for instant first launch
@@ -1193,6 +1569,31 @@ async function startServer() {
   };
   app.get('/app-bundle.js', serveBundle);
   app.get('/app-bundle.v2.js', serveBundle);
+
+  // Serve brand OpenGraph logos with Firestore fallback so WhatsApp/Messenger always get the logo
+  app.get(['/og-logo.jpg', '/og-logo-square.jpg', '/logo.png'], async (req: Request, res: Response) => {
+    const fileName = path.basename(req.path);
+    const localPath = path.resolve(__dirname, 'public', fileName);
+    if (fs.existsSync(localPath)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.sendFile(localPath);
+    }
+    try {
+      const { getFirestoreMedia } = await import('./src/firebase.ts');
+      const mediaDoc = await getFirestoreMedia(fileName);
+      if (mediaDoc && typeof mediaDoc.dataUrl === 'string') {
+        const matches = mediaDoc.dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches[2]) {
+          const buffer = Buffer.from(matches[2], 'base64');
+          try { fs.writeFileSync(localPath, buffer); } catch {}
+          res.setHeader('Content-Type', matches[1] || 'image/jpeg');
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          return res.send(buffer);
+        }
+      }
+    } catch {}
+    return res.status(404).end();
+  });
 
   // Dynamic Firestore-backed /uploads/:filename handler (Restores uploaded images after container restart)
   app.get('/uploads/:filename', async (req: Request, res: Response) => {
@@ -1233,7 +1634,25 @@ async function startServer() {
   // Static assets caching
   app.use('/uploads', express.static(uploadsDir, { maxAge: '7d' }));
   app.use('/images', express.static(path.resolve(__dirname, 'public/images'), { maxAge: '7d' }));
-  app.use(express.static(path.resolve(__dirname, 'public'), { maxAge: '1d' }));
+  app.use(express.static(path.resolve(__dirname, 'public'), { maxAge: '1d', index: false }));
+
+  // Serve index.html with dynamic absolute OpenGraph image tags for WhatsApp, Messenger & social crawlers
+  app.get(['/', '/admin', '/produit/*'], (req: Request, res: Response, next) => {
+    try {
+      const htmlPath = isProduction && fs.existsSync(path.resolve(__dirname, 'dist', 'index.html'))
+        ? path.resolve(__dirname, 'dist', 'index.html')
+        : path.resolve(__dirname, 'index.html');
+      if (fs.existsSync(htmlPath)) {
+        const rawHtml = fs.readFileSync(htmlPath, 'utf8');
+        const enrichedHtml = injectSocialMetaTags(rawHtml, req);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(enrichedHtml);
+      }
+    } catch (err) {
+      console.warn('HTML OpenGraph injection fallback:', err);
+    }
+    return next();
+  });
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
@@ -1243,9 +1662,13 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+    app.use(express.static(path.resolve(__dirname, 'dist'), { index: false }));
     app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+      const distHtmlPath = path.resolve(__dirname, 'dist', 'index.html');
+      const fallbackHtmlPath = fs.existsSync(distHtmlPath) ? distHtmlPath : path.resolve(__dirname, 'index.html');
+      const rawHtml = fs.readFileSync(fallbackHtmlPath, 'utf8');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(injectSocialMetaTags(rawHtml, req));
     });
   }
 

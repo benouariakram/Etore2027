@@ -417,3 +417,30 @@ export async function saveTestimonialsSettings(items: any[]) {
   }
 }
 
+// 10. Admin Security & Automatic WhatsApp Notification Config in Firestore
+export async function fetchAdminConfig() {
+  const path = 'settings/adminConfig';
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'adminConfig'));
+    if (!snap.exists()) return null;
+    return snap.data() || null;
+  } catch (err) {
+    console.warn('Failed to load adminConfig from Firestore:', err);
+    return null;
+  }
+}
+
+export async function saveAdminConfig(configData: any) {
+  const path = 'settings/adminConfig';
+  try {
+    await setDoc(doc(db, 'settings', 'adminConfig'), {
+      ...configData,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+
