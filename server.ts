@@ -92,6 +92,7 @@ interface AdminConfig {
   autoRedirectCustomerToWhatsapp: boolean;
   callmebotApiKey: string;
   whatsappWebhookUrl: string;
+  ogImageUrl: string;
 }
 
 let adminConfigStore: AdminConfig = {
@@ -102,7 +103,8 @@ let adminConfigStore: AdminConfig = {
   whatsappAutoNotifyEnabled: true,
   autoRedirectCustomerToWhatsapp: true,
   callmebotApiKey: process.env.CALLMEBOT_API_KEY || "",
-  whatsappWebhookUrl: process.env.WHATSAPP_WEBHOOK_URL || ""
+  whatsappWebhookUrl: process.env.WHATSAPP_WEBHOOK_URL || "",
+  ogImageUrl: ""
 };
 
 // Timing-safe string comparison to protect against side-channel timing attacks
@@ -757,11 +759,12 @@ app.get('/api/admin/config', async (req: Request, res: Response) => {
     whatsappAutoNotifyEnabled: adminConfigStore.whatsappAutoNotifyEnabled !== false,
     autoRedirectCustomerToWhatsapp: adminConfigStore.autoRedirectCustomerToWhatsapp !== false,
     callmebotApiKey: adminConfigStore.callmebotApiKey || "",
-    whatsappWebhookUrl: adminConfigStore.whatsappWebhookUrl || ""
+    whatsappWebhookUrl: adminConfigStore.whatsappWebhookUrl || "",
+    ogImageUrl: adminConfigStore.ogImageUrl || ""
   });
 });
 
-// Admin Config PUT (Admin — Save WhatsApp Auto-Notification Settings to Firebase)
+// Admin Config PUT (Admin — Save WhatsApp Auto-Notification & Social Preview Settings to Firebase)
 app.put('/api/admin/config', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
     return res.status(401).json({ error: "Non autorisé" });
@@ -772,7 +775,8 @@ app.put('/api/admin/config', async (req: Request, res: Response) => {
     whatsappAutoNotifyEnabled,
     autoRedirectCustomerToWhatsapp,
     callmebotApiKey,
-    whatsappWebhookUrl
+    whatsappWebhookUrl,
+    ogImageUrl
   } = req.body || {};
 
   const incomingPhone = adminWhatsappPhone !== undefined ? adminWhatsappPhone : adminWhatsappNumber;
@@ -783,7 +787,8 @@ app.put('/api/admin/config', async (req: Request, res: Response) => {
     whatsappAutoNotifyEnabled: whatsappAutoNotifyEnabled !== undefined ? Boolean(whatsappAutoNotifyEnabled) : adminConfigStore.whatsappAutoNotifyEnabled,
     autoRedirectCustomerToWhatsapp: autoRedirectCustomerToWhatsapp !== undefined ? Boolean(autoRedirectCustomerToWhatsapp) : adminConfigStore.autoRedirectCustomerToWhatsapp,
     callmebotApiKey: callmebotApiKey !== undefined ? String(callmebotApiKey).trim() : adminConfigStore.callmebotApiKey,
-    whatsappWebhookUrl: whatsappWebhookUrl !== undefined ? String(whatsappWebhookUrl).trim() : adminConfigStore.whatsappWebhookUrl
+    whatsappWebhookUrl: whatsappWebhookUrl !== undefined ? String(whatsappWebhookUrl).trim() : adminConfigStore.whatsappWebhookUrl,
+    ogImageUrl: ogImageUrl !== undefined ? String(ogImageUrl).trim().slice(0, 1000) : (adminConfigStore.ogImageUrl || "")
   };
   savePersistedStore();
 
@@ -804,7 +809,8 @@ app.put('/api/admin/config', async (req: Request, res: Response) => {
       whatsappAutoNotifyEnabled: adminConfigStore.whatsappAutoNotifyEnabled,
       autoRedirectCustomerToWhatsapp: adminConfigStore.autoRedirectCustomerToWhatsapp,
       callmebotApiKey: adminConfigStore.callmebotApiKey,
-      whatsappWebhookUrl: adminConfigStore.whatsappWebhookUrl
+      whatsappWebhookUrl: adminConfigStore.whatsappWebhookUrl,
+      ogImageUrl: adminConfigStore.ogImageUrl || ""
     }
   });
 });
@@ -1735,11 +1741,40 @@ function injectSocialMetaTags(html: string, req: Request): string {
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'modanova.ma';
   const origin = `${proto === 'http' && !String(host).includes('localhost') ? 'https' : proto}://${host}`;
   const fullUrl = `${origin}${req.originalUrl || '/'}`;
-  const ogLogoLandscape = `${origin}/og-logo.jpg`;
-  const ogLogoSquare = `${origin}/og-logo-square.jpg`;
 
-  const dynamicOgTags = `
-    <meta property="og:url" content="${fullUrl}" />
+  const rawCustomOg = String(adminConfigStore.ogImageUrl || '').trim();
+  const escapeAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  let dynamicOgTags = '';
+  if (rawCustomOg) {
+    const resolvedOg = /^https?:\/\//i.test(rawCustomOg)
+      ? rawCustomOg
+      : `${origin}${rawCustomOg.startsWith('/') ? '' : '/'}${rawCustomOg}`;
+    const safeOg = escapeAttr(resolvedOg);
+    const mimeGuess = /\.png(\?|$)/i.test(resolvedOg)
+      ? 'image/png'
+      : /\.webp(\?|$)/i.test(resolvedOg)
+        ? 'image/webp'
+        : 'image/jpeg';
+
+    dynamicOgTags = `
+    <meta property="og:url" content="${escapeAttr(fullUrl)}" />
+    <meta property="og:site_name" content="MODANOVA — Men's Essentials" />
+    <meta property="og:image" content="${safeOg}" />
+    <meta property="og:image:secure_url" content="${safeOg}" />
+    <meta property="og:image:type" content="${mimeGuess}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="MODANOVA — Fashion & Men's Essentials" />
+    <meta name="twitter:image" content="${safeOg}" />
+    <link rel="image_src" href="${safeOg}" />
+    <meta itemprop="image" content="${safeOg}" />`;
+  } else {
+    const ogLogoLandscape = `${origin}/og-logo.jpg`;
+    const ogLogoSquare = `${origin}/og-logo-square.jpg`;
+
+    dynamicOgTags = `
+    <meta property="og:url" content="${escapeAttr(fullUrl)}" />
     <meta property="og:site_name" content="MODANOVA — Men's Essentials" />
     <meta property="og:image" content="${ogLogoLandscape}" />
     <meta property="og:image:secure_url" content="${ogLogoLandscape}" />
@@ -1755,6 +1790,7 @@ function injectSocialMetaTags(html: string, req: Request): string {
     <meta name="twitter:image" content="${ogLogoLandscape}" />
     <link rel="image_src" href="${ogLogoLandscape}" />
     <meta itemprop="image" content="${ogLogoLandscape}" />`;
+  }
 
   return html.replace('<!-- DYNAMIC_OG_META -->', dynamicOgTags);
 }

@@ -9,21 +9,9 @@
     <meta property="og:title" content="MODANOVA — Men's Essentials | Luxe Minimaliste Maroc" />
     <meta property="og:description" content="Luxe contemporain masculin au Maroc. Pièces d'exception & Paiement à la livraison partout au Maroc." />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="MODANOVA" />
-    <meta property="og:image" content="/og-logo.jpg" />
-    <meta property="og:image:secure_url" content="/og-logo.jpg" />
-    <meta property="og:image:type" content="image/jpeg" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="MODANOVA Fashion Logo" />
-    <meta property="og:image" content="/og-logo-square.jpg" />
-    <meta property="og:image:type" content="image/jpeg" />
-    <meta property="og:image:width" content="600" />
-    <meta property="og:image:height" content="600" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="MODANOVA — Men's Essentials | Luxe Minimaliste Maroc" />
     <meta name="twitter:description" content="Luxe contemporain masculin au Maroc. Paiement à la livraison partout au Maroc." />
-    <meta name="twitter:image" content="/og-logo.jpg" />
 
     <!-- Favicon & Logo MODANOVA -->
     <link rel="icon" type="image/png" href="/logo.png" />
@@ -6185,10 +6173,13 @@
           whatsappAutoNotifyEnabled: true,
           autoRedirectCustomerToWhatsapp: true,
           callmebotApiKey: '',
-          whatsappWebhookUrl: ''
+          whatsappWebhookUrl: '',
+          ogImageUrl: ''
         });
         const [waSaving, setWaSaving] = useState(false);
         const [waTesting, setWaTesting] = useState(false);
+        const [ogUploading, setOgUploading] = useState(false);
+        const [ogSaving, setOgSaving] = useState(false);
         const [liveNewOrderAlert, setLiveNewOrderAlert] = useState(null);
         const knownOrderIdsRef = useRef(null);
 
@@ -6207,7 +6198,8 @@
                   whatsappAutoNotifyEnabled: data.whatsappAutoNotifyEnabled !== false,
                   autoRedirectCustomerToWhatsapp: data.autoRedirectCustomerToWhatsapp !== false,
                   callmebotApiKey: data.callmebotApiKey || '',
-                  whatsappWebhookUrl: data.whatsappWebhookUrl || ''
+                  whatsappWebhookUrl: data.whatsappWebhookUrl || '',
+                  ogImageUrl: data.ogImageUrl || ''
                 });
               }
             })
@@ -6380,6 +6372,70 @@
             showToast('Erreur de connexion lors du test WhatsApp', 'error');
           } finally {
             setWaTesting(false);
+          }
+        };
+
+        const handleSaveOgImage = async (nextUrl) => {
+          const cleanUrl = String(nextUrl !== undefined ? nextUrl : waConfig.ogImageUrl || '').trim();
+          setOgSaving(true);
+          try {
+            const payload = { ...waConfig, ogImageUrl: cleanUrl };
+            const res = await fetch('/api/admin/config', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+              setWaConfig(prev => ({ ...prev, ogImageUrl: cleanUrl }));
+              showToast(
+                cleanUrl
+                  ? '✅ Photo d\'aperçu WhatsApp & Messenger enregistrée sur Firebase !'
+                  : '↺ Logo MODANOVA par défaut restauré pour WhatsApp & Messenger !',
+                'success'
+              );
+            } else {
+              showToast(data.error || "Erreur lors de l'enregistrement", 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion au serveur', 'error');
+          } finally {
+            setOgSaving(false);
+          }
+        };
+
+        const handleOgPhotoUpload = async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          setOgUploading(true);
+          try {
+            const base64Data = await compressImageFile(file, 1200, 0.85);
+            const uploadRes = await fetch('/api/upload', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                file: base64Data,
+                filename: file.name,
+                folder: 'og'
+              })
+            });
+            const uploadData = await uploadRes.json();
+            if (uploadRes.ok && uploadData.url) {
+              await handleSaveOgImage(uploadData.url);
+            } else {
+              showToast(uploadData.error || "Erreur lors de l'upload de la photo", 'error');
+            }
+          } catch {
+            showToast("Erreur lors de l'envoi de l'image vers Firebase", 'error');
+          } finally {
+            setOgUploading(false);
+            e.target.value = '';
           }
         };
 
@@ -8772,7 +8828,7 @@
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                         {/* Simulated WhatsApp Link Preview Card */}
                         <div className="bg-[#E5DDD5] p-4 rounded-xs border border-taupe/30">
                           <div className="text-[10px] font-bold uppercase tracking-wider text-taupe-dark mb-2">
@@ -8781,9 +8837,14 @@
                           <div className="bg-[#DCF8C6] p-2.5 rounded-lg shadow-xs max-w-sm">
                             <div className="bg-white/90 rounded overflow-hidden border border-black/5 mb-1.5">
                               <img
-                                src="/og-logo.jpg"
-                                alt="MODANOVA Logo Preview"
-                                className="w-full h-40 object-contain bg-white p-2 border-b border-black/5"
+                                src={waConfig.ogImageUrl || '/og-logo.jpg'}
+                                alt="MODANOVA Aperçu Partage"
+                                onError={(e) => { e.currentTarget.src = '/og-logo.jpg'; }}
+                                className={
+                                  waConfig.ogImageUrl
+                                    ? 'w-full h-44 object-cover bg-white border-b border-black/5'
+                                    : 'w-full h-40 object-contain bg-white p-2 border-b border-black/5'
+                                }
                               />
                               <div className="p-2.5">
                                 <div className="text-xs font-bold text-noir truncate">
@@ -8803,16 +8864,84 @@
                           </div>
                         </div>
 
-                        <div className="space-y-3 text-xs text-taupe-dark leading-relaxed">
+                        <div className="space-y-4 text-xs text-taupe-dark leading-relaxed">
+                          {/* Custom Photo Upload & URL Editor */}
+                          <div className="p-4 bg-[#FAF7F2] border border-caramel/40 rounded-xs space-y-3">
+                            <div className="font-bold text-noir flex items-center justify-between gap-2">
+                              <span>🖼️ Changer la photo de partage</span>
+                              {waConfig.ogImageUrl && (
+                                <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 font-semibold rounded-xs">
+                                  Photo personnalisée active
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-taupe-dark">
+                              Format recommandé : <strong>1200×630 px</strong> (paysage) ou carré haute qualité. Dès que vous changez la photo, elle remplace automatiquement l'image affichée sur WhatsApp & Messenger.
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <label className="px-4 py-2 bg-noir hover:bg-caramel text-white text-[11px] font-bold uppercase tracking-wider rounded-xs transition-colors cursor-pointer inline-flex items-center gap-2 shadow-2xs">
+                                <span>{ogUploading ? '⏳' : '📁'}</span>
+                                <span>{ogUploading ? 'Upload en cours...' : 'Choisir une nouvelle photo'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={ogUploading || ogSaving}
+                                  onChange={handleOgPhotoUpload}
+                                  className="hidden"
+                                />
+                              </label>
+
+                              {waConfig.ogImageUrl && (
+                                <button
+                                  type="button"
+                                  disabled={ogUploading || ogSaving}
+                                  onClick={() => handleSaveOgImage('')}
+                                  className="px-3 py-2 bg-white hover:bg-red-50 border border-taupe/30 hover:border-red-300 text-noir hover:text-red-700 text-[11px] font-semibold rounded-xs transition-colors"
+                                >
+                                  ↺ Remettre le logo par défaut
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="pt-2 border-t border-taupe/20">
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                                Ou collez le lien URL d'une image (optionnel)
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={waConfig.ogImageUrl || ''}
+                                  onChange={(e) => setWaConfig(p => ({ ...p, ogImageUrl: e.target.value }))}
+                                  placeholder="https://... ou /uploads/..."
+                                  className="flex-1 bg-white border border-taupe/30 px-2.5 py-1.5 font-mono text-[11px] text-noir focus:border-caramel"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={ogSaving || ogUploading}
+                                  onClick={() => handleSaveOgImage(waConfig.ogImageUrl)}
+                                  className="px-3.5 py-1.5 bg-caramel hover:bg-noir text-white text-[11px] font-bold uppercase tracking-wider rounded-xs transition-colors shrink-0"
+                                >
+                                  {ogSaving ? '...' : '💾 Enregistrer'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
                           <div className="p-3.5 bg-[#FAF9F6] border border-taupe/20 rounded-xs space-y-2">
                             <div className="font-bold text-noir">
                               ✅ Configuration OpenGraph & Favicon Active :
                             </div>
                             <ul className="list-disc list-inside space-y-1 text-[11px]">
-                              <li><strong>Image de partage large (1200×630 JPG) :</strong> <code>/og-logo.jpg</code></li>
-                              <li><strong>Image de partage carrée WhatsApp (600×600 JPG) :</strong> <code>/og-logo-square.jpg</code></li>
+                              <li>
+                                <strong>Image de partage active (WhatsApp & Messenger) :</strong>{' '}
+                                <code className="break-all">{waConfig.ogImageUrl || '/og-logo.jpg'}</code>
+                              </li>
+                              {!waConfig.ogImageUrl && (
+                                <li><strong>Image de partage carrée WhatsApp (600×600 JPG) :</strong> <code>/og-logo-square.jpg</code></li>
+                              )}
                               <li><strong>Icône d'onglet & iPhone/Android :</strong> <code>/logo.png</code> & <code>/favicon.ico</code></li>
-                              <li><strong>Sauvegarde permanente :</strong> Votre logo est également sauvegardé dans Firebase Firestore.</li>
+                              <li><strong>Sauvegarde permanente :</strong> Votre photo est sauvegardée dans Firebase Firestore.</li>
                             </ul>
                           </div>
                         </div>
