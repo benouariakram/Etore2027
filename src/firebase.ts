@@ -443,4 +443,29 @@ export async function saveAdminConfig(configData: any) {
   }
 }
 
+// 11. Discount Coupons Settings in Firestore
+export async function fetchCouponsSettings() {
+  const path = 'settings/coupons';
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'coupons'));
+    if (!snap.exists()) return null;
+    return snap.data()?.items || null;
+  } catch (err) {
+    console.warn('Failed to load coupons from Firestore:', err);
+    return null;
+  }
+}
+
+export async function saveCouponsSettings(items: any[]) {
+  const path = 'settings/coupons';
+  try {
+    await setDoc(doc(db, 'settings', 'coupons'), {
+      items,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
 

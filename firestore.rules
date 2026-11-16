@@ -112,7 +112,7 @@ service cloud.firestore {
 
     function isValidSettingId(settingId) {
       return isValidId(settingId) &&
-        settingId in ['catalogMeta', 'heroSlider', 'cms', 'testimonials', 'adminConfig'];
+        settingId in ['catalogMeta', 'heroSlider', 'cms', 'testimonials', 'adminConfig', 'coupons'];
     }
 
     // =========================================================================
@@ -130,7 +130,8 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow get: if isValidSettingId(settingId);
       allow list: if false;
-      allow create, update: if isValidSettingId(settingId);
+      allow create, update: if isValidSettingId(settingId) &&
+        (settingId != 'coupons' || ('items' in incoming() && incoming().items is list && incoming().items.size() <= 200));
       allow delete: if false;
     }
 

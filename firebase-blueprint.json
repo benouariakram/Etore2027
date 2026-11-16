@@ -196,7 +196,7 @@
     },
     "Setting": {
       "title": "Setting",
-      "description": "Storefront configuration settings (heroSlider, cms, testimonials, catalogMeta)",
+      "description": "Storefront configuration settings (heroSlider, cms, testimonials, catalogMeta, coupons, adminConfig)",
       "type": "object",
       "properties": {
         "updatedAt": {
@@ -204,6 +204,61 @@
           "description": "ISO timestamp of last setting update"
         }
       }
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "Discount promo coupon created by admin for customers",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Unique coupon ID"
+        },
+        "code": {
+          "type": "string",
+          "description": "Uppercase promo code entered by customers",
+          "maxLength": 40
+        },
+        "type": {
+          "type": "string",
+          "description": "Discount calculation type",
+          "enum": ["percent", "fixed"]
+        },
+        "value": {
+          "type": "number",
+          "description": "Percentage (1-100) or fixed amount in MAD"
+        },
+        "minOrder": {
+          "type": "number",
+          "description": "Minimum subtotal in MAD required to apply the coupon"
+        },
+        "maxUses": {
+          "type": "number",
+          "description": "Maximum allowed redemptions (null or 0 for unlimited)"
+        },
+        "usedCount": {
+          "type": "number",
+          "description": "Current redemption count"
+        },
+        "expiresAt": {
+          "type": "string",
+          "description": "Optional YYYY-MM-DD expiration date"
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Whether the coupon is currently active"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional internal note for the coupon",
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO creation timestamp"
+        }
+      },
+      "required": ["id", "code", "type", "value", "active"]
     },
     "Media": {
       "title": "Media",

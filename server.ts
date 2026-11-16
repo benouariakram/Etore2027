@@ -515,6 +515,22 @@ const defaultTestimonials = [
   }
 ];
 
+const defaultCoupons = [
+  {
+    id: 1,
+    code: "RAWCRAFT10",
+    type: "percent",
+    value: 10,
+    minOrder: 0,
+    maxUses: null,
+    usedCount: 0,
+    expiresAt: "",
+    active: true,
+    description: "Code promo de bienvenue (-10%)",
+    createdAt: "2025-01-01T00:00:00.000Z"
+  }
+];
+
 const DATA_DIR = path.resolve(__dirname, '.data');
 const STORE_FILE = path.join(DATA_DIR, 'store.json');
 
@@ -524,6 +540,7 @@ let deletedOrderIds = new Set<string>();
 let sliderStore: any[] = JSON.parse(JSON.stringify(defaultSliderSlides));
 let cmsStore: any = JSON.parse(JSON.stringify(defaultCms));
 let testimonialsStore: any[] = JSON.parse(JSON.stringify(defaultTestimonials));
+let couponsStore: any[] = JSON.parse(JSON.stringify(defaultCoupons));
 
 function loadPersistedStore() {
   try {
@@ -550,6 +567,9 @@ function loadPersistedStore() {
       if (Array.isArray(parsed.testimonials) && parsed.testimonials.length > 0) {
         testimonialsStore = parsed.testimonials;
       }
+      if (Array.isArray(parsed.coupons)) {
+        couponsStore = parsed.coupons;
+      }
       if (parsed.adminConfig && typeof parsed.adminConfig === 'object') {
         adminConfigStore = { ...adminConfigStore, ...parsed.adminConfig };
       }
@@ -574,6 +594,7 @@ function savePersistedStore() {
           slider: sliderStore,
           cms: cmsStore,
           testimonials: testimonialsStore,
+          coupons: couponsStore,
           adminConfig: adminConfigStore
         },
         null,
@@ -588,6 +609,63 @@ function savePersistedStore() {
 
 loadPersistedStore();
 
+function validateAndComputeCoupon(rawCode: string, subtotal: number) {
+  const cleanCode = String(rawCode || '').trim().toUpperCase();
+  if (!cleanCode) {
+    return { valid: false, discount: 0, errorFr: "Veuillez saisir un code promo.", errorAr: "يرجى إدخال رمز الخصم." };
+  }
+  const coupon = couponsStore.find((c: any) => String(c?.code || '').trim().toUpperCase() === cleanCode);
+  if (!coupon) {
+    return { valid: false, discount: 0, errorFr: "Code promo invalide ou inexistant.", errorAr: "رمز الخصم غير صحيح." };
+  }
+  if (!coupon.active) {
+    return { valid: false, discount: 0, errorFr: "Ce coupon est actuellement désactivé.", errorAr: "هذا الكوبون معطل حالياً." };
+  }
+  if (coupon.expiresAt && String(coupon.expiresAt).trim()) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (String(coupon.expiresAt).trim() < todayStr) {
+      return { valid: false, discount: 0, errorFr: "Ce code promo est expiré.", errorAr: "انتهت صلاحية رمز الخصم." };
+    }
+  }
+  const maxUses = coupon.maxUses !== null && coupon.maxUses !== undefined && coupon.maxUses !== '' ? Number(coupon.maxUses) : 0;
+  if (maxUses > 0 && Number(coupon.usedCount || 0) >= maxUses) {
+    return { valid: false, discount: 0, errorFr: "Ce coupon a atteint son nombre maximal d'utilisations.", errorAr: "تم استنفاد الحد الأقصى لاستخدام هذا الكوبون." };
+  }
+  const minOrder = Math.max(0, Number(coupon.minOrder) || 0);
+  if (subtotal < minOrder) {
+    return {
+      valid: false,
+      discount: 0,
+      errorFr: `Montant minimum requis : ${minOrder} MAD pour utiliser ce coupon.`,
+      errorAr: `الحد الأدنى للطلب هو ${minOrder} درهم لاستخدام هذا الكوبون.`
+    };
+  }
+  const value = Math.max(0, Number(coupon.value) || 0);
+  const type = coupon.type === 'fixed' ? 'fixed' : 'percent';
+  const discount = type === 'fixed'
+    ? Math.min(subtotal, Math.round(value))
+    : Math.min(subtotal, Math.round(subtotal * (Math.min(100, value) / 100)));
+
+  const labelFr = type === 'fixed'
+    ? `Code ${coupon.code} appliqué (-${value} MAD)`
+    : `Code ${coupon.code} appliqué (-${value}%)`;
+  const labelAr = type === 'fixed'
+    ? `تم تطبيق خصم ${value} درهم (${coupon.code})`
+    : `تم تطبيق خصم ${value}% (${coupon.code})`;
+
+  return {
+    valid: true,
+    coupon,
+    code: coupon.code,
+    type,
+    value,
+    minOrder,
+    discount,
+    labelFr,
+    labelAr
+  };
+}
+
 // Synchronize state with Firebase Firestore on startup so container restarts never lose data
 async function syncWithFirestoreOnBoot() {
   try {
@@ -601,6 +679,8 @@ async function syncWithFirestoreOnBoot() {
       saveCmsSettings,
       fetchTestimonialsSettings,
       saveTestimonialsSettings,
+      fetchCouponsSettings,
+      saveCouponsSettings,
       fetchAdminConfig,
       saveAdminConfig,
       saveFirestoreMedia,
@@ -692,18 +772,31 @@ async function syncWithFirestoreOnBoot() {
       await saveTestimonialsSettings(testimonialsStore);
     }
 
+    // 6. Discount Coupons sync
+    const remoteCoupons = await fetchCouponsSettings();
+    if (remoteCoupons && Array.isArray(remoteCoupons)) {
+      couponsStore = remoteCoupons;
+    } else {
+      await saveCouponsSettings(couponsStore);
+    }
+
     savePersistedStore();
   } catch (err) {
     console.warn('[Firestore] Initial sync notice:', err);
   }
 }
 
+let firestoreSyncPromise: Promise<void> | null = null;
+
 // ==========================================
 // API ROUTES
 // ==========================================
 
 // Login with Brute-Force Rate Limiting & Constant-Time Protection
-app.post('/api/login', (req: Request, res: Response) => {
+app.post('/api/login', async (req: Request, res: Response) => {
+  if (firestoreSyncPromise) {
+    await Promise.race([firestoreSyncPromise, new Promise((resolve) => setTimeout(resolve, 4000))]);
+  }
   const ip = getClientIp(req);
   if (!checkRateLimit(loginAttempts, ip, 5, 15 * 60 * 1000)) {
     return res.status(429).json({
@@ -921,7 +1014,8 @@ app.post('/api/admin/clear-cache', async (req: Request, res: Response) => {
         products: productsStore.length,
         orders: ordersStore.length,
         slides: sliderStore.length,
-        testimonials: testimonialsStore.length
+        testimonials: testimonialsStore.length,
+        coupons: couponsStore.length
       },
       message: "Cache serveur vidé et données rechargées depuis Firebase Firestore."
     });
@@ -1420,6 +1514,178 @@ app.delete('/api/testimonials/:id', async (req: Request, res: Response) => {
 });
 
 // ==========================================
+// COUPONS / DISCOUNT ROUTES (Admin CRUD + Public Validation)
+// ==========================================
+app.post('/api/coupons/validate', async (req: Request, res: Response) => {
+  try {
+    const { fetchCouponsSettings } = await import('./src/firebase.ts');
+    const remoteCoupons = await fetchCouponsSettings();
+    if (remoteCoupons && Array.isArray(remoteCoupons)) {
+      couponsStore = remoteCoupons;
+    }
+  } catch {}
+
+  const { code, subtotal = 0 } = req.body || {};
+  const result = validateAndComputeCoupon(String(code || ''), Math.max(0, Number(subtotal) || 0));
+  if (!result.valid) {
+    return res.status(400).json(result);
+  }
+  return res.json({
+    valid: true,
+    code: result.code,
+    type: result.type,
+    value: result.value,
+    minOrder: result.minOrder,
+    discount: result.discount,
+    labelFr: result.labelFr,
+    labelAr: result.labelAr
+  });
+});
+
+app.get('/api/coupons', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  try {
+    const { fetchCouponsSettings } = await import('./src/firebase.ts');
+    const remoteCoupons = await fetchCouponsSettings();
+    if (remoteCoupons && Array.isArray(remoteCoupons)) {
+      couponsStore = remoteCoupons;
+      savePersistedStore();
+    }
+  } catch (err) {
+    console.warn('Note: Using cached couponsStore:', err);
+  }
+  return res.json(couponsStore);
+});
+
+app.post('/api/coupons', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const {
+    code,
+    type = 'percent',
+    value,
+    minOrder = 0,
+    maxUses = null,
+    expiresAt = '',
+    active = true,
+    description = ''
+  } = req.body || {};
+
+  const cleanCode = String(code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  if (!cleanCode || cleanCode.length < 2 || cleanCode.length > 40) {
+    return res.status(400).json({ error: "Le code coupon doit contenir entre 2 et 40 caractères (lettres/chiffres)." });
+  }
+  if (couponsStore.some((c: any) => String(c.code || '').toUpperCase() === cleanCode)) {
+    return res.status(409).json({ error: `Le code "${cleanCode}" existe déjà.` });
+  }
+  const couponType = type === 'fixed' ? 'fixed' : 'percent';
+  const numValue = Number(value);
+  if (!Number.isFinite(numValue) || numValue <= 0 || (couponType === 'percent' && numValue > 100)) {
+    return res.status(400).json({
+      error: couponType === 'percent'
+        ? "Le pourcentage de remise doit être compris entre 1 et 100%."
+        : "Le montant de remise doit être supérieur à 0 MAD."
+    });
+  }
+
+  const newCoupon = {
+    id: Date.now(),
+    code: cleanCode,
+    type: couponType,
+    value: Math.round(numValue),
+    minOrder: Math.max(0, Number(minOrder) || 0),
+    maxUses: maxUses !== null && maxUses !== undefined && maxUses !== '' && Number(maxUses) > 0 ? Math.floor(Number(maxUses)) : null,
+    usedCount: 0,
+    expiresAt: String(expiresAt || '').trim(),
+    active: Boolean(active),
+    description: String(description || '').trim().slice(0, 200),
+    createdAt: new Date().toISOString()
+  };
+
+  couponsStore.unshift(newCoupon);
+  savePersistedStore();
+  try {
+    const { saveCouponsSettings } = await import('./src/firebase.ts');
+    await saveCouponsSettings(couponsStore);
+  } catch (err) {
+    console.warn('Note: Coupons sync error:', err);
+  }
+  return res.status(201).json({ ok: true, coupon: newCoupon, coupons: couponsStore });
+});
+
+app.put('/api/coupons/:id', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const id = Number(req.params.id);
+  const idx = couponsStore.findIndex((c: any) => Number(c.id) === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: "Coupon introuvable" });
+  }
+
+  const body = req.body || {};
+  const existing = couponsStore[idx];
+  const nextCode = body.code !== undefined
+    ? String(body.code).trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '')
+    : existing.code;
+
+  if (!nextCode || nextCode.length < 2 || nextCode.length > 40) {
+    return res.status(400).json({ error: "Code coupon invalide (2 à 40 caractères)." });
+  }
+  if (couponsStore.some((c: any) => Number(c.id) !== id && String(c.code || '').toUpperCase() === nextCode)) {
+    return res.status(409).json({ error: `Le code "${nextCode}" est déjà utilisé par un autre coupon.` });
+  }
+
+  const nextType = body.type !== undefined ? (body.type === 'fixed' ? 'fixed' : 'percent') : existing.type;
+  const nextValue = body.value !== undefined ? Number(body.value) : Number(existing.value);
+  if (!Number.isFinite(nextValue) || nextValue <= 0 || (nextType === 'percent' && nextValue > 100)) {
+    return res.status(400).json({ error: "Valeur de remise invalide." });
+  }
+
+  couponsStore[idx] = {
+    ...existing,
+    code: nextCode,
+    type: nextType,
+    value: Math.round(nextValue),
+    minOrder: body.minOrder !== undefined ? Math.max(0, Number(body.minOrder) || 0) : (existing.minOrder || 0),
+    maxUses: body.maxUses !== undefined
+      ? (body.maxUses !== null && body.maxUses !== '' && Number(body.maxUses) > 0 ? Math.floor(Number(body.maxUses)) : null)
+      : (existing.maxUses ?? null),
+    expiresAt: body.expiresAt !== undefined ? String(body.expiresAt || '').trim() : (existing.expiresAt || ''),
+    active: body.active !== undefined ? Boolean(body.active) : Boolean(existing.active),
+    description: body.description !== undefined ? String(body.description || '').trim().slice(0, 200) : (existing.description || '')
+  };
+
+  savePersistedStore();
+  try {
+    const { saveCouponsSettings } = await import('./src/firebase.ts');
+    await saveCouponsSettings(couponsStore);
+  } catch (err) {
+    console.warn('Note: Coupons sync error:', err);
+  }
+  return res.json({ ok: true, coupon: couponsStore[idx], coupons: couponsStore });
+});
+
+app.delete('/api/coupons/:id', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const id = Number(req.params.id);
+  couponsStore = couponsStore.filter((c: any) => Number(c.id) !== id);
+  savePersistedStore();
+  try {
+    const { saveCouponsSettings } = await import('./src/firebase.ts');
+    await saveCouponsSettings(couponsStore);
+  } catch (err) {
+    console.warn('Note: Coupons sync error:', err);
+  }
+  return res.json({ ok: true, id, coupons: couponsStore });
+});
+
+// ==========================================
 // FILE UPLOAD ROUTE (Firebase Firestore Media + Local Disk Cache)
 // ==========================================
 app.post('/api/upload', async (req: Request, res: Response) => {
@@ -1575,9 +1841,15 @@ app.post('/api/orders', async (req: Request, res: Response) => {
   }
 
   let discount = 0;
+  let appliedPromoCode: string | null = null;
   const cleanPromo = String(promoCode || "").trim().toUpperCase();
-  if (cleanPromo === "RAWCRAFT10") {
-    discount = Math.round(subtotal * 0.10);
+  if (cleanPromo) {
+    const couponCheck = validateAndComputeCoupon(cleanPromo, subtotal);
+    if (couponCheck.valid && couponCheck.coupon) {
+      discount = couponCheck.discount;
+      appliedPromoCode = couponCheck.code || cleanPromo;
+      couponCheck.coupon.usedCount = Number(couponCheck.coupon.usedCount || 0) + 1;
+    }
   }
 
   const total = Math.max(0, subtotal - discount);
@@ -1596,7 +1868,7 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     items: verifiedItems,
     subtotal,
     discount,
-    promoCode: cleanPromo || null,
+    promoCode: appliedPromoCode,
     shippingFee: 0,
     total,
     paymentMethod: "COD (Paiement à la livraison)"
@@ -1605,12 +1877,15 @@ app.post('/api/orders', async (req: Request, res: Response) => {
   ordersStore.unshift(newOrder);
   savePersistedStore();
 
-  // Sync Order and updated Product Stock to Firestore database
+  // Sync Order, Coupon usage count, and updated Product Stock to Firestore database
   try {
-    const { createFirestoreOrder, saveFirestoreProduct } = await import('./src/firebase.ts');
+    const { createFirestoreOrder, saveFirestoreProduct, saveCouponsSettings } = await import('./src/firebase.ts');
     await createFirestoreOrder(newOrder);
     for (const { prod } of stockChanges) {
       await saveFirestoreProduct(prod);
+    }
+    if (appliedPromoCode) {
+      await saveCouponsSettings(couponsStore);
     }
   } catch (err) {
     console.warn('Firestore order sync note:', err);
@@ -1802,8 +2077,11 @@ async function startServer() {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
 
-  // Sync all products, orders, slider, CMS, testimonials, and adminConfig with Firebase Firestore on boot
-  await syncWithFirestoreOnBoot();
+  // Sync all products, orders, slider, CMS, testimonials, and adminConfig with Firebase Firestore in background
+  // so the HTTP server binds to port 3000 immediately without readiness timeouts
+  firestoreSyncPromise = syncWithFirestoreOnBoot().catch((err) => {
+    console.warn('[Firestore] Background sync notice:', err);
+  });
 
   // Precompile app bundle once on boot for instant first launch
   getOrBuildBundle();
