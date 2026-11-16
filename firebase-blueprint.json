@@ -74,6 +74,23 @@
         "colors": {
           "type": "array",
           "description": "Available hex color options"
+        },
+        "variantStock": {
+          "type": "object",
+          "description": "Per size and color quantity inventory map"
+        },
+        "position": {
+          "type": "number",
+          "description": "Display rank order in the product catalog"
+        },
+        "showOnHome": {
+          "type": "boolean",
+          "description": "Whether the product appears on the Home / Index page selection"
+        },
+        "videoUrl": {
+          "type": "string",
+          "description": "Optional video URL (YouTube, TikTok, Vimeo, Drive, Reel, or MP4)",
+          "maxLength": 500
         }
       },
       "required": ["id", "nameFr", "price", "stock", "category"]

@@ -4685,9 +4685,60 @@
                       {t.footer_nav}
                     </h4>
                     <ul className="space-y-2.5 text-xs text-white/70">
-                      <li><a href="#collection" className="hover:text-white transition-colors">{t.nav_collection}</a></li>
-                      <li><a href="#savoir-faire" className="hover:text-white transition-colors">{t.nav_craft}</a></li>
-                      <li><a href="#temoignages" className="hover:text-white transition-colors">{t.nav_testimonials}</a></li>
+                      <li>
+                        <a
+                          href="/"
+                          onClick={(e) => { e.preventDefault(); backToHome(); }}
+                          className="hover:text-white transition-colors"
+                        >
+                          {lang === 'ar' ? 'الرئيسية' : 'Accueil'}
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="/produits"
+                          onClick={(e) => { e.preventDefault(); navigateToProductsPage(); }}
+                          className="hover:text-white transition-colors"
+                        >
+                          {lang === 'ar' ? 'جميع المنتجات والفلترة' : 'Tous les Produits & Filtres'}
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="#savoir-faire"
+                          onClick={(e) => {
+                            if (selectedProductId || isProductsPage) {
+                              e.preventDefault();
+                              backToHome();
+                              setTimeout(() => {
+                                const el = document.getElementById('savoir-faire');
+                                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                              }, 60);
+                            }
+                          }}
+                          className="hover:text-white transition-colors"
+                        >
+                          {t.nav_craft}
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="#temoignages"
+                          onClick={(e) => {
+                            if (selectedProductId || isProductsPage) {
+                              e.preventDefault();
+                              backToHome();
+                              setTimeout(() => {
+                                const el = document.getElementById('temoignages');
+                                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                              }, 60);
+                            }
+                          }}
+                          className="hover:text-white transition-colors"
+                        >
+                          {t.nav_testimonials}
+                        </a>
+                      </li>
                       <li>
                         <button onClick={() => setTrackingOpen(true)} className="hover:text-white transition-colors text-start">
                           {t.nav_tracking}

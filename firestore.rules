@@ -3,12 +3,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny catch-all
+    // Global Safety Net — default deny catch-all
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Helper: validate alphanumeric IDs
+    // =========================================================================
+    // Global Helpers
+    // =========================================================================
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -38,62 +40,120 @@ service cloud.firestore {
       );
     }
 
+    // =========================================================================
+    // Entity Validation Blueprints (Strict Keys + Type + Boundary Checks)
+    // =========================================================================
     function isValidProduct(data) {
       return data.keys().hasAll(['id', 'nameFr', 'price', 'stock', 'category']) &&
+        data.keys().hasOnly([
+          'id', 'nameFr', 'nameAr', 'price', 'oldPrice', 'category',
+          'inStock', 'stock', 'variantStock', 'badge', 'isNew', 'rating',
+          'images', 'descFr', 'descAr', 'sizes', 'colors',
+          'position', 'showOnHome', 'videoUrl', 'createdAt', 'updatedAt'
+        ]) &&
         data.id is number &&
         data.nameFr is string && data.nameFr.size() >= 1 && data.nameFr.size() <= 300 &&
+        (!('nameAr' in data) || (data.nameAr is string && data.nameAr.size() <= 300)) &&
         data.price is number && data.price >= 0 &&
+        (!('oldPrice' in data) || data.oldPrice == null || (data.oldPrice is number && data.oldPrice >= 0)) &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 100 &&
+        (!('inStock' in data) || data.inStock is bool) &&
         data.stock is number && data.stock >= 0 &&
-        data.category is string && data.category.size() >= 1 && data.category.size() <= 100;
+        (!('variantStock' in data) || (data.variantStock is map && data.variantStock.size() <= 200)) &&
+        (!('badge' in data) || (data.badge is string && data.badge in ['new', 'exclusive', 'luxury', 'out', ''])) &&
+        (!('isNew' in data) || data.isNew is bool) &&
+        (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
+        (!('images' in data) || (data.images is list && data.images.size() <= 30 && (data.images.size() == 0 || data.images[0] is string))) &&
+        (!('descFr' in data) || (data.descFr is string && data.descFr.size() <= 3000)) &&
+        (!('descAr' in data) || (data.descAr is string && data.descAr.size() <= 3000)) &&
+        (!('sizes' in data) || (data.sizes is list && data.sizes.size() <= 30 && (data.sizes.size() == 0 || data.sizes[0] is string))) &&
+        (!('colors' in data) || (data.colors is list && data.colors.size() <= 30 && (data.colors.size() == 0 || data.colors[0] is string))) &&
+        (!('position' in data) || (data.position is number && data.position >= 1 && data.position <= 10000)) &&
+        (!('showOnHome' in data) || data.showOnHome is bool) &&
+        (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() <= 500)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50));
     }
 
     function isValidOrder(data) {
       return data.keys().hasAll(['id', 'customerName', 'customerPhone', 'city', 'address', 'items', 'total', 'status']) &&
-        data.id is string && data.id.size() >= 3 && data.id.size() <= 40 &&
+        data.keys().hasOnly([
+          'id', 'date', 'status', 'customerName', 'customerPhone',
+          'city', 'address', 'notes', 'items', 'subtotal',
+          'discount', 'promoCode', 'shippingFee', 'total',
+          'paymentMethod', 'updatedAt'
+        ]) &&
+        data.id is string && data.id.matches('^CMD-[A-Z0-9]{6}$') &&
         data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 200 &&
-        data.customerPhone is string && data.customerPhone.size() >= 8 && data.customerPhone.size() <= 25 &&
+        data.customerPhone is string && data.customerPhone.matches('^(06|07)[0-9]{8}$') &&
         data.city is string && data.city.size() >= 1 && data.city.size() <= 100 &&
         data.address is string && data.address.size() >= 1 && data.address.size() <= 500 &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
         data.items is list && data.items.size() > 0 && data.items.size() <= 100 &&
+        (!('subtotal' in data) || (data.subtotal is number && data.subtotal >= 0)) &&
+        (!('discount' in data) || (data.discount is number && data.discount >= 0)) &&
+        (!('promoCode' in data) || data.promoCode == null || (data.promoCode is string && data.promoCode.size() <= 40)) &&
+        (!('shippingFee' in data) || (data.shippingFee is number && data.shippingFee >= 0)) &&
         data.total is number && data.total >= 0 &&
+        (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() <= 100)) &&
+        (!('date' in data) || (data.date is string && data.date.size() <= 50)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50)) &&
         data.status in ['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'];
     }
 
     function isValidMedia(data) {
       return data.keys().hasAll(['id', 'dataUrl']) &&
+        data.keys().hasOnly(['id', 'dataUrl', 'mimeType', 'createdAt']) &&
         data.id is string && data.id.size() > 0 && data.id.size() <= 200 &&
-        data.dataUrl is string && data.dataUrl.size() > 0 && data.dataUrl.size() <= 1040000;
+        data.dataUrl is string && data.dataUrl.size() > 0 && data.dataUrl.size() <= 1040000 &&
+        (!('mimeType' in data) || (data.mimeType is string && data.mimeType.size() <= 100)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50));
     }
 
-    // Products catalog: public read, validated write
+    function isValidSettingId(settingId) {
+      return isValidId(settingId) &&
+        settingId in ['catalogMeta', 'heroSlider', 'cms', 'testimonials', 'adminConfig'];
+    }
+
+    // =========================================================================
+    // Collection Rules
+    // =========================================================================
+
+    // Products catalog: strict schema validation including showOnHome, videoUrl, position, variantStock
     match /products/{productId} {
       allow get, list: if true;
       allow create, update: if isValidId(productId) && isValidProduct(incoming());
       allow delete: if isValidId(productId);
     }
 
-    // Settings (slider, cms, testimonials): public read, validated write
+    // Settings (restricted to known storefront setting keys; list queries blocked)
     match /settings/{settingId} {
-      allow get, list: if true;
-      allow create, update, delete: if isValidId(settingId);
+      allow get: if isValidSettingId(settingId);
+      allow list: if false;
+      allow create, update: if isValidSettingId(settingId);
+      allow delete: if false;
     }
 
     // Media storage (persistent uploaded photos across container restarts)
     match /media/{mediaId} {
-      allow get, list: if true;
+      allow get: if isValidId(mediaId);
+      allow list: if false;
       allow create, update: if isValidId(mediaId) && isValidMedia(incoming());
       allow delete: if isValidId(mediaId);
     }
 
-    // Orders: validated create, read, status updates, and delete
+    // Orders: strict format, status & immutability validation
     match /orders/{orderId} {
       allow get, list: if true;
       allow create: if isValidId(orderId) &&
         incoming().id == orderId &&
+        incoming().status == 'En attente' &&
         isValidOrder(incoming());
       allow update: if isValidId(orderId) &&
         isValidOrder(incoming()) &&
-        incoming().id == existing().id;
+        incoming().id == existing().id &&
+        incoming().total == existing().total &&
+        incoming().customerPhone == existing().customerPhone;
       allow delete: if isValidId(orderId);
     }
 
