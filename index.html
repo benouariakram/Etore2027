@@ -1469,6 +1469,169 @@
         return colors.reduce((sum, col) => sum + getProductVariantStock(product, size, col), 0);
       }
 
+      // Helper: Parse any product video URL (YouTube, Shorts, Vimeo, TikTok, Google Drive, or direct MP4/WebM)
+      function parseVideoEmbedInfo(rawUrl) {
+        const url = String(rawUrl || '').trim();
+        if (!url) return null;
+
+        // 1. YouTube (watch?v=, youtu.be/, shorts/, live/, embed/)
+        const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+        if (ytMatch && ytMatch[1]) {
+          return {
+            type: 'iframe',
+            provider: 'YouTube',
+            embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}?rel=0&modestbranding=1`,
+            originalUrl: url
+          };
+        }
+
+        // 2. Vimeo
+        const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+        if (vimeoMatch && vimeoMatch[1]) {
+          return {
+            type: 'iframe',
+            provider: 'Vimeo',
+            embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}`,
+            originalUrl: url
+          };
+        }
+
+        // 3. TikTok
+        const tiktokMatch = url.match(/tiktok\.com\/.*\/video\/(\d+)/i);
+        if (tiktokMatch && tiktokMatch[1]) {
+          return {
+            type: 'iframe',
+            provider: 'TikTok',
+            embedUrl: `https://www.tiktok.com/embed/v2/${tiktokMatch[1]}`,
+            originalUrl: url
+          };
+        }
+
+        // 4. Direct video file (.mp4, .webm, .ogg, .mov, or data:video / /uploads/)
+        if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url) || url.startsWith('data:video/')) {
+          return {
+            type: 'video',
+            provider: 'Vidéo HD',
+            embedUrl: url,
+            originalUrl: url
+          };
+        }
+
+        // 5. Google Drive video link (/file/d/ID/view -> /file/d/ID/preview)
+        const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/i);
+        if (driveMatch && driveMatch[1]) {
+          return {
+            type: 'iframe',
+            provider: 'Google Drive',
+            embedUrl: `https://drive.google.com/file/d/${driveMatch[1]}/preview`,
+            originalUrl: url
+          };
+        }
+
+        // 6. Generic embed or external link (Instagram Reel, Facebook Watch, etc.)
+        if (url.includes('/embed') || url.includes('player.')) {
+          return {
+            type: 'iframe',
+            provider: 'Vidéo',
+            embedUrl: url,
+            originalUrl: url
+          };
+        }
+
+        return {
+          type: 'external',
+          provider: 'Vidéo',
+          embedUrl: url,
+          originalUrl: url
+        };
+      }
+
+      function ProductVideoPlayer({ videoUrl, title, lang }) {
+        const info = parseVideoEmbedInfo(videoUrl);
+        if (!info) return null;
+
+        if (info.type === 'video') {
+          return (
+            <div className="w-full space-y-2">
+              <div className="relative w-full aspect-video bg-black rounded-xs overflow-hidden border border-taupe/25 shadow-sm">
+                <video
+                  src={info.embedUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="w-full h-full object-contain bg-black"
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-taupe-dark">
+                <span>🎬 {lang === 'ar' ? 'فيديو المنتج عالي الجودة' : 'Vidéo de présentation du produit'}</span>
+                <a
+                  href={info.originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-caramel hover:underline font-semibold"
+                >
+                  {lang === 'ar' ? 'فتح في نافذة جديدة ↗' : 'Ouvrir en plein écran ↗'}
+                </a>
+              </div>
+            </div>
+          );
+        }
+
+        if (info.type === 'iframe') {
+          return (
+            <div className="w-full space-y-2">
+              <div className="relative w-full aspect-video bg-black rounded-xs overflow-hidden border border-taupe/25 shadow-sm">
+                <iframe
+                  src={info.embedUrl}
+                  title={title || 'Vidéo du produit'}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-taupe-dark">
+                <span>🎬 {info.provider} — {lang === 'ar' ? 'عرض فيديو المنتج' : 'Présentation vidéo'}</span>
+                <a
+                  href={info.originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-caramel hover:underline font-semibold"
+                >
+                  {lang === 'ar' ? 'مشاهدة الرابط الأصلي ↗' : 'Ouvrir le lien vidéo direct ↗'}
+                </a>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="w-full p-5 bg-[#141210] text-white rounded-xs border border-caramel/40 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="w-11 h-11 rounded-full bg-caramel text-white flex items-center justify-center text-lg font-bold shrink-0 shadow-xs">
+                ▶
+              </span>
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider text-[#E6C687]">
+                  {lang === 'ar' ? 'فيديو عرض المنتج' : 'Vidéo de Présentation du Produit'}
+                </div>
+                <div className="text-xs text-white/80 mt-0.5 break-all line-clamp-1">
+                  {title}
+                </div>
+              </div>
+            </div>
+            <a
+              href={info.originalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-5 py-2.5 bg-caramel hover:bg-white text-white hover:text-noir text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shrink-0 flex items-center gap-2 shadow-xs"
+            >
+              <span>▶</span>
+              <span>{lang === 'ar' ? 'مشاهدة الفيديو الآن' : 'Regarder la Vidéo ↗'}</span>
+            </a>
+          </div>
+        );
+      }
+
       // ========================================================================
       // SUB-COMPONENT: DEDICATED PRODUCT PAGE VIEW (Unique Shareable Index Link)
       // ========================================================================
@@ -1486,6 +1649,7 @@
         showToast
       }) {
         const [activeImageIdx, setActiveImageIdx] = useState(0);
+        const [mediaMode, setMediaMode] = useState('photos');
         const [selectedSize, setSelectedSize] = useState(() => {
           const sizes = (product.sizes && product.sizes.length > 0) ? product.sizes : ['Unique'];
           const colors = (product.colors && product.colors.length > 0) ? product.colors : ['Default'];
@@ -1517,15 +1681,18 @@
 
         const imgList = Array.isArray(product.images) && product.images.length > 0 ? product.images : [''];
         const imgCount = imgList.length;
+        const hasVideo = Boolean(product.videoUrl && String(product.videoUrl).trim());
 
         const prevProdImage = useCallback((e) => {
           if (e && e.stopPropagation) e.stopPropagation();
+          setMediaMode('photos');
           if (imgCount <= 1) return;
           setActiveImageIdx(prev => (prev - 1 + imgCount) % imgCount);
         }, [imgCount]);
 
         const nextProdImage = useCallback((e) => {
           if (e && e.stopPropagation) e.stopPropagation();
+          setMediaMode('photos');
           if (imgCount <= 1) return;
           setActiveImageIdx(prev => (prev + 1) % imgCount);
         }, [imgCount]);
@@ -1570,6 +1737,7 @@
         // Reset state if product changes
         useEffect(() => {
           setActiveImageIdx(0);
+          setMediaMode('photos');
           const sizes = (product.sizes && product.sizes.length > 0) ? product.sizes : ['Unique'];
           const colors = (product.colors && product.colors.length > 0) ? product.colors : ['Default'];
           let initSize = sizes[0] || '';
@@ -1737,142 +1905,195 @@
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
                 
-                {/* Left: Interactive Media Showcase with Left/Right Slider & Swipe (Col 1-7) */}
+                {/* Left: Interactive Media Showcase with Left/Right Slider, Video Player & Swipe (Col 1-7) */}
                 <div className="lg:col-span-7 flex flex-col gap-4">
-                  {/* Hero Showcase Frame — Left/Right Slider + Touch Swipe */}
-                  <div
-                    className="relative aspect-[3/4] w-full max-h-[580px] bg-[#F7F5F0] border border-taupe/20 overflow-hidden shadow-sm flex items-center justify-center p-4 sm:p-6 group select-none rounded-xs"
-                    onTouchStart={(e) => {
-                      if (e.touches && e.touches[0]) {
-                        prodTouchStartX.current = e.touches[0].clientX;
-                      }
-                    }}
-                    onTouchEnd={(e) => {
-                      if (prodTouchStartX.current == null || !e.changedTouches || !e.changedTouches[0]) return;
-                      const deltaX = e.changedTouches[0].clientX - prodTouchStartX.current;
-                      prodTouchStartX.current = null;
-                      if (Math.abs(deltaX) > 35) {
-                        if (deltaX > 0) prevProdImage();
-                        else nextProdImage();
-                      }
-                    }}
-                  >
-                    <img
-                      src={imgList[activeImageIdx] || imgList[0]}
-                      alt={title}
-                      className="w-full h-full transition-all duration-300 object-contain"
-                    />
+                  {/* Photos vs Video Switcher Bar (shown when product has a video link) */}
+                  {hasVideo && (
+                    <div className="flex items-center gap-2 bg-card p-1.5 border border-taupe/25 rounded-xs">
+                      <button
+                        type="button"
+                        onClick={() => setMediaMode('photos')}
+                        className={`flex-1 py-2 px-3 text-xs font-bold uppercase tracking-wider rounded-2xs transition-colors flex items-center justify-center gap-2 ${
+                          mediaMode === 'photos'
+                            ? 'bg-noir text-white shadow-2xs'
+                            : 'text-noir hover:bg-canvas'
+                        }`}
+                      >
+                        <span>📸</span>
+                        <span>{lang === 'ar' ? `الصور (${imgCount})` : `Photos (${imgCount})`}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMediaMode('video')}
+                        className={`flex-1 py-2 px-3 text-xs font-bold uppercase tracking-wider rounded-2xs transition-colors flex items-center justify-center gap-2 ${
+                          mediaMode === 'video'
+                            ? 'bg-caramel text-white shadow-2xs'
+                            : 'bg-caramel/10 text-noir hover:bg-caramel/20'
+                        }`}
+                      >
+                        <span>🎬</span>
+                        <span>{lang === 'ar' ? 'مشاهدة فيديو المنتج ▶' : 'Vidéo du Produit ▶'}</span>
+                      </button>
+                    </div>
+                  )}
 
-                    {/* Left & Right Slider Arrows (Visible when product has >1 photo) */}
-                    {imgCount > 1 && (
-                      <>
+                  {mediaMode === 'video' && hasVideo ? (
+                    <div className="bg-[#F7F5F0] border border-taupe/20 p-3 sm:p-5 rounded-xs shadow-sm">
+                      <ProductVideoPlayer videoUrl={product.videoUrl} title={title} lang={lang} />
+                    </div>
+                  ) : (
+                    /* Hero Showcase Frame — Left/Right Slider + Touch Swipe */
+                    <div
+                      className="relative aspect-[3/4] w-full max-h-[580px] bg-[#F7F5F0] border border-taupe/20 overflow-hidden shadow-sm flex items-center justify-center p-4 sm:p-6 group select-none rounded-xs"
+                      onTouchStart={(e) => {
+                        if (e.touches && e.touches[0]) {
+                          prodTouchStartX.current = e.touches[0].clientX;
+                        }
+                      }}
+                      onTouchEnd={(e) => {
+                        if (prodTouchStartX.current == null || !e.changedTouches || !e.changedTouches[0]) return;
+                        const deltaX = e.changedTouches[0].clientX - prodTouchStartX.current;
+                        prodTouchStartX.current = null;
+                        if (Math.abs(deltaX) > 35) {
+                          if (deltaX > 0) prevProdImage();
+                          else nextProdImage();
+                        }
+                      }}
+                    >
+                      <img
+                        src={imgList[activeImageIdx] || imgList[0]}
+                        alt={title}
+                        className="w-full h-full transition-all duration-300 object-contain"
+                      />
+
+                      {/* Left & Right Slider Arrows (Visible when product has >1 photo) */}
+                      {imgCount > 1 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={prevProdImage}
+                            className="absolute start-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+                            title="Photo précédente (Glisser à gauche)"
+                            aria-label="Photo précédente"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={nextProdImage}
+                            className="absolute end-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+                            title="Photo suivante (Glisser à droite)"
+                            aria-label="Photo suivante"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+
+                          {/* Bottom Start Photo Counter & Dots */}
+                          <div className="absolute bottom-3 start-3 z-20 flex items-center gap-2 bg-noir/75 backdrop-blur-xs text-white px-2.5 py-1 rounded-xs">
+                            <span className="font-mono text-[11px] font-bold tabular-nums">
+                              {activeImageIdx + 1} / {imgCount}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {imgList.map((_, dotIdx) => (
+                                <button
+                                  key={dotIdx}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveImageIdx(dotIdx);
+                                  }}
+                                  className={`h-1.5 rounded-full transition-all ${
+                                    activeImageIdx === dotIdx ? 'w-4 bg-caramel' : 'w-1.5 bg-white/50 hover:bg-white'
+                                  }`}
+                                  aria-label={`Aller à la photo ${dotIdx + 1}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Quick Play Video Floating Button on Main Image if product has video */}
+                      {hasVideo && (
+                        <button
+                          type="button"
+                          onClick={() => setMediaMode('video')}
+                          className="absolute bottom-3 end-3 z-20 px-3 py-1.5 bg-caramel hover:bg-noir text-white text-xs font-bold uppercase tracking-wider rounded-xs shadow-md flex items-center gap-1.5 transition-all"
+                        >
+                          <span>▶</span>
+                          <span>{lang === 'ar' ? 'فيديو المنتج' : 'Voir la Vidéo'}</span>
+                        </button>
+                      )}
+
+                      {/* Top Badges */}
+                      <div className="absolute top-4 start-4 flex flex-col gap-1 z-10">
+                        {isOut ? (
+                          <span className="bg-noir/90 text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
+                            {t.badge_out}
+                          </span>
+                        ) : product.badge === 'exclusive' ? (
+                          <span className="bg-caramel text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
+                            {t.badge_exclusive}
+                          </span>
+                        ) : product.badge === 'luxury' ? (
+                          <span className="bg-[#4A3525] text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
+                            {t.badge_luxury}
+                          </span>
+                        ) : product.isNew ? (
+                          <span className="bg-noir text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
+                            {t.badge_new}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* Wishlist Button on image */}
+                      <button
+                        type="button"
+                        onClick={() => toggleWishlist(product.id)}
+                        className="absolute top-4 end-4 w-9 h-9 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110 active:scale-95"
+                        aria-label="Wishlist"
+                      >
+                        <svg
+                          className={`w-4 h-4 transition-colors ${isWish ? 'fill-caramel text-caramel animate-heart-pop' : 'text-noir/60 hover:text-noir'}`}
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="1.75"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Thumbnail Row with Left/Right navigation (if multiple images or video) */}
+                  {(imgCount > 1 || hasVideo) && (
+                    <div className="flex items-center gap-2">
+                      {imgCount > 1 && (
                         <button
                           type="button"
                           onClick={prevProdImage}
-                          className="absolute start-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
-                          title="Photo précédente (Glisser à gauche)"
+                          className="w-8 h-24 shrink-0 bg-card hover:bg-noir text-noir hover:text-white border border-taupe/25 rounded-xs flex items-center justify-center transition-colors shadow-2xs"
+                          title="Photo précédente"
                           aria-label="Photo précédente"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
-                          </svg>
+                          ‹
                         </button>
-                        <button
-                          type="button"
-                          onClick={nextProdImage}
-                          className="absolute end-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
-                          title="Photo suivante (Glisser à droite)"
-                          aria-label="Photo suivante"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-
-                        {/* Bottom Start Photo Counter & Dots */}
-                        <div className="absolute bottom-3 start-3 z-20 flex items-center gap-2 bg-noir/75 backdrop-blur-xs text-white px-2.5 py-1 rounded-xs">
-                          <span className="font-mono text-[11px] font-bold tabular-nums">
-                            {activeImageIdx + 1} / {imgCount}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {imgList.map((_, dotIdx) => (
-                              <button
-                                key={dotIdx}
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveImageIdx(dotIdx);
-                                }}
-                                className={`h-1.5 rounded-full transition-all ${
-                                  activeImageIdx === dotIdx ? 'w-4 bg-caramel' : 'w-1.5 bg-white/50 hover:bg-white'
-                                }`}
-                                aria-label={`Aller à la photo ${dotIdx + 1}`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Top Badges */}
-                    <div className="absolute top-4 start-4 flex flex-col gap-1 z-10">
-                      {isOut ? (
-                        <span className="bg-noir/90 text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
-                          {t.badge_out}
-                        </span>
-                      ) : product.badge === 'exclusive' ? (
-                        <span className="bg-caramel text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
-                          {t.badge_exclusive}
-                        </span>
-                      ) : product.badge === 'luxury' ? (
-                        <span className="bg-[#4A3525] text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
-                          {t.badge_luxury}
-                        </span>
-                      ) : product.isNew ? (
-                        <span className="bg-noir text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider">
-                          {t.badge_new}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {/* Wishlist Button on image */}
-                    <button
-                      type="button"
-                      onClick={() => toggleWishlist(product.id)}
-                      className="absolute top-4 end-4 w-9 h-9 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110 active:scale-95"
-                      aria-label="Wishlist"
-                    >
-                      <svg
-                        className={`w-4 h-4 transition-colors ${isWish ? 'fill-caramel text-caramel animate-heart-pop' : 'text-noir/60 hover:text-noir'}`}
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth="1.75"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Thumbnail Row with Left/Right navigation (if multiple images) */}
-                  {imgCount > 1 && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={prevProdImage}
-                        className="w-8 h-24 shrink-0 bg-card hover:bg-noir text-noir hover:text-white border border-taupe/25 rounded-xs flex items-center justify-center transition-colors shadow-2xs"
-                        title="Photo précédente"
-                        aria-label="Photo précédente"
-                      >
-                        ‹
-                      </button>
+                      )}
                       <div className="flex gap-3 overflow-x-auto pb-1 flex-1">
                         {imgList.map((img, i) => (
                           <button
                             key={i}
                             type="button"
-                            onClick={() => setActiveImageIdx(i)}
+                            onClick={() => {
+                              setMediaMode('photos');
+                              setActiveImageIdx(i);
+                            }}
                             className={`w-20 h-24 sm:w-24 sm:h-28 shrink-0 border-2 overflow-hidden bg-[#F7F5F0] p-1.5 transition-all duration-200 relative rounded-xs flex items-center justify-center ${
-                              activeImageIdx === i
+                              mediaMode === 'photos' && activeImageIdx === i
                                 ? 'border-caramel scale-102 shadow-sm ring-1 ring-caramel/30'
                                 : 'border-taupe/20 opacity-70 hover:opacity-100 hover:border-noir/40'
                             }`}
@@ -1880,16 +2101,57 @@
                             <img src={img} alt="" className="w-full h-full object-contain block" />
                           </button>
                         ))}
+                        {hasVideo && (
+                          <button
+                            type="button"
+                            onClick={() => setMediaMode('video')}
+                            className={`w-20 h-24 sm:w-24 sm:h-28 shrink-0 border-2 overflow-hidden bg-[#141210] text-white p-2 transition-all duration-200 relative rounded-xs flex flex-col items-center justify-center gap-1 ${
+                              mediaMode === 'video'
+                                ? 'border-caramel scale-102 shadow-sm ring-1 ring-caramel/40'
+                                : 'border-taupe/30 opacity-85 hover:opacity-100 hover:border-caramel'
+                            }`}
+                            title="Regarder la vidéo du produit"
+                          >
+                            <span className="w-8 h-8 rounded-full bg-caramel text-white flex items-center justify-center text-xs font-bold">
+                              ▶
+                            </span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#E6C687]">
+                              Vidéo
+                            </span>
+                          </button>
+                        )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={nextProdImage}
-                        className="w-8 h-24 shrink-0 bg-card hover:bg-noir text-noir hover:text-white border border-taupe/25 rounded-xs flex items-center justify-center transition-colors shadow-2xs"
-                        title="Photo suivante"
-                        aria-label="Photo suivante"
-                      >
-                        ›
-                      </button>
+                      {imgCount > 1 && (
+                        <button
+                          type="button"
+                          onClick={nextProdImage}
+                          className="w-8 h-24 shrink-0 bg-card hover:bg-noir text-noir hover:text-white border border-taupe/25 rounded-xs flex items-center justify-center transition-colors shadow-2xs"
+                          title="Photo suivante"
+                          aria-label="Photo suivante"
+                        >
+                          ›
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Dedicated Product Video Presentation Card (when in photos mode so user always sees the video player) */}
+                  {hasVideo && mediaMode !== 'video' && (
+                    <div className="bg-card border border-taupe/25 p-4 rounded-xs space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-noir flex items-center gap-1.5">
+                          <span>🎬</span>
+                          <span>{lang === 'ar' ? 'فيديو المنتج' : 'Vidéo de Présentation'}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMediaMode('video')}
+                          className="text-[11px] font-semibold text-caramel hover:underline"
+                        >
+                          {lang === 'ar' ? 'تكبير الفيديو ↑' : 'Afficher en grand ↑'}
+                        </button>
+                      </div>
+                      <ProductVideoPlayer videoUrl={product.videoUrl} title={title} lang={lang} />
                     </div>
                   )}
 
@@ -2295,11 +2557,11 @@
               </div>
             )}
 
-            {/* Related Creations Section */}
+            {/* Related Creations Section (2 products per row on mobile phones) */}
             {related.length > 0 && (
-              <section className="border-t border-taupe/20 bg-card/40 py-16">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                  <div className="flex items-center justify-between mb-8">
+              <section className="border-t border-taupe/20 bg-card/40 py-12 sm:py-16">
+                <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+                  <div className="flex items-center justify-between mb-6 sm:mb-8">
                     <div>
                       <span className="text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-1">
                         MODANOVA MEN'S ESSENTIALS
@@ -2317,32 +2579,38 @@
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                     {related.map(p => {
                       const relTitle = lang === 'ar' ? (p.nameAr || p.nameFr) : p.nameFr;
                       return (
                         <div
                           key={p.id}
                           onClick={() => onSelectProduct(p.id)}
-                          className="group cursor-pointer bg-card border border-taupe/20 p-4 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
+                          className="group cursor-pointer bg-card border border-taupe/20 p-2.5 sm:p-4 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1 flex flex-col"
                         >
-                          <div className="relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden mb-3 rounded-xs p-3 flex items-center justify-center">
+                          <div className="relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden mb-2.5 sm:mb-3 rounded-xs p-2 sm:p-3 flex items-center justify-center">
                             <img
                               src={p.images && p.images[0]}
                               alt={relTitle}
                               className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                             />
+                            {p.videoUrl && (
+                              <span className="absolute bottom-2 start-2 bg-noir/85 text-[#E6C687] text-[9px] font-bold px-1.5 py-0.5 rounded-2xs flex items-center gap-1">
+                                <span>▶</span>
+                                <span>Vidéo</span>
+                              </span>
+                            )}
                           </div>
-                          <div className="text-[10px] text-taupe-dark uppercase tracking-wider mb-1">{p.category}</div>
-                          <h3 className="font-serif text-lg font-semibold text-noir mb-2 group-hover:text-caramel transition-colors">
+                          <div className="text-[9px] sm:text-[10px] text-taupe-dark uppercase tracking-wider mb-1 truncate">{p.category}</div>
+                          <h3 className="font-serif text-sm sm:text-lg font-semibold text-noir mb-2 group-hover:text-caramel transition-colors line-clamp-1">
                             {relTitle}
                           </h3>
-                          <div className="flex items-baseline justify-between pt-2 border-t border-taupe/15">
-                            <span className="font-semibold text-sm text-noir tabular-nums">
+                          <div className="flex items-baseline justify-between pt-2 border-t border-taupe/15 mt-auto">
+                            <span className="font-semibold text-xs sm:text-sm text-noir tabular-nums">
                               {Number(p.price).toLocaleString()} MAD
                             </span>
-                            <span className="text-xs text-caramel font-semibold">
-                              Voir la page →
+                            <span className="text-[10px] sm:text-xs text-caramel font-semibold">
+                              Voir →
                             </span>
                           </div>
                         </div>
@@ -2533,7 +2801,11 @@
         // --- Filters & Catalog Controls ---
         const [searchQuery, setSearchQuery] = useState('');
         const [selectedCategory, setSelectedCategory] = useState('all');
+        const [selectedSizeFilter, setSelectedSizeFilter] = useState('all');
+        const [selectedColorFilter, setSelectedColorFilter] = useState('all');
+        const [priceRangeFilter, setPriceRangeFilter] = useState('all');
         const [onlyInStock, setOnlyInStock] = useState(false);
+        const [onlyWithVideo, setOnlyWithVideo] = useState(false);
         const [sortOrder, setSortOrder] = useState('default');
         const [gridCols, setGridCols] = useState(3);
         const [catalogPage, setCatalogPage] = useState(1);
@@ -2553,7 +2825,7 @@
         const [quickViewSize, setQuickViewSize] = useState('');
         const [quickViewColor, setQuickViewColor] = useState('');
 
-        // --- Dedicated SEO Friendly Product Page URL Routing Helpers ---
+        // --- Dedicated SEO Friendly Product Page & Products Catalog URL Routing Helpers ---
         const getProductIdentifierFromURL = () => {
           try {
             // 1. Path match: /produit/:slug or /product/:slug
@@ -2586,6 +2858,21 @@
           return null;
         };
 
+        const checkIsProductsPageURL = () => {
+          try {
+            const p = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '');
+            const h = (window.location.hash || '').toLowerCase();
+            const params = new URLSearchParams(window.location.search);
+            const pageParam = (params.get('page') || '').toLowerCase();
+            if (p === '/produits' || p === '/catalogue' || p === '/products') return true;
+            if (pageParam === 'produits' || pageParam === 'catalogue' || pageParam === 'products') return true;
+            if (h === '#produits' || h === '#catalogue' || h === '#/produits') return true;
+            return false;
+          } catch (e) {
+            return false;
+          }
+        };
+
         const checkIsAdminURL = () => {
           try {
             const p = (window.location.pathname || '').toLowerCase();
@@ -2598,6 +2885,7 @@
         };
 
         const [selectedProductIdentifier, setSelectedProductIdentifier] = useState(() => getProductIdentifierFromURL());
+        const [isProductsPage, setIsProductsPage] = useState(() => checkIsProductsPageURL());
         const [directCheckoutItem, setDirectCheckoutItem] = useState(null);
 
         const navigateToProduct = useCallback((target) => {
@@ -2615,8 +2903,25 @@
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }, [products]);
 
+        const navigateToProductsPage = useCallback((initialCategory = null) => {
+          setSelectedProductIdentifier(null);
+          setIsProductsPage(true);
+          setCatalogPage(1);
+          if (initialCategory && typeof initialCategory === 'string') {
+            setSelectedCategory(initialCategory);
+          }
+          try {
+            window.history.pushState({ page: 'produits' }, '', '/produits');
+          } catch (e) {
+            window.history.pushState({ page: 'produits' }, '', '?page=produits');
+          }
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, []);
+
         const backToHome = useCallback(() => {
           setSelectedProductIdentifier(null);
+          setIsProductsPage(false);
+          setCatalogPage(1);
           try {
             window.history.pushState({}, '', '/');
           } catch (e) {
@@ -2630,6 +2935,7 @@
           const handleUrlChange = () => {
             const id = getProductIdentifierFromURL();
             setSelectedProductIdentifier(id);
+            setIsProductsPage(checkIsProductsPageURL());
             if (checkIsAdminURL()) {
               setAdminOpen(true);
             }
@@ -2663,10 +2969,12 @@
           if (selectedProduct) {
             const prodName = lang === 'ar' ? (selectedProduct.nameAr || selectedProduct.nameFr) : selectedProduct.nameFr;
             document.title = `${prodName} | ${t.brand} — Men's Essentials`;
+          } else if (isProductsPage) {
+            document.title = `${lang === 'ar' ? 'جميع المنتجات والفلترة' : 'Tous les Produits & Filtres'} | ${t.brand} — Men's Essentials`;
           } else {
             document.title = `${t.brand} — Men's Essentials | Luxe Minimaliste Maroc`;
           }
-        }, [selectedProduct, lang, t]);
+        }, [selectedProduct, isProductsPage, lang, t]);
 
         useEffect(() => {
           const handleScroll = () => {
@@ -3029,17 +3337,86 @@
           setQuickViewColor((product.colors && product.colors[0]) || '');
         };
 
-        // --- Filtered and Sorted Products (Newest products first by default) ---
+        // Available Sizes & Colors across all products for the Dedicated Products Filter Page
+        const availableFilterSizes = useMemo(() => {
+          const set = new Set();
+          (products || []).forEach(p => {
+            if (Array.isArray(p?.sizes)) {
+              p.sizes.forEach(sz => {
+                const clean = String(sz || '').trim();
+                if (clean) set.add(clean);
+              });
+            }
+          });
+          return Array.from(set);
+        }, [products]);
+
+        const availableFilterColors = useMemo(() => {
+          const map = new Map();
+          (products || []).forEach(p => {
+            if (Array.isArray(p?.colors)) {
+              p.colors.forEach(col => {
+                const labelFr = getColorLabel(col, 'fr');
+                const key = labelFr.toLowerCase();
+                if (key && !map.has(key)) {
+                  map.set(key, {
+                    key,
+                    raw: col,
+                    labelFr,
+                    labelAr: getColorLabel(col, 'ar'),
+                    hex: getColorCss(col)
+                  });
+                }
+              });
+            }
+          });
+          return Array.from(map.values());
+        }, [products]);
+
+        const resetAllCatalogFilters = useCallback(() => {
+          setSelectedCategory('all');
+          setSelectedSizeFilter('all');
+          setSelectedColorFilter('all');
+          setPriceRangeFilter('all');
+          setOnlyInStock(false);
+          setOnlyWithVideo(false);
+          setSearchQuery('');
+          setSortOrder('default');
+          setCatalogPage(1);
+        }, []);
+
+        // --- Filtered and Sorted Products (Home Page shows only showOnHome !== false; /produits page shows all with filters) ---
         const filteredProducts = useMemo(() => {
           const list = products.filter(p => {
+            if (!p) return false;
+            // On the Home Page (Index), only show products selected by Admin for the Home Page
+            if (!isProductsPage && p.showOnHome === false) return false;
             // Category
             if (selectedCategory !== 'all' && String(p.category || '').trim().toLowerCase() !== String(selectedCategory).trim().toLowerCase()) return false;
+            // Size / Pointure filter
+            if (selectedSizeFilter !== 'all') {
+              const pSizes = Array.isArray(p.sizes) ? p.sizes.map(s => String(s || '').trim().toLowerCase()) : [];
+              if (!pSizes.includes(String(selectedSizeFilter).trim().toLowerCase())) return false;
+              if (onlyInStock && !isSizeAvailableInAnyColor(p, selectedSizeFilter)) return false;
+            }
+            // Color filter
+            if (selectedColorFilter !== 'all') {
+              const pColors = Array.isArray(p.colors) ? p.colors.map(c => getColorLabel(c, 'fr').toLowerCase()) : [];
+              if (!pColors.includes(String(selectedColorFilter).trim().toLowerCase())) return false;
+            }
+            // Price range filter
+            const priceNum = Number(p.price || 0);
+            if (priceRangeFilter === 'under300' && priceNum >= 300) return false;
+            if (priceRangeFilter === '300to500' && (priceNum < 300 || priceNum > 500)) return false;
+            if (priceRangeFilter === 'over500' && priceNum <= 500) return false;
             // Stock only
             if (onlyInStock && (!p.inStock || p.stock <= 0)) return false;
+            // Video only
+            if (onlyWithVideo && !String(p.videoUrl || '').trim()) return false;
             // Search Query
             if (searchQuery.trim()) {
               const q = searchQuery.toLowerCase().trim();
-              const matchFr = (p.nameFr || '').toLowerCase().includes(q) || (p.descFr || '').toLowerCase().includes(q);
+              const matchFr = (p.nameFr || '').toLowerCase().includes(q) || (p.descFr || '').toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q);
               const matchAr = (p.nameAr || '').toLowerCase().includes(q) || (p.descAr || '').toLowerCase().includes(q);
               if (!matchFr && !matchAr) return false;
             }
@@ -3048,7 +3425,7 @@
           if (sortOrder === 'asc') return [...list].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
           if (sortOrder === 'desc') return [...list].sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
           return list;
-        }, [products, selectedCategory, onlyInStock, searchQuery, sortOrder]);
+        }, [products, isProductsPage, selectedCategory, selectedSizeFilter, selectedColorFilter, priceRangeFilter, onlyInStock, onlyWithVideo, searchQuery, sortOrder]);
 
         const totalCatalogPages = Math.max(1, Math.ceil(filteredProducts.length / CATALOG_PER_PAGE));
         const safeCatalogPage = Math.min(Math.max(1, catalogPage), totalCatalogPages);
@@ -3161,27 +3538,36 @@
                   </button>
 
                   {/* Desktop Nav Links */}
-                  <nav className="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide">
+                  <nav className="hidden md:flex items-center gap-6 text-sm font-medium tracking-wide">
                     <a
-                      href="#collection"
+                      href="/"
                       onClick={(e) => {
-                        if (selectedProductId) {
-                          e.preventDefault();
-                          backToHome();
-                          setTimeout(() => {
-                            const el = document.getElementById('collection');
-                            if (el) el.scrollIntoView({ behavior: 'smooth' });
-                          }, 60);
-                        }
+                        e.preventDefault();
+                        backToHome();
                       }}
-                      className="nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap"
+                      className={`nav-link-indicator py-1 transition-colors whitespace-nowrap ${
+                        !selectedProductId && !isProductsPage ? 'text-caramel font-semibold' : 'text-noir hover:text-caramel'
+                      }`}
                     >
-                      {t.nav_collection}
+                      {lang === 'ar' ? 'الرئيسية' : 'Accueil'}
+                    </a>
+                    <a
+                      href="/produits"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigateToProductsPage();
+                      }}
+                      className={`nav-link-indicator py-1 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                        !selectedProductId && isProductsPage ? 'text-caramel font-semibold' : 'text-noir hover:text-caramel'
+                      }`}
+                    >
+                      <span>{lang === 'ar' ? 'جميع المنتجات' : 'Tous les Produits'}</span>
+                      <span className="text-[10px] font-mono text-taupe-dark">({products.length})</span>
                     </a>
                     <a
                       href="#savoir-faire"
                       onClick={(e) => {
-                        if (selectedProductId) {
+                        if (selectedProductId || isProductsPage) {
                           e.preventDefault();
                           backToHome();
                           setTimeout(() => {
@@ -3197,7 +3583,7 @@
                     <a
                       href="#temoignages"
                       onClick={(e) => {
-                        if (selectedProductId) {
+                        if (selectedProductId || isProductsPage) {
                           e.preventDefault();
                           backToHome();
                           setTimeout(() => {
@@ -3347,8 +3733,9 @@
             ) : (
               <>
                 {/* ================================================================ */}
-                {/* 2. HERO SECTION — 3-SLIDE WALLPAPER SLIDER */}
+                {/* 2. HERO SECTION — 3-SLIDE WALLPAPER SLIDER (Home Page Only) */}
                 {/* ================================================================ */}
+                {!isProductsPage && (
                 <section
               className="relative overflow-hidden bg-noir select-none border-b border-taupe/20"
               role="region"
@@ -3528,113 +3915,261 @@
                 </div>
               </div>
             </section>
+            )}
 
             {/* ================================================================ */}
-            {/* 3. CATALOGUE SECTION (Live Search, Filters, Grid, Cards) */}
+            {/* 3. CATALOGUE SECTION (Home Page Selection OR Dedicated /produits Page with Full Filters) */}
             {/* ================================================================ */}
-            <section id="collection" className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <section id="collection" className={`${isProductsPage ? 'py-8 sm:py-14' : 'py-14 sm:py-24'} max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 w-full`}>
+              {/* Dedicated Products Page Breadcrumb & Header Banner */}
+              {isProductsPage && (
+                <div className="mb-6 pb-4 border-b border-taupe/20 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs text-taupe-dark">
+                    <button
+                      type="button"
+                      onClick={backToHome}
+                      className="hover:text-noir font-medium transition-colors flex items-center gap-1"
+                    >
+                      <span>←</span>
+                      <span>{lang === 'ar' ? 'الرئيسية' : 'Accueil'}</span>
+                    </button>
+                    <span>/</span>
+                    <span className="text-noir font-semibold">
+                      {lang === 'ar' ? 'جميع المنتجات والفلترة' : 'Tous les Produits & Filtres'}
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono text-taupe-dark">
+                    {filteredProducts.length} / {products.length} {lang === 'ar' ? 'منتج' : 'produits affichés'}
+                  </span>
+                </div>
+              )}
+
               {/* Section Header */}
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b border-taupe/15 pb-8">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 mb-8 border-b border-taupe/15 pb-6">
                 <div>
                   <span className="text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-2">
-                    {t.brand} ATELIER
+                    {isProductsPage
+                      ? (lang === 'ar' ? 'الكتالوج الكامل والفلترة المتقدمة' : 'CATALOGUE COMPLET & RECHERCHE AVANCÉE')
+                      : `${t.brand} ATELIER — SÉLECTION ACCUEIL`}
                   </span>
-                  <h2 className="font-serif text-3xl sm:text-4xl text-noir font-normal">
-                    {t.nav_collection}
+                  <h2 className="font-serif text-2xl sm:text-4xl text-noir font-normal">
+                    {isProductsPage
+                      ? (lang === 'ar' ? 'جميع المنتجات' : 'Tous nos Produits')
+                      : t.nav_collection}
                   </h2>
                 </div>
 
-                {/* Search Bar */}
-                <div className="relative w-full md:w-80">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t.search_placeholder}
-                    className="w-full bg-card border border-taupe/30 px-4 py-2.5 ps-10 text-xs text-noir rounded-none focus:border-caramel focus:bg-white transition-colors"
-                  />
-                  <svg className="w-4 h-4 text-taupe absolute start-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  {searchQuery && (
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                  {/* Search Bar */}
+                  <div className="relative w-full sm:w-72">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setCatalogPage(1);
+                      }}
+                      placeholder={t.search_placeholder}
+                      className="w-full bg-card border border-taupe/30 px-4 py-2.5 ps-10 text-xs text-noir rounded-none focus:border-caramel focus:bg-white transition-colors"
+                    />
+                    <svg className="w-4 h-4 text-taupe absolute start-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    {searchQuery && (
+                      <button
+                        onClick={() => { setSearchQuery(''); setCatalogPage(1); }}
+                        className="absolute end-3 top-2.5 text-taupe hover:text-noir text-xs"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* On Home Page: Button to open Dedicated Products Page with Filters */}
+                  {!isProductsPage && (
                     <button
-                      onClick={() => setSearchQuery('')}
-                      className="absolute end-3 top-3 text-taupe hover:text-noir text-xs"
+                      type="button"
+                      onClick={() => navigateToProductsPage()}
+                      className="px-4 py-2.5 bg-noir hover:bg-caramel text-white text-xs font-semibold uppercase tracking-wider transition-colors whitespace-nowrap flex items-center justify-center gap-2 shadow-xs"
                     >
-                      ✕
+                      <span>{lang === 'ar' ? 'جميع المنتجات والفلترة' : 'Tous les Produits & Filtres'}</span>
+                      <span className="font-mono text-[11px] opacity-80">({products.length}) →</span>
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* Filter Controls Row */}
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-8 bg-card/60 p-4 border border-taupe/15">
-                {/* Categories Segmented Control */}
-                <div className="flex flex-wrap items-center gap-1.5 max-w-full overflow-x-auto pb-1">
-                  {[
-                    { id: 'all', label: t.filter_all },
-                    ...PRODUCT_CATEGORIES.map(cat => ({ id: cat, label: cat }))
-                  ].map(cat => {
-                    const isSelected = selectedCategory === cat.id || (selectedCategory.toLowerCase() === cat.id.toLowerCase());
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => setSelectedCategory(cat.id)}
-                        className={`px-3 py-1.5 text-xs font-medium tracking-wide transition-colors whitespace-nowrap rounded-xs ${
-                          isSelected
-                            ? 'bg-noir text-white shadow-xs font-semibold'
-                            : 'bg-card text-taupe-dark hover:text-noir border border-taupe/20'
-                        }`}
-                      >
-                        {cat.label}
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Filter Controls Box (Categories + Multi-Criteria Advanced Filters on /produits) */}
+              <div className="mb-8 bg-card/60 p-3.5 sm:p-5 border border-taupe/15 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/* Categories Segmented Control */}
+                  <div className="flex flex-wrap items-center gap-1.5 max-w-full overflow-x-auto pb-1">
+                    {[
+                      { id: 'all', label: t.filter_all },
+                      ...PRODUCT_CATEGORIES.map(cat => ({ id: cat, label: cat }))
+                    ].map(cat => {
+                      const isSelected = selectedCategory === cat.id || (selectedCategory.toLowerCase() === cat.id.toLowerCase());
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => {
+                            setSelectedCategory(cat.id);
+                            setCatalogPage(1);
+                          }}
+                          className={`px-3 py-1.5 text-xs font-medium tracking-wide transition-colors whitespace-nowrap rounded-xs ${
+                            isSelected
+                              ? 'bg-noir text-white shadow-xs font-semibold'
+                              : 'bg-card text-taupe-dark hover:text-noir border border-taupe/20'
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                {/* Additional controls (Sort, In-stock, Grid) */}
-                <div className="flex items-center gap-4 flex-wrap">
-                  {/* In Stock Only Checkbox */}
-                  <label className="flex items-center gap-2 text-xs text-noir cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={onlyInStock}
-                      onChange={(e) => setOnlyInStock(e.target.checked)}
-                      className="accent-caramel w-4 h-4 rounded-xs border-taupe/40"
-                    />
-                    <span>{t.in_stock_only}</span>
-                  </label>
+                  {/* Additional controls (Sort, In-stock, Video, Grid) */}
+                  <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                    {/* In Stock Only Checkbox */}
+                    <label className="flex items-center gap-1.5 text-xs text-noir cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={onlyInStock}
+                        onChange={(e) => {
+                          setOnlyInStock(e.target.checked);
+                          setCatalogPage(1);
+                        }}
+                        className="accent-caramel w-4 h-4 rounded-xs border-taupe/40"
+                      />
+                      <span>{t.in_stock_only}</span>
+                    </label>
 
-                  {/* Sort Order Dropdown */}
-                  <select
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(e.target.value)}
-                    className="bg-canvas border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
-                  >
-                    <option value="default">{t.sort_default}</option>
-                    <option value="asc">{t.sort_asc}</option>
-                    <option value="desc">{t.sort_desc}</option>
-                  </select>
+                    {/* With Video Only Checkbox */}
+                    <label className="flex items-center gap-1.5 text-xs text-noir cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={onlyWithVideo}
+                        onChange={(e) => {
+                          setOnlyWithVideo(e.target.checked);
+                          setCatalogPage(1);
+                        }}
+                        className="accent-caramel w-4 h-4 rounded-xs border-taupe/40"
+                      />
+                      <span>{lang === 'ar' ? 'مع فيديو 🎬' : 'Avec vidéo 🎬'}</span>
+                    </label>
 
-                  {/* Grid Columns Selector (Desktop) */}
-                  <div className="hidden lg:flex items-center gap-1 border-s border-taupe/20 ps-3">
-                    {[1, 2, 3].map(cols => (
-                      <button
-                        key={cols}
-                        onClick={() => setGridCols(cols)}
-                        className={`w-7 h-7 text-xs font-medium border flex items-center justify-center transition-colors ${
-                          gridCols === cols ? 'border-noir bg-noir text-white' : 'border-taupe/30 text-taupe-dark hover:border-noir'
-                        }`}
-                        title={`${cols} colonnes`}
-                      >
-                        {cols}
-                      </button>
-                    ))}
+                    {/* Sort Order Dropdown */}
+                    <select
+                      value={sortOrder}
+                      onChange={(e) => {
+                        setSortOrder(e.target.value);
+                        setCatalogPage(1);
+                      }}
+                      className="bg-canvas border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
+                    >
+                      <option value="default">{t.sort_default}</option>
+                      <option value="asc">{t.sort_asc}</option>
+                      <option value="desc">{t.sort_desc}</option>
+                    </select>
+
+                    {/* Grid Columns Selector (Desktop) */}
+                    <div className="hidden lg:flex items-center gap-1 border-s border-taupe/20 ps-3">
+                      {[2, 3].map(cols => (
+                        <button
+                          key={cols}
+                          onClick={() => setGridCols(cols)}
+                          className={`w-7 h-7 text-xs font-medium border flex items-center justify-center transition-colors ${
+                            gridCols === cols ? 'border-noir bg-noir text-white' : 'border-taupe/30 text-taupe-dark hover:border-noir'
+                          }`}
+                          title={`${cols} colonnes`}
+                        >
+                          {cols}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
+
+                {/* Advanced Filter Bar (Always visible on /produits page, or when any advanced filter is active) */}
+                {(isProductsPage || selectedSizeFilter !== 'all' || selectedColorFilter !== 'all' || priceRangeFilter !== 'all') && (
+                  <div className="pt-3 border-t border-taupe/15 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
+                    {/* Filter by Size / Pointure */}
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                        {lang === 'ar' ? 'المقاس / القالب' : 'Taille / Pointure'}
+                      </label>
+                      <select
+                        value={selectedSizeFilter}
+                        onChange={(e) => {
+                          setSelectedSizeFilter(e.target.value);
+                          setCatalogPage(1);
+                        }}
+                        className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                      >
+                        <option value="all">{lang === 'ar' ? 'جميع المقاسات' : 'Toutes les tailles / pointures'}</option>
+                        {availableFilterSizes.map(sz => (
+                          <option key={sz} value={sz}>{sz}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Filter by Color */}
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                        {lang === 'ar' ? 'اللون' : 'Couleur'}
+                      </label>
+                      <select
+                        value={selectedColorFilter}
+                        onChange={(e) => {
+                          setSelectedColorFilter(e.target.value);
+                          setCatalogPage(1);
+                        }}
+                        className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                      >
+                        <option value="all">{lang === 'ar' ? 'جميع الألوان' : 'Toutes les couleurs'}</option>
+                        {availableFilterColors.map(colObj => (
+                          <option key={colObj.key} value={colObj.labelFr}>
+                            {lang === 'ar' ? colObj.labelAr : colObj.labelFr}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Filter by Price Range */}
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                        {lang === 'ar' ? 'الميزانية (درهم)' : 'Budget / Prix (MAD)'}
+                      </label>
+                      <select
+                        value={priceRangeFilter}
+                        onChange={(e) => {
+                          setPriceRangeFilter(e.target.value);
+                          setCatalogPage(1);
+                        }}
+                        className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                      >
+                        <option value="all">{lang === 'ar' ? 'جميع الأسعار' : 'Tous les prix'}</option>
+                        <option value="under300">{lang === 'ar' ? 'أقل من 300 درهم' : 'Moins de 300 MAD'}</option>
+                        <option value="300to500">{lang === 'ar' ? 'بين 300 و 500 درهم' : '300 MAD à 500 MAD'}</option>
+                        <option value="over500">{lang === 'ar' ? 'أكثر من 500 درهم' : 'Plus de 500 MAD'}</option>
+                      </select>
+                    </div>
+
+                    {/* Reset Filters & Active Filter Count */}
+                    <div className="flex items-center justify-between sm:justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={resetAllCatalogFilters}
+                        className="w-full sm:w-auto px-3.5 py-2 bg-white hover:bg-noir text-noir hover:text-white border border-taupe/30 text-xs font-semibold uppercase tracking-wider transition-colors"
+                      >
+                        {lang === 'ar' ? 'إعادة ضبط الفلاتر ↺' : 'Réinitialiser les filtres ↺'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Products Grid */}
+              {/* Products Grid — 2 Columns on Mobile Phones (grid-cols-2), 2 on Tablet, 3 on Desktop */}
               {loadingProducts ? (
                 <div className="py-24 text-center text-taupe-dark">
                   <div className="animate-spin w-8 h-8 border-2 border-caramel border-t-transparent rounded-full mx-auto mb-4"></div>
@@ -3643,22 +4178,32 @@
               ) : filteredProducts.length === 0 ? (
                 <div className="py-20 text-center bg-card border border-taupe/15 p-8">
                   <p className="font-serif text-2xl text-taupe-dark mb-2">Aucun essentiel ne correspond à votre recherche.</p>
-                  <button
-                    onClick={() => { setSelectedCategory('all'); setSearchQuery(''); setOnlyInStock(false); }}
-                    className="mt-4 text-xs font-semibold uppercase tracking-wider text-caramel hover:underline"
-                  >
-                    Réinitialiser les filtres
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+                    <button
+                      onClick={resetAllCatalogFilters}
+                      className="px-4 py-2 bg-noir text-white text-xs font-semibold uppercase tracking-wider hover:bg-caramel transition-colors"
+                    >
+                      Réinitialiser les filtres
+                    </button>
+                    {!isProductsPage && (
+                      <button
+                        onClick={() => navigateToProductsPage()}
+                        className="px-4 py-2 border border-noir text-noir text-xs font-semibold uppercase tracking-wider hover:bg-noir hover:text-white transition-colors"
+                      >
+                        Voir tous les produits du catalogue ({products.length}) →
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <>
                   <div
-                    className={`grid gap-8 ${
+                    className={`grid gap-2.5 sm:gap-6 lg:gap-8 ${
                       gridCols === 1
                         ? 'grid-cols-1 max-w-xl mx-auto'
                         : gridCols === 2
-                        ? 'grid-cols-1 md:grid-cols-2'
-                        : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                        ? 'grid-cols-2'
+                        : 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3'
                     }`}
                   >
                     {paginatedCatalogProducts.map((product, idx) => {
@@ -3666,6 +4211,7 @@
                       const isWish = wishlist.includes(product.id);
                       const isOut = !product.inStock || product.stock <= 0;
                       const isLow = product.stock > 0 && product.stock < 5;
+                      const hasVideo = Boolean(product.videoUrl && String(product.videoUrl).trim());
                       const title = lang === 'ar' ? (product.nameAr || product.nameFr) : product.nameFr;
                       const desc = lang === 'ar' ? (product.descAr || product.descFr) : product.descFr;
                       const imagesArr = Array.isArray(product.images) && product.images.length > 0 ? product.images : [''];
@@ -3704,7 +4250,7 @@
                                 stepCardImage(null, deltaX > 0 ? -1 : 1);
                               }
                             }}
-                            className="relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden cursor-pointer rounded-xs p-3 flex items-center justify-center select-none"
+                            className="relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden cursor-pointer rounded-xs p-1.5 sm:p-3 flex items-center justify-center select-none"
                           >
                             <img
                               src={imagesArr[activeCardImgIdx] || imagesArr[0]}
@@ -3719,22 +4265,22 @@
                                 <button
                                   type="button"
                                   onClick={(e) => stepCardImage(e, -1)}
-                                  className="absolute start-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                                  className="absolute start-1 sm:start-2 top-1/2 -translate-y-1/2 z-20 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
                                   title="Photo précédente"
                                   aria-label="Photo précédente"
                                 >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
                                   </svg>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={(e) => stepCardImage(e, 1)}
-                                  className="absolute end-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                                  className="absolute end-1 sm:end-2 top-1/2 -translate-y-1/2 z-20 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
                                   title="Photo suivante"
                                   aria-label="Photo suivante"
                                 >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
                                   </svg>
                                 </button>
@@ -3742,33 +4288,39 @@
                             )}
 
                             {/* Top Badges */}
-                            <div className="absolute top-3 start-3 flex flex-col gap-1 z-10 pointer-events-none">
+                            <div className="absolute top-1.5 start-1.5 sm:top-3 sm:start-3 flex flex-col gap-1 z-10 pointer-events-none">
                               {isOut ? (
-                                <span className="bg-noir/90 text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
+                                <span className="bg-noir/90 text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 uppercase tracking-wider">
                                   {t.badge_out}
                                 </span>
                               ) : product.badge === 'exclusive' ? (
-                                <span className="bg-caramel text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
+                                <span className="bg-caramel text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 uppercase tracking-wider">
                                   {t.badge_exclusive}
                                 </span>
                               ) : product.badge === 'luxury' ? (
-                                <span className="bg-[#4A3525] text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
+                                <span className="bg-[#4A3525] text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 uppercase tracking-wider">
                                   {t.badge_luxury}
                                 </span>
                               ) : product.isNew ? (
-                                <span className="bg-noir text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
+                                <span className="bg-noir text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 uppercase tracking-wider">
                                   {t.badge_new}
                                 </span>
                               ) : null}
+                              {hasVideo && (
+                                <span className="bg-noir/85 text-[#E6C687] text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 uppercase tracking-wider flex items-center gap-1">
+                                  <span>▶</span>
+                                  <span>{lang === 'ar' ? 'فيديو' : 'Vidéo'}</span>
+                                </span>
+                              )}
                             </div>
 
                             {/* Interactive Dots & Photos Counter Indicator */}
                             {imagesArr.length > 1 && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute bottom-3 inset-x-3 flex items-center justify-between z-10 pointer-events-auto"
+                                className="absolute bottom-1.5 inset-x-1.5 sm:bottom-3 sm:inset-x-3 flex items-center justify-between z-10 pointer-events-auto"
                               >
-                                <div className="flex items-center gap-1 bg-black/55 px-2 py-1 rounded-xs backdrop-blur-xs">
+                                <div className="flex items-center gap-1 bg-black/55 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-xs backdrop-blur-xs">
                                   {imagesArr.map((_, dIdx) => (
                                     <button
                                       key={dIdx}
@@ -3777,21 +4329,21 @@
                                         e.stopPropagation();
                                         setCardImageIdxMap(prev => ({ ...prev, [product.id]: dIdx }));
                                       }}
-                                      className={`h-1.5 rounded-full transition-all ${
-                                        activeCardImgIdx === dIdx ? 'w-3.5 bg-caramel' : 'w-1.5 bg-white/60 hover:bg-white'
+                                      className={`h-1 sm:h-1.5 rounded-full transition-all ${
+                                        activeCardImgIdx === dIdx ? 'w-2.5 sm:w-3.5 bg-caramel' : 'w-1 sm:w-1.5 bg-white/60 hover:bg-white'
                                       }`}
                                       aria-label={`Photo ${dIdx + 1}`}
                                     />
                                   ))}
                                 </div>
-                                <span className="bg-black/65 text-white text-[10px] px-2 py-0.5 backdrop-blur-xs font-mono tabular-nums rounded-xs">
+                                <span className="bg-black/65 text-white text-[9px] sm:text-[10px] px-1.5 py-0.5 backdrop-blur-xs font-mono tabular-nums rounded-xs">
                                   {activeCardImgIdx + 1}/{imagesArr.length}
                                 </span>
                               </div>
                             )}
 
                             {/* Top End Actions: Client Link Copy & Wishlist */}
-                            <div className="absolute top-3 end-3 flex items-center gap-1.5 z-10">
+                            <div className="absolute top-1.5 end-1.5 sm:top-3 sm:end-3 flex items-center gap-1 sm:gap-1.5 z-10">
                               {/* Copy direct client link (SEO Slug) */}
                               <button
                                 type="button"
@@ -3805,11 +4357,11 @@
                                     showToast(url, 'info');
                                   }
                                 }}
-                                className="w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90 text-noir/70 hover:text-caramel"
+                                className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90 text-noir/70 hover:text-caramel"
                                 title="Copier le lien direct client"
                                 aria-label="Copier le lien client"
                               >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                                 </svg>
                               </button>
@@ -3821,11 +4373,11 @@
                                   e.stopPropagation();
                                   toggleWishlist(product.id);
                                 }}
-                                className="w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90"
+                                className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90"
                                 aria-label="Wishlist"
                               >
                                 <svg
-                                  className={`w-4 h-4 transition-colors ${isWish ? 'fill-caramel text-caramel animate-heart-pop' : 'text-noir/60 hover:text-noir'}`}
+                                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${isWish ? 'fill-caramel text-caramel animate-heart-pop' : 'text-noir/60 hover:text-noir'}`}
                                   viewBox="0 0 24 24"
                                   stroke="currentColor"
                                   strokeWidth="1.75"
@@ -3836,63 +4388,63 @@
                             </div>
                           </div>
 
-                          {/* Product Info */}
-                          <div className="p-6 flex flex-col flex-1">
+                          {/* Product Info — Responsive for 2-Column Mobile Grid */}
+                          <div className="p-2.5 sm:p-6 flex flex-col flex-1">
                             {/* Category and Rating */}
-                            <div className="flex items-center justify-between text-[11px] text-taupe-dark uppercase tracking-wider mb-2">
-                              <span>{product.category}</span>
-                              <span className="text-caramel font-semibold">★ {product.rating || 5}.0</span>
+                            <div className="flex items-center justify-between text-[9px] sm:text-[11px] text-taupe-dark uppercase tracking-wider mb-1 sm:mb-2">
+                              <span className="truncate">{product.category}</span>
+                              <span className="text-caramel font-semibold shrink-0">★ {product.rating || 5}.0</span>
                             </div>
 
                             {/* Title */}
                             <h3
                               onClick={() => navigateToProduct(product.id)}
-                              className="font-serif text-xl font-semibold text-noir mb-2 group-hover:text-caramel transition-colors cursor-pointer"
+                              className="font-serif text-sm sm:text-xl font-semibold text-noir mb-1 sm:mb-2 group-hover:text-caramel transition-colors cursor-pointer line-clamp-1 sm:line-clamp-2 leading-snug"
                             >
                               {title}
                             </h3>
 
-                            {/* Description (2 lines clamp) */}
-                            <p className="text-xs text-taupe-dark line-clamp-2 leading-relaxed mb-4 flex-1">
+                            {/* Description (Hidden on compact mobile 2-col, shown on sm+) */}
+                            <p className="hidden sm:block text-xs text-taupe-dark line-clamp-2 leading-relaxed mb-4 flex-1">
                               {desc}
                             </p>
 
-                            {/* Stock Warning if low with Flame Pulse */}
+                            {/* Stock Warning if low */}
                             {isLow && (
-                              <p className="text-[11px] font-semibold text-[#B91C1C] mb-3 flex items-center">
+                              <p className="text-[9px] sm:text-[11px] font-semibold text-[#B91C1C] mb-1.5 sm:mb-3 flex items-center">
                                 <span className="animate-flame me-1 inline-block">🔥</span>
-                                <span>{t.low_stock_alert.replace('🔥 ', '').replace('{n}', product.stock)}</span>
+                                <span className="truncate">{t.low_stock_alert.replace('🔥 ', '').replace('{n}', product.stock)}</span>
                               </p>
                             )}
 
                             {/* Price & Old Price */}
-                            <div className="flex items-baseline gap-2.5 mb-5 pt-2 border-t border-taupe/15">
-                              <span className="font-semibold text-lg text-noir tabular-nums">
+                            <div className="flex flex-wrap items-baseline gap-1.5 sm:gap-2.5 mb-2.5 sm:mb-5 pt-1.5 sm:pt-2 border-t border-taupe/15 mt-auto">
+                              <span className="font-semibold text-xs sm:text-lg text-noir tabular-nums">
                                 {Number(product.price).toLocaleString()} MAD
                               </span>
                               {product.oldPrice && (
-                                <span className="text-xs text-taupe line-through tabular-nums">
+                                <span className="text-[10px] sm:text-xs text-taupe line-through tabular-nums">
                                   {Number(product.oldPrice).toLocaleString()} MAD
                                 </span>
                               )}
                             </div>
 
                             {/* Action Buttons: View Product Page & Add to Cart */}
-                            <div className="grid grid-cols-2 gap-2 mt-auto">
+                            <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                               <button
                                 type="button"
                                 onClick={() => navigateToProduct(product.id)}
-                                className="px-3 py-2.5 border border-taupe/30 text-xs font-semibold uppercase tracking-wider text-noir hover:border-noir hover:bg-noir hover:text-white transition-all flex items-center justify-center gap-1"
+                                className="px-1.5 py-2 sm:px-3 sm:py-2.5 border border-taupe/30 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-noir hover:border-noir hover:bg-noir hover:text-white transition-all flex items-center justify-center gap-1 whitespace-nowrap"
                                 title="Ouvrir la page dédiée avec lien direct"
                               >
                                 <span>{t.admin_view_product || "Voir"}</span>
-                                <span className="text-[10px]">→</span>
+                                <span className="hidden sm:inline text-[10px]">→</span>
                               </button>
                               <button
                                 type="button"
                                 disabled={isOut}
                                 onClick={() => addToCart(product)}
-                                className={`px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                                className={`px-1.5 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all duration-150 truncate ${
                                   isOut
                                     ? 'bg-taupe/20 text-taupe-dark cursor-not-allowed'
                                     : 'bg-noir text-white hover:bg-caramel active:scale-95 shadow-xs'
@@ -3971,13 +4523,28 @@
                       </div>
                     </div>
                   )}
+
+                  {/* Bottom CTA on Home Page to discover the full filtered catalog */}
+                  {!isProductsPage && (
+                    <div className="mt-10 text-center">
+                      <button
+                        type="button"
+                        onClick={() => navigateToProductsPage()}
+                        className="inline-flex items-center gap-3 px-7 py-3.5 bg-noir hover:bg-caramel text-white text-xs font-semibold uppercase tracking-[0.18em] transition-colors shadow-sm"
+                      >
+                        <span>{lang === 'ar' ? 'استكشف جميع المنتجات مع الفلاتر' : 'Explorer Tous les Produits & Filtres'}</span>
+                        <span>→</span>
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </section>
 
             {/* ================================================================ */}
-            {/* 4. SAVOIR-FAIRE & CRAFTSMANSHIP SECTION */}
+            {/* 4. SAVOIR-FAIRE & CRAFTSMANSHIP SECTION (Home Page Only) */}
             {/* ================================================================ */}
+            {!isProductsPage && (
             <section id="savoir-faire" className="py-20 sm:py-28 bg-[#F3EFEA] border-y border-taupe/20">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -4039,10 +4606,12 @@
                 </div>
               </div>
             </section>
+            )}
 
             {/* ================================================================ */}
-            {/* 5. TÉMOIGNAGES (Testimonials Section - Dynamic from CMS) */}
+            {/* 5. TÉMOIGNAGES (Testimonials Section - Dynamic from CMS, Home Page Only) */}
             {/* ================================================================ */}
+            {!isProductsPage && (
             <section id="temoignages" className="py-20 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
               <div className="text-center max-w-2xl mx-auto mb-16">
                 <span className="text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-2">
@@ -4087,6 +4656,7 @@
                 ))}
               </div>
             </section>
+            )}
               </>
             )}
 
@@ -4267,22 +4837,49 @@
                   <div className="py-6 border-b border-taupe/20 space-y-4">
                     <div className="text-[11px] font-bold text-taupe-dark uppercase tracking-wider mb-2">NAVIGATION</div>
                     <a
-                      href="#collection"
-                      onClick={() => setMobileDrawerOpen(false)}
-                      className="block text-base font-medium text-noir hover:text-caramel"
+                      href="/"
+                      onClick={(e) => { e.preventDefault(); setMobileDrawerOpen(false); backToHome(); }}
+                      className={`block text-base font-medium ${!isProductsPage && !selectedProductId ? 'text-caramel font-semibold' : 'text-noir hover:text-caramel'}`}
                     >
-                      {t.nav_collection}
+                      {lang === 'ar' ? 'الرئيسية (Accueil)' : 'Accueil (Page Principale)'}
+                    </a>
+                    <a
+                      href="/produits"
+                      onClick={(e) => { e.preventDefault(); setMobileDrawerOpen(false); navigateToProductsPage(); }}
+                      className={`block text-base font-medium ${isProductsPage && !selectedProductId ? 'text-caramel font-semibold' : 'text-noir hover:text-caramel'}`}
+                    >
+                      {lang === 'ar' ? `جميع المنتجات والفلترة (${products.length})` : `Tous les Produits & Filtres (${products.length})`}
                     </a>
                     <a
                       href="#savoir-faire"
-                      onClick={() => setMobileDrawerOpen(false)}
+                      onClick={(e) => {
+                        setMobileDrawerOpen(false);
+                        if (isProductsPage || selectedProductId) {
+                          e.preventDefault();
+                          backToHome();
+                          setTimeout(() => {
+                            const el = document.getElementById('savoir-faire');
+                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                          }, 60);
+                        }
+                      }}
                       className="block text-base font-medium text-noir hover:text-caramel"
                     >
                       {t.nav_craft}
                     </a>
                     <a
                       href="#temoignages"
-                      onClick={() => setMobileDrawerOpen(false)}
+                      onClick={(e) => {
+                        setMobileDrawerOpen(false);
+                        if (isProductsPage || selectedProductId) {
+                          e.preventDefault();
+                          backToHome();
+                          setTimeout(() => {
+                            const el = document.getElementById('temoignages');
+                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                          }, 60);
+                        }
+                      }}
                       className="block text-base font-medium text-noir hover:text-caramel"
                     >
                       {t.nav_testimonials}
@@ -6207,6 +6804,48 @@
           }
         };
 
+        const [prodHomeFilter, setProdHomeFilter] = useState('ALL');
+        const [togglingHomeProdId, setTogglingHomeProdId] = useState(null);
+
+        const handleToggleProductHome = async (prod) => {
+          if (!prod || !prod.id || togglingHomeProdId === prod.id) return;
+          const nextShowOnHome = prod.showOnHome === false ? true : false;
+          setTogglingHomeProdId(prod.id);
+          // Optimistic update in memory
+          if (onReorderProductsLocal && Array.isArray(products)) {
+            onReorderProductsLocal(
+              products.map(item => Number(item?.id) === Number(prod.id) ? { ...item, showOnHome: nextShowOnHome } : item)
+            );
+          }
+          try {
+            const res = await fetch(`/api/products/${encodeURIComponent(prod.id)}/home-visibility`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ showOnHome: nextShowOnHome })
+            });
+            if (res.ok) {
+              await onRefreshProducts();
+              showToast(
+                nextShowOnHome
+                  ? `🏠 « ${prod.nameFr} » est maintenant affiché sur la Page Principale (Index) !`
+                  : `📂 « ${prod.nameFr} » est masqué de l'Index (visible uniquement sur Tous les Produits).`,
+                'success'
+              );
+            } else {
+              await onRefreshProducts();
+              showToast("Erreur lors de la mise à jour de l'affichage Accueil", 'error');
+            }
+          } catch {
+            await onRefreshProducts();
+            showToast('Erreur de connexion', 'error');
+          } finally {
+            setTogglingHomeProdId(null);
+          }
+        };
+
         // Filtered products & pagination (10 products per page)
         const filteredProducts = (products || []).filter(p => {
           if (!p) return false;
@@ -6215,7 +6854,13 @@
             (p.nameAr && p.nameAr.toLowerCase().includes(prodSearch.toLowerCase())) ||
             (p.id && String(p.id).toLowerCase().includes(prodSearch.toLowerCase()));
           const matchCat = prodCat === 'ALL' || String(p.category || '').toLowerCase() === String(prodCat).toLowerCase();
-          return matchSearch && matchCat;
+          const matchHome =
+            prodHomeFilter === 'ALL'
+              ? true
+              : prodHomeFilter === 'HOME_ONLY'
+              ? p.showOnHome !== false
+              : p.showOnHome === false;
+          return matchSearch && matchCat && matchHome;
         });
 
         const totalProdPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
@@ -6695,7 +7340,7 @@
                   <div className="bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden">
                     {/* Search, Filter & Reorder Info Toolbar */}
                     <div className="p-4 border-b border-taupe/15 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between bg-canvas/40">
-                      <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                      <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
                         <input
                           type="text"
                           value={prodSearch}
@@ -6704,7 +7349,7 @@
                             setProdPage(1);
                           }}
                           placeholder="Rechercher par nom ou référence..."
-                          className="w-full sm:w-64 bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
+                          className="w-full sm:w-56 bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
                         />
                         <select
                           value={prodCat}
@@ -6719,9 +7364,22 @@
                             <option key={c} value={c}>{c}</option>
                           ))}
                         </select>
+                        <select
+                          value={prodHomeFilter}
+                          onChange={(e) => {
+                            setProdHomeFilter(e.target.value);
+                            setProdPage(1);
+                          }}
+                          className="bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel font-medium"
+                          title="Filtrer selon la présence sur la Page Principale (Index)"
+                        >
+                          <option value="ALL">Affichage : Tous ({(products || []).length})</option>
+                          <option value="HOME_ONLY">🏠 Sur Page Principale ({(products || []).filter(p => p && p.showOnHome !== false).length})</option>
+                          <option value="CATALOG_ONLY">📂 Catalogue seul ({(products || []).filter(p => p && p.showOnHome === false).length})</option>
+                        </select>
                         <div className="text-[11px] text-taupe-dark bg-white/80 border border-taupe/20 px-2.5 py-1 rounded-xs flex items-center gap-1.5">
                           <span>⇅</span>
-                          <span>Déplacez vos produits (menu <strong>Position 1er, 2e, 3e...</strong>, flèches <strong>↑ ↓</strong> ou glisser-déposer)</span>
+                          <span>Déplacez vos produits ou cochez <strong>🏠 Page Index</strong> pour choisir ceux affichés sur l'accueil</span>
                         </div>
                       </div>
                       <div className="text-xs font-semibold text-taupe-dark whitespace-nowrap flex items-center gap-2 justify-end">
@@ -6746,6 +7404,7 @@
                             <th className="p-3 text-center w-36">Ordre / Position</th>
                             <th className="p-3">Aperçu</th>
                             <th className="p-3">Désignation</th>
+                            <th className="p-3 text-center">Page Principale (Index)</th>
                             <th className="p-3">Catégorie</th>
                             <th className="p-3">Prix</th>
                             <th className="p-3">Stock</th>
@@ -6755,7 +7414,7 @@
                         <tbody className="divide-y divide-taupe/15">
                           {paginatedProducts.length === 0 ? (
                             <tr>
-                              <td colSpan="7" className="p-8 text-center text-taupe-dark">
+                              <td colSpan="8" className="p-8 text-center text-taupe-dark">
                                 Aucun produit ne correspond à votre recherche.
                               </td>
                             </tr>
@@ -6911,16 +7570,36 @@
                                     </div>
                                   </td>
                                   <td className="p-3">
-                                    <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="font-semibold text-noir">{p.nameFr}</span>
                                       {globalRank === 1 && (
                                         <span className="text-[9px] uppercase tracking-wider font-bold text-caramel">
                                           • 1er de la liste
                                         </span>
                                       )}
+                                      {p.videoUrl && String(p.videoUrl).trim() && (
+                                        <span className="px-1.5 py-0.5 bg-noir text-[#E6C687] text-[9px] font-bold uppercase rounded-2xs">
+                                          🎬 Vidéo
+                                        </span>
+                                      )}
                                     </div>
                                     <div className="text-[11px] text-taupe-dark font-arabic">{p.nameAr}</div>
                                     <div className="text-[10px] text-taupe font-mono mt-0.5">REF: {p.id}</div>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <button
+                                      type="button"
+                                      disabled={togglingHomeProdId === p.id}
+                                      onClick={() => handleToggleProductHome(p)}
+                                      className={`px-2.5 py-1.5 rounded-xs border text-[10px] font-bold uppercase tracking-wider transition-all inline-flex items-center gap-1.5 ${
+                                        p.showOnHome !== false
+                                          ? 'bg-emerald-50 border-emerald-400 text-emerald-800 hover:bg-emerald-100'
+                                          : 'bg-canvas border-taupe/35 text-taupe-dark hover:border-noir hover:text-noir'
+                                      }`}
+                                      title="Cliquez pour afficher ou masquer ce produit sur la Page Principale (Index)"
+                                    >
+                                      <span>{p.showOnHome !== false ? '🏠 Oui (Index)' : '📂 Non (Catalogue)'}</span>
+                                    </button>
                                   </td>
                                   <td className="p-3">
                                     <span className="inline-block px-2 py-0.5 bg-canvas border border-taupe/20 text-[10px] text-noir">
@@ -8281,6 +8960,8 @@
         const [stock, setStock] = useState(initialData.stock ?? 10);
         const [category, setCategory] = useState(initialData.category || PRODUCT_CATEGORIES[0]);
         const [badge, setBadge] = useState(initialData.badge || 'new');
+        const [showOnHome, setShowOnHome] = useState(initialData.showOnHome !== false);
+        const [videoUrl, setVideoUrl] = useState(initialData.videoUrl || '');
         const [imagesList, setImagesList] = useState(Array.isArray(initialData.images) ? [...initialData.images] : []);
         const [newImageUrl, setNewImageUrl] = useState('');
         const [draggedImgIdx, setDraggedImgIdx] = useState(null);
@@ -8508,6 +9189,8 @@
               category,
               badge: sumStock <= 0 ? 'out' : (badge === 'out' ? 'new' : badge),
               isNew: badge === 'new',
+              showOnHome: Boolean(showOnHome),
+              videoUrl: (videoUrl || '').trim(),
               rating: initialData.rating || 5,
               images: finalImages.length > 0 ? finalImages : ['data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="%23f3f1ec"/><text x="200" y="200" fill="%23999" text-anchor="middle">MODANOVA</text></svg>'],
               descFr,
@@ -8629,6 +9312,71 @@
                       <option value="out">Rupture</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Visibilité sur la Page Principale (Index / Accueil) */}
+                <div className={`p-3.5 rounded-xs border transition-colors flex items-start justify-between gap-3 ${showOnHome ? 'bg-emerald-50/70 border-emerald-400' : 'bg-card border-taupe/30'}`}>
+                  <label className="flex items-start gap-3 cursor-pointer select-none flex-1">
+                    <input
+                      type="checkbox"
+                      checked={showOnHome}
+                      onChange={(e) => setShowOnHome(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-noir cursor-pointer"
+                    />
+                    <div>
+                      <span className="font-bold uppercase text-[11px] text-noir block">
+                        🏠 Afficher ce produit sur la Page Principale (Index / Accueil)
+                      </span>
+                      <span className="text-[10px] text-taupe-dark block mt-0.5">
+                        {showOnHome
+                          ? "✅ Ce produit est visible sur la Page Principale (Accueil) ET sur la page « Tous les Produits & Filtres »."
+                          : "📂 Ce produit est masqué de la Page Principale (Accueil) et s'affiche uniquement sur la page « Tous les Produits & Filtres » (/produits)."}
+                      </span>
+                    </div>
+                  </label>
+                  <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-2xs shrink-0 ${showOnHome ? 'bg-emerald-700 text-white' : 'bg-taupe/30 text-noir'}`}>
+                    {showOnHome ? 'Sur Index' : 'Catalogue seul'}
+                  </span>
+                </div>
+
+                {/* Section Lien Vidéo du Produit (YouTube, TikTok, Vimeo, Reel, MP4...) */}
+                <div className="border border-taupe/35 bg-white p-4 rounded-xs space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <label className="font-bold uppercase text-[11px] text-noir block">
+                        🎬 Lien Vidéo du Produit (Optionnel)
+                      </label>
+                      <span className="text-[10px] text-taupe-dark block mt-0.5">
+                        Collez un lien vidéo <strong>YouTube</strong>, <strong>YouTube Shorts</strong>, <strong>TikTok</strong>, <strong>Vimeo</strong>, <strong>Google Drive</strong>, <strong>Instagram Reel</strong> ou un lien direct <strong>.mp4 / .webm</strong>.
+                      </span>
+                    </div>
+                    {videoUrl && videoUrl.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setVideoUrl('')}
+                        className="px-2.5 py-1 bg-red-50 hover:bg-red-600 text-red-700 hover:text-white border border-red-200 text-[10px] font-bold rounded-2xs transition-colors shrink-0"
+                      >
+                        ✕ Supprimer vidéo
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="url"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    placeholder="Ex: https://www.youtube.com/watch?v=... ou https://youtu.be/... ou https://.../video.mp4"
+                    className="w-full bg-card border border-taupe/30 px-3 py-2 font-mono text-xs text-noir focus:border-caramel"
+                  />
+                  {videoUrl && videoUrl.trim() && (
+                    <div className="pt-2 border-t border-taupe/15">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-caramel mb-1.5">
+                        ▶ Aperçu en direct de la vidéo :
+                      </div>
+                      <div className="max-w-sm mx-auto">
+                        <ProductVideoPlayer videoUrl={videoUrl} title={nameFr || 'Aperçu Vidéo'} lang={lang} />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Section Upload & Réorganisation des Photos du Produit */}

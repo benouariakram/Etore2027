@@ -1132,6 +1132,14 @@ app.put('/api/products', async (req: Request, res: Response) => {
     computedTotalStock = Object.values(sanitizedVariantStock).reduce((acc, q) => acc + q, 0);
   }
 
+  const showOnHome = product.showOnHome !== undefined
+    ? Boolean(product.showOnHome)
+    : (idx >= 0 && productsStore[idx].showOnHome !== undefined ? Boolean(productsStore[idx].showOnHome) : true);
+
+  const videoUrl = product.videoUrl !== undefined
+    ? String(product.videoUrl || '').trim()
+    : (idx >= 0 ? String(productsStore[idx].videoUrl || '').trim() : '');
+
   const payload = {
     ...product,
     id,
@@ -1139,6 +1147,8 @@ app.put('/api/products', async (req: Request, res: Response) => {
     stock: computedTotalStock,
     inStock: computedTotalStock > 0,
     variantStock: sanitizedVariantStock || (idx >= 0 ? productsStore[idx].variantStock : undefined) || {},
+    showOnHome,
+    videoUrl,
     position: isNewProduct ? 1 : (typeof product.position === 'number' ? product.position : (existingPosition ?? idx + 1)),
     createdAt: isNewProduct ? nowIso : (existingCreatedAt || product.createdAt || nowIso),
     updatedAt: nowIso
@@ -1171,6 +1181,38 @@ app.put('/api/products', async (req: Request, res: Response) => {
   }
 
   return res.json({ ok: true, product: payload, products: productsStore });
+});
+
+// Quick Toggle Product Visibility on Home Page / Index (Admin — Persisted to Firebase Firestore)
+app.patch('/api/products/:id/home-visibility', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const id = Number(req.params.id);
+  const idx = productsStore.findIndex((p: any) => Number(p.id) === id);
+  if (idx < 0) {
+    return res.status(404).json({ error: "Produit introuvable" });
+  }
+  const currentVal = productsStore[idx].showOnHome !== false;
+  const nextVal = req.body && req.body.showOnHome !== undefined ? Boolean(req.body.showOnHome) : !currentVal;
+
+  const updatedProduct = {
+    ...productsStore[idx],
+    showOnHome: nextVal,
+    updatedAt: new Date().toISOString()
+  };
+  productsStore[idx] = updatedProduct;
+  savePersistedStore();
+
+  try {
+    const { saveFirestoreProduct, markCatalogInitialized } = await import('./src/firebase.ts');
+    await saveFirestoreProduct(updatedProduct);
+    await markCatalogInitialized();
+  } catch (err) {
+    console.error('Error updating product home visibility in Firestore:', err);
+  }
+
+  return res.json({ ok: true, product: updatedProduct, products: productsStore });
 });
 
 // Delete product (Admin — Deleted from Firebase Firestore)
@@ -1808,7 +1850,7 @@ async function startServer() {
   app.use(express.static(path.resolve(__dirname, 'public'), { maxAge: '1d', index: false }));
 
   // Serve index.html with dynamic absolute OpenGraph image tags for WhatsApp, Messenger & social crawlers
-  app.get(['/', '/admin', '/produit/*'], (req: Request, res: Response, next) => {
+  app.get(['/', '/admin', '/produit/*', '/produits', '/catalogue', '/products'], (req: Request, res: Response, next) => {
     try {
       const htmlPath = isProduction && fs.existsSync(path.resolve(__dirname, 'dist', 'index.html'))
         ? path.resolve(__dirname, 'dist', 'index.html')

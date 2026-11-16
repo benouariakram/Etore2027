@@ -982,6 +982,125 @@ function getTotalStockForSize(product, size) {
   const colors = Array.isArray(product.colors) && product.colors.length > 0 ? product.colors : ["Default"];
   return colors.reduce((sum, col) => sum + getProductVariantStock(product, size, col), 0);
 }
+function parseVideoEmbedInfo(rawUrl) {
+  const url = String(rawUrl || "").trim();
+  if (!url) return null;
+  const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+  if (ytMatch && ytMatch[1]) {
+    return {
+      type: "iframe",
+      provider: "YouTube",
+      embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}?rel=0&modestbranding=1`,
+      originalUrl: url
+    };
+  }
+  const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  if (vimeoMatch && vimeoMatch[1]) {
+    return {
+      type: "iframe",
+      provider: "Vimeo",
+      embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}`,
+      originalUrl: url
+    };
+  }
+  const tiktokMatch = url.match(/tiktok\.com\/.*\/video\/(\d+)/i);
+  if (tiktokMatch && tiktokMatch[1]) {
+    return {
+      type: "iframe",
+      provider: "TikTok",
+      embedUrl: `https://www.tiktok.com/embed/v2/${tiktokMatch[1]}`,
+      originalUrl: url
+    };
+  }
+  if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url) || url.startsWith("data:video/")) {
+    return {
+      type: "video",
+      provider: "Vid\xE9o HD",
+      embedUrl: url,
+      originalUrl: url
+    };
+  }
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/i);
+  if (driveMatch && driveMatch[1]) {
+    return {
+      type: "iframe",
+      provider: "Google Drive",
+      embedUrl: `https://drive.google.com/file/d/${driveMatch[1]}/preview`,
+      originalUrl: url
+    };
+  }
+  if (url.includes("/embed") || url.includes("player.")) {
+    return {
+      type: "iframe",
+      provider: "Vid\xE9o",
+      embedUrl: url,
+      originalUrl: url
+    };
+  }
+  return {
+    type: "external",
+    provider: "Vid\xE9o",
+    embedUrl: url,
+    originalUrl: url
+  };
+}
+function ProductVideoPlayer({ videoUrl, title, lang }) {
+  const info = parseVideoEmbedInfo(videoUrl);
+  if (!info) return null;
+  if (info.type === "video") {
+    return /* @__PURE__ */ React.createElement("div", { className: "w-full space-y-2" }, /* @__PURE__ */ React.createElement("div", { className: "relative w-full aspect-video bg-black rounded-xs overflow-hidden border border-taupe/25 shadow-sm" }, /* @__PURE__ */ React.createElement(
+      "video",
+      {
+        src: info.embedUrl,
+        controls: true,
+        playsInline: true,
+        preload: "metadata",
+        className: "w-full h-full object-contain bg-black"
+      }
+    )), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between text-[11px] text-taupe-dark" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F3AC} ", lang === "ar" ? "\u0641\u064A\u062F\u064A\u0648 \u0627\u0644\u0645\u0646\u062A\u062C \u0639\u0627\u0644\u064A \u0627\u0644\u062C\u0648\u062F\u0629" : "Vid\xE9o de pr\xE9sentation du produit"), /* @__PURE__ */ React.createElement(
+      "a",
+      {
+        href: info.originalUrl,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        className: "text-caramel hover:underline font-semibold"
+      },
+      lang === "ar" ? "\u0641\u062A\u062D \u0641\u064A \u0646\u0627\u0641\u0630\u0629 \u062C\u062F\u064A\u062F\u0629 \u2197" : "Ouvrir en plein \xE9cran \u2197"
+    )));
+  }
+  if (info.type === "iframe") {
+    return /* @__PURE__ */ React.createElement("div", { className: "w-full space-y-2" }, /* @__PURE__ */ React.createElement("div", { className: "relative w-full aspect-video bg-black rounded-xs overflow-hidden border border-taupe/25 shadow-sm" }, /* @__PURE__ */ React.createElement(
+      "iframe",
+      {
+        src: info.embedUrl,
+        title: title || "Vid\xE9o du produit",
+        className: "w-full h-full border-0",
+        allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share",
+        allowFullScreen: true
+      }
+    )), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between text-[11px] text-taupe-dark" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F3AC} ", info.provider, " \u2014 ", lang === "ar" ? "\u0639\u0631\u0636 \u0641\u064A\u062F\u064A\u0648 \u0627\u0644\u0645\u0646\u062A\u062C" : "Pr\xE9sentation vid\xE9o"), /* @__PURE__ */ React.createElement(
+      "a",
+      {
+        href: info.originalUrl,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        className: "text-caramel hover:underline font-semibold"
+      },
+      lang === "ar" ? "\u0645\u0634\u0627\u0647\u062F\u0629 \u0627\u0644\u0631\u0627\u0628\u0637 \u0627\u0644\u0623\u0635\u0644\u064A \u2197" : "Ouvrir le lien vid\xE9o direct \u2197"
+    )));
+  }
+  return /* @__PURE__ */ React.createElement("div", { className: "w-full p-5 bg-[#141210] text-white rounded-xs border border-caramel/40 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("span", { className: "w-11 h-11 rounded-full bg-caramel text-white flex items-center justify-center text-lg font-bold shrink-0 shadow-xs" }, "\u25B6"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "text-xs font-bold uppercase tracking-wider text-[#E6C687]" }, lang === "ar" ? "\u0641\u064A\u062F\u064A\u0648 \u0639\u0631\u0636 \u0627\u0644\u0645\u0646\u062A\u062C" : "Vid\xE9o de Pr\xE9sentation du Produit"), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-white/80 mt-0.5 break-all line-clamp-1" }, title))), /* @__PURE__ */ React.createElement(
+    "a",
+    {
+      href: info.originalUrl,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      className: "px-5 py-2.5 bg-caramel hover:bg-white text-white hover:text-noir text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shrink-0 flex items-center gap-2 shadow-xs"
+    },
+    /* @__PURE__ */ React.createElement("span", null, "\u25B6"),
+    /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? "\u0645\u0634\u0627\u0647\u062F\u0629 \u0627\u0644\u0641\u064A\u062F\u064A\u0648 \u0627\u0644\u0622\u0646" : "Regarder la Vid\xE9o \u2197")
+  ));
+}
 function ProductDetailPage({
   product,
   allProducts,
@@ -996,6 +1115,7 @@ function ProductDetailPage({
   showToast
 }) {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [mediaMode, setMediaMode] = useState("photos");
   const [selectedSize, setSelectedSize] = useState(() => {
     const sizes = product.sizes && product.sizes.length > 0 ? product.sizes : ["Unique"];
     const colors = product.colors && product.colors.length > 0 ? product.colors : ["Default"];
@@ -1025,13 +1145,16 @@ function ProductDetailPage({
   const prodTouchStartX = useRef(null);
   const imgList = Array.isArray(product.images) && product.images.length > 0 ? product.images : [""];
   const imgCount = imgList.length;
+  const hasVideo = Boolean(product.videoUrl && String(product.videoUrl).trim());
   const prevProdImage = useCallback((e) => {
     if (e && e.stopPropagation) e.stopPropagation();
+    setMediaMode("photos");
     if (imgCount <= 1) return;
     setActiveImageIdx((prev) => (prev - 1 + imgCount) % imgCount);
   }, [imgCount]);
   const nextProdImage = useCallback((e) => {
     if (e && e.stopPropagation) e.stopPropagation();
+    setMediaMode("photos");
     if (imgCount <= 1) return;
     setActiveImageIdx((prev) => (prev + 1) % imgCount);
   }, [imgCount]);
@@ -1069,6 +1192,7 @@ function ProductDetailPage({
   }, []);
   useEffect(() => {
     setActiveImageIdx(0);
+    setMediaMode("photos");
     const sizes = product.sizes && product.sizes.length > 0 ? product.sizes : ["Unique"];
     const colors = product.colors && product.colors.length > 0 ? product.colors : ["Default"];
     let initSize = sizes[0] || "";
@@ -1221,87 +1345,118 @@ Merci de confirmer la disponibilit\xE9 et le cr\xE9neau de livraison.`;
     /* @__PURE__ */ React.createElement(WhatsAppIcon, { className: "w-3.5 h-3.5 fill-white shrink-0" }),
     /* @__PURE__ */ React.createElement("span", { className: "hidden sm:inline" }, t.product_share_whatsapp),
     /* @__PURE__ */ React.createElement("span", { className: "sm:hidden" }, "WhatsApp")
-  )))), /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start" }, /* @__PURE__ */ React.createElement("div", { className: "lg:col-span-7 flex flex-col gap-4" }, /* @__PURE__ */ React.createElement(
-    "div",
+  )))), /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start" }, /* @__PURE__ */ React.createElement("div", { className: "lg:col-span-7 flex flex-col gap-4" }, hasVideo && /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 bg-card p-1.5 border border-taupe/25 rounded-xs" }, /* @__PURE__ */ React.createElement(
+    "button",
     {
-      className: "relative aspect-[3/4] w-full max-h-[580px] bg-[#F7F5F0] border border-taupe/20 overflow-hidden shadow-sm flex items-center justify-center p-4 sm:p-6 group select-none rounded-xs",
-      onTouchStart: (e) => {
-        if (e.touches && e.touches[0]) {
-          prodTouchStartX.current = e.touches[0].clientX;
-        }
-      },
-      onTouchEnd: (e) => {
-        if (prodTouchStartX.current == null || !e.changedTouches || !e.changedTouches[0]) return;
-        const deltaX = e.changedTouches[0].clientX - prodTouchStartX.current;
-        prodTouchStartX.current = null;
-        if (Math.abs(deltaX) > 35) {
-          if (deltaX > 0) prevProdImage();
-          else nextProdImage();
-        }
-      }
+      type: "button",
+      onClick: () => setMediaMode("photos"),
+      className: `flex-1 py-2 px-3 text-xs font-bold uppercase tracking-wider rounded-2xs transition-colors flex items-center justify-center gap-2 ${mediaMode === "photos" ? "bg-noir text-white shadow-2xs" : "text-noir hover:bg-canvas"}`
     },
+    /* @__PURE__ */ React.createElement("span", null, "\u{1F4F8}"),
+    /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? `\u0627\u0644\u0635\u0648\u0631 (${imgCount})` : `Photos (${imgCount})`)
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => setMediaMode("video"),
+      className: `flex-1 py-2 px-3 text-xs font-bold uppercase tracking-wider rounded-2xs transition-colors flex items-center justify-center gap-2 ${mediaMode === "video" ? "bg-caramel text-white shadow-2xs" : "bg-caramel/10 text-noir hover:bg-caramel/20"}`
+    },
+    /* @__PURE__ */ React.createElement("span", null, "\u{1F3AC}"),
+    /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? "\u0645\u0634\u0627\u0647\u062F\u0629 \u0641\u064A\u062F\u064A\u0648 \u0627\u0644\u0645\u0646\u062A\u062C \u25B6" : "Vid\xE9o du Produit \u25B6")
+  )), mediaMode === "video" && hasVideo ? /* @__PURE__ */ React.createElement("div", { className: "bg-[#F7F5F0] border border-taupe/20 p-3 sm:p-5 rounded-xs shadow-sm" }, /* @__PURE__ */ React.createElement(ProductVideoPlayer, { videoUrl: product.videoUrl, title, lang })) : (
+    /* Hero Showcase Frame — Left/Right Slider + Touch Swipe */
     /* @__PURE__ */ React.createElement(
-      "img",
+      "div",
       {
-        src: imgList[activeImageIdx] || imgList[0],
-        alt: title,
-        className: "w-full h-full transition-all duration-300 object-contain"
-      }
-    ),
-    imgCount > 1 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        type: "button",
-        onClick: prevProdImage,
-        className: "absolute start-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95",
-        title: "Photo pr\xE9c\xE9dente (Glisser \xE0 gauche)",
-        "aria-label": "Photo pr\xE9c\xE9dente"
-      },
-      /* @__PURE__ */ React.createElement("svg", { className: "w-5 h-5", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2.2", d: "M15 19l-7-7 7-7" }))
-    ), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        type: "button",
-        onClick: nextProdImage,
-        className: "absolute end-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95",
-        title: "Photo suivante (Glisser \xE0 droite)",
-        "aria-label": "Photo suivante"
-      },
-      /* @__PURE__ */ React.createElement("svg", { className: "w-5 h-5", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2.2", d: "M9 5l7 7-7 7" }))
-    ), /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-3 start-3 z-20 flex items-center gap-2 bg-noir/75 backdrop-blur-xs text-white px-2.5 py-1 rounded-xs" }, /* @__PURE__ */ React.createElement("span", { className: "font-mono text-[11px] font-bold tabular-nums" }, activeImageIdx + 1, " / ", imgCount), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1" }, imgList.map((_, dotIdx) => /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        key: dotIdx,
-        type: "button",
-        onClick: (e) => {
-          e.stopPropagation();
-          setActiveImageIdx(dotIdx);
+        className: "relative aspect-[3/4] w-full max-h-[580px] bg-[#F7F5F0] border border-taupe/20 overflow-hidden shadow-sm flex items-center justify-center p-4 sm:p-6 group select-none rounded-xs",
+        onTouchStart: (e) => {
+          if (e.touches && e.touches[0]) {
+            prodTouchStartX.current = e.touches[0].clientX;
+          }
         },
-        className: `h-1.5 rounded-full transition-all ${activeImageIdx === dotIdx ? "w-4 bg-caramel" : "w-1.5 bg-white/50 hover:bg-white"}`,
-        "aria-label": `Aller \xE0 la photo ${dotIdx + 1}`
-      }
-    ))))),
-    /* @__PURE__ */ React.createElement("div", { className: "absolute top-4 start-4 flex flex-col gap-1 z-10" }, isOut ? /* @__PURE__ */ React.createElement("span", { className: "bg-noir/90 text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider" }, t.badge_out) : product.badge === "exclusive" ? /* @__PURE__ */ React.createElement("span", { className: "bg-caramel text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider" }, t.badge_exclusive) : product.badge === "luxury" ? /* @__PURE__ */ React.createElement("span", { className: "bg-[#4A3525] text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider" }, t.badge_luxury) : product.isNew ? /* @__PURE__ */ React.createElement("span", { className: "bg-noir text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider" }, t.badge_new) : null),
-    /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        type: "button",
-        onClick: () => toggleWishlist(product.id),
-        className: "absolute top-4 end-4 w-9 h-9 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110 active:scale-95",
-        "aria-label": "Wishlist"
+        onTouchEnd: (e) => {
+          if (prodTouchStartX.current == null || !e.changedTouches || !e.changedTouches[0]) return;
+          const deltaX = e.changedTouches[0].clientX - prodTouchStartX.current;
+          prodTouchStartX.current = null;
+          if (Math.abs(deltaX) > 35) {
+            if (deltaX > 0) prevProdImage();
+            else nextProdImage();
+          }
+        }
       },
       /* @__PURE__ */ React.createElement(
-        "svg",
+        "img",
         {
-          className: `w-4 h-4 transition-colors ${isWish ? "fill-caramel text-caramel animate-heart-pop" : "text-noir/60 hover:text-noir"}`,
-          viewBox: "0 0 24 24",
-          stroke: "currentColor",
-          strokeWidth: "1.75"
+          src: imgList[activeImageIdx] || imgList[0],
+          alt: title,
+          className: "w-full h-full transition-all duration-300 object-contain"
+        }
+      ),
+      imgCount > 1 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          type: "button",
+          onClick: prevProdImage,
+          className: "absolute start-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95",
+          title: "Photo pr\xE9c\xE9dente (Glisser \xE0 gauche)",
+          "aria-label": "Photo pr\xE9c\xE9dente"
         },
-        /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" })
+        /* @__PURE__ */ React.createElement("svg", { className: "w-5 h-5", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2.2", d: "M15 19l-7-7 7-7" }))
+      ), /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          type: "button",
+          onClick: nextProdImage,
+          className: "absolute end-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95",
+          title: "Photo suivante (Glisser \xE0 droite)",
+          "aria-label": "Photo suivante"
+        },
+        /* @__PURE__ */ React.createElement("svg", { className: "w-5 h-5", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2.2", d: "M9 5l7 7-7 7" }))
+      ), /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-3 start-3 z-20 flex items-center gap-2 bg-noir/75 backdrop-blur-xs text-white px-2.5 py-1 rounded-xs" }, /* @__PURE__ */ React.createElement("span", { className: "font-mono text-[11px] font-bold tabular-nums" }, activeImageIdx + 1, " / ", imgCount), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1" }, imgList.map((_, dotIdx) => /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          key: dotIdx,
+          type: "button",
+          onClick: (e) => {
+            e.stopPropagation();
+            setActiveImageIdx(dotIdx);
+          },
+          className: `h-1.5 rounded-full transition-all ${activeImageIdx === dotIdx ? "w-4 bg-caramel" : "w-1.5 bg-white/50 hover:bg-white"}`,
+          "aria-label": `Aller \xE0 la photo ${dotIdx + 1}`
+        }
+      ))))),
+      hasVideo && /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          type: "button",
+          onClick: () => setMediaMode("video"),
+          className: "absolute bottom-3 end-3 z-20 px-3 py-1.5 bg-caramel hover:bg-noir text-white text-xs font-bold uppercase tracking-wider rounded-xs shadow-md flex items-center gap-1.5 transition-all"
+        },
+        /* @__PURE__ */ React.createElement("span", null, "\u25B6"),
+        /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? "\u0641\u064A\u062F\u064A\u0648 \u0627\u0644\u0645\u0646\u062A\u062C" : "Voir la Vid\xE9o")
+      ),
+      /* @__PURE__ */ React.createElement("div", { className: "absolute top-4 start-4 flex flex-col gap-1 z-10" }, isOut ? /* @__PURE__ */ React.createElement("span", { className: "bg-noir/90 text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider" }, t.badge_out) : product.badge === "exclusive" ? /* @__PURE__ */ React.createElement("span", { className: "bg-caramel text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider" }, t.badge_exclusive) : product.badge === "luxury" ? /* @__PURE__ */ React.createElement("span", { className: "bg-[#4A3525] text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider" }, t.badge_luxury) : product.isNew ? /* @__PURE__ */ React.createElement("span", { className: "bg-noir text-white text-[11px] font-bold px-2.5 py-1 uppercase tracking-wider" }, t.badge_new) : null),
+      /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          type: "button",
+          onClick: () => toggleWishlist(product.id),
+          className: "absolute top-4 end-4 w-9 h-9 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-sm hover:scale-110 active:scale-95",
+          "aria-label": "Wishlist"
+        },
+        /* @__PURE__ */ React.createElement(
+          "svg",
+          {
+            className: `w-4 h-4 transition-colors ${isWish ? "fill-caramel text-caramel animate-heart-pop" : "text-noir/60 hover:text-noir"}`,
+            viewBox: "0 0 24 24",
+            stroke: "currentColor",
+            strokeWidth: "1.75"
+          },
+          /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" })
+        )
       )
     )
-  ), imgCount > 1 && /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement(
+  ), (imgCount > 1 || hasVideo) && /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, imgCount > 1 && /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -1316,11 +1471,24 @@ Merci de confirmer la disponibilit\xE9 et le cr\xE9neau de livraison.`;
     {
       key: i,
       type: "button",
-      onClick: () => setActiveImageIdx(i),
-      className: `w-20 h-24 sm:w-24 sm:h-28 shrink-0 border-2 overflow-hidden bg-[#F7F5F0] p-1.5 transition-all duration-200 relative rounded-xs flex items-center justify-center ${activeImageIdx === i ? "border-caramel scale-102 shadow-sm ring-1 ring-caramel/30" : "border-taupe/20 opacity-70 hover:opacity-100 hover:border-noir/40"}`
+      onClick: () => {
+        setMediaMode("photos");
+        setActiveImageIdx(i);
+      },
+      className: `w-20 h-24 sm:w-24 sm:h-28 shrink-0 border-2 overflow-hidden bg-[#F7F5F0] p-1.5 transition-all duration-200 relative rounded-xs flex items-center justify-center ${mediaMode === "photos" && activeImageIdx === i ? "border-caramel scale-102 shadow-sm ring-1 ring-caramel/30" : "border-taupe/20 opacity-70 hover:opacity-100 hover:border-noir/40"}`
     },
     /* @__PURE__ */ React.createElement("img", { src: img, alt: "", className: "w-full h-full object-contain block" })
-  ))), /* @__PURE__ */ React.createElement(
+  )), hasVideo && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => setMediaMode("video"),
+      className: `w-20 h-24 sm:w-24 sm:h-28 shrink-0 border-2 overflow-hidden bg-[#141210] text-white p-2 transition-all duration-200 relative rounded-xs flex flex-col items-center justify-center gap-1 ${mediaMode === "video" ? "border-caramel scale-102 shadow-sm ring-1 ring-caramel/40" : "border-taupe/30 opacity-85 hover:opacity-100 hover:border-caramel"}`,
+      title: "Regarder la vid\xE9o du produit"
+    },
+    /* @__PURE__ */ React.createElement("span", { className: "w-8 h-8 rounded-full bg-caramel text-white flex items-center justify-center text-xs font-bold" }, "\u25B6"),
+    /* @__PURE__ */ React.createElement("span", { className: "text-[10px] font-bold uppercase tracking-wider text-[#E6C687]" }, "Vid\xE9o")
+  )), imgCount > 1 && /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -1330,7 +1498,15 @@ Merci de confirmer la disponibilit\xE9 et le cr\xE9neau de livraison.`;
       "aria-label": "Photo suivante"
     },
     "\u203A"
-  )), /* @__PURE__ */ React.createElement("div", { className: "mt-2 p-3 bg-card border border-taupe/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs max-w-full overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 min-w-0 max-w-full overflow-hidden" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-noir shrink-0" }, "\u{1F517} Lien direct :"), /* @__PURE__ */ React.createElement("span", { className: "font-mono text-[11px] truncate min-w-0 select-all text-taupe-dark block" }, currentUrl)), /* @__PURE__ */ React.createElement(
+  )), hasVideo && mediaMode !== "video" && /* @__PURE__ */ React.createElement("div", { className: "bg-card border border-taupe/25 p-4 rounded-xs space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-bold uppercase tracking-wider text-noir flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F3AC}"), /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? "\u0641\u064A\u062F\u064A\u0648 \u0627\u0644\u0645\u0646\u062A\u062C" : "Vid\xE9o de Pr\xE9sentation")), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => setMediaMode("video"),
+      className: "text-[11px] font-semibold text-caramel hover:underline"
+    },
+    lang === "ar" ? "\u062A\u0643\u0628\u064A\u0631 \u0627\u0644\u0641\u064A\u062F\u064A\u0648 \u2191" : "Afficher en grand \u2191"
+  )), /* @__PURE__ */ React.createElement(ProductVideoPlayer, { videoUrl: product.videoUrl, title, lang })), /* @__PURE__ */ React.createElement("div", { className: "mt-2 p-3 bg-card border border-taupe/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs max-w-full overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 min-w-0 max-w-full overflow-hidden" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-noir shrink-0" }, "\u{1F517} Lien direct :"), /* @__PURE__ */ React.createElement("span", { className: "font-mono text-[11px] truncate min-w-0 select-all text-taupe-dark block" }, currentUrl)), /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -1460,7 +1636,7 @@ Merci de confirmer la disponibilit\xE9 et le cr\xE9neau de livraison.`;
       className: "px-4 py-2.5 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shadow-xs"
     },
     isOut ? t.out_of_stock : "Commander"
-  ))), sizeGuideOpen && /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-[140] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-modal-pop" }, /* @__PURE__ */ React.createElement("div", { className: "bg-canvas border border-taupe/30 max-w-lg w-full p-6 shadow-2xl relative rounded-xs" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between pb-3 border-b border-taupe/20 mb-4" }, /* @__PURE__ */ React.createElement("h3", { className: "font-serif text-xl font-bold text-noir" }, "Guide des Tailles \u2014 MODANOVA"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setSizeGuideOpen(false), className: "text-noir/60 hover:text-noir text-lg" }, "\u2715")), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-taupe-dark mb-4" }, "Toutes nos cr\xE9ations sont taill\xE9es selon les normes europ\xE9ennes et marocaines artisanales avec une coupe pr\xE9cise et confortable."), /* @__PURE__ */ React.createElement("table", { className: "w-full text-xs text-left border-collapse border border-taupe/25 mb-4" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { className: "bg-card font-bold text-noir" }, /* @__PURE__ */ React.createElement("th", { className: "p-2.5 border border-taupe/20" }, "Pointure / Taille"), /* @__PURE__ */ React.createElement("th", { className: "p-2.5 border border-taupe/20" }, "Maroc / UE"), /* @__PURE__ */ React.createElement("th", { className: "p-2.5 border border-taupe/20" }, "Longueur (cm)"))), /* @__PURE__ */ React.createElement("tbody", { className: "divide-y divide-taupe/15 text-taupe-dark" }, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "40"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "40"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "25.5 cm")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "41"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "41"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "26.2 cm")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "42"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "42"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "27.0 cm")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "43"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "43"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "27.7 cm")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "44"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "44"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "28.5 cm")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "45"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "45"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "29.2 cm")))), /* @__PURE__ */ React.createElement("div", { className: "p-3 bg-card/60 text-[11px] text-taupe-dark border border-taupe/20 rounded-xs flex items-center justify-between" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F4A1} En cas de doute entre deux pointures, nous vous conseillons de choisir la pointure au-dessus. \xC9change gratuit sous 7 jours partout au Maroc.")))), related.length > 0 && /* @__PURE__ */ React.createElement("section", { className: "border-t border-taupe/20 bg-card/40 py-16" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-8" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-1" }, "MODANOVA MEN'S ESSENTIALS"), /* @__PURE__ */ React.createElement("h2", { className: "font-serif italic text-2xl sm:text-3xl text-noir font-normal" }, t.product_related_title)), /* @__PURE__ */ React.createElement(
+  ))), sizeGuideOpen && /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-[140] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-modal-pop" }, /* @__PURE__ */ React.createElement("div", { className: "bg-canvas border border-taupe/30 max-w-lg w-full p-6 shadow-2xl relative rounded-xs" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between pb-3 border-b border-taupe/20 mb-4" }, /* @__PURE__ */ React.createElement("h3", { className: "font-serif text-xl font-bold text-noir" }, "Guide des Tailles \u2014 MODANOVA"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setSizeGuideOpen(false), className: "text-noir/60 hover:text-noir text-lg" }, "\u2715")), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-taupe-dark mb-4" }, "Toutes nos cr\xE9ations sont taill\xE9es selon les normes europ\xE9ennes et marocaines artisanales avec une coupe pr\xE9cise et confortable."), /* @__PURE__ */ React.createElement("table", { className: "w-full text-xs text-left border-collapse border border-taupe/25 mb-4" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { className: "bg-card font-bold text-noir" }, /* @__PURE__ */ React.createElement("th", { className: "p-2.5 border border-taupe/20" }, "Pointure / Taille"), /* @__PURE__ */ React.createElement("th", { className: "p-2.5 border border-taupe/20" }, "Maroc / UE"), /* @__PURE__ */ React.createElement("th", { className: "p-2.5 border border-taupe/20" }, "Longueur (cm)"))), /* @__PURE__ */ React.createElement("tbody", { className: "divide-y divide-taupe/15 text-taupe-dark" }, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "40"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "40"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "25.5 cm")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "41"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "41"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "26.2 cm")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "42"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "42"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "27.0 cm")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "43"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "43"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "27.7 cm")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "44"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "44"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "28.5 cm")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20 font-semibold text-noir" }, "45"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "45"), /* @__PURE__ */ React.createElement("td", { className: "p-2 border border-taupe/20" }, "29.2 cm")))), /* @__PURE__ */ React.createElement("div", { className: "p-3 bg-card/60 text-[11px] text-taupe-dark border border-taupe/20 rounded-xs flex items-center justify-between" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F4A1} En cas de doute entre deux pointures, nous vous conseillons de choisir la pointure au-dessus. \xC9change gratuit sous 7 jours partout au Maroc.")))), related.length > 0 && /* @__PURE__ */ React.createElement("section", { className: "border-t border-taupe/20 bg-card/40 py-12 sm:py-16" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto px-3 sm:px-6 lg:px-8" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-6 sm:mb-8" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-1" }, "MODANOVA MEN'S ESSENTIALS"), /* @__PURE__ */ React.createElement("h2", { className: "font-serif italic text-2xl sm:text-3xl text-noir font-normal" }, t.product_related_title)), /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -1468,26 +1644,26 @@ Merci de confirmer la disponibilit\xE9 et le cr\xE9neau de livraison.`;
       className: "text-xs font-semibold text-caramel hover:underline uppercase tracking-wider"
     },
     "Voir toute la collection \u2192"
-  )), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" }, related.map((p) => {
+  )), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6" }, related.map((p) => {
     const relTitle = lang === "ar" ? p.nameAr || p.nameFr : p.nameFr;
     return /* @__PURE__ */ React.createElement(
       "div",
       {
         key: p.id,
         onClick: () => onSelectProduct(p.id),
-        className: "group cursor-pointer bg-card border border-taupe/20 p-4 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1"
+        className: "group cursor-pointer bg-card border border-taupe/20 p-2.5 sm:p-4 transition-all duration-300 hover:border-taupe/50 hover:shadow-md hover:-translate-y-1 flex flex-col"
       },
-      /* @__PURE__ */ React.createElement("div", { className: "relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden mb-3 rounded-xs p-3 flex items-center justify-center" }, /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ React.createElement("div", { className: "relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden mb-2.5 sm:mb-3 rounded-xs p-2 sm:p-3 flex items-center justify-center" }, /* @__PURE__ */ React.createElement(
         "img",
         {
           src: p.images && p.images[0],
           alt: relTitle,
           className: "w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
         }
-      )),
-      /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-taupe-dark uppercase tracking-wider mb-1" }, p.category),
-      /* @__PURE__ */ React.createElement("h3", { className: "font-serif text-lg font-semibold text-noir mb-2 group-hover:text-caramel transition-colors" }, relTitle),
-      /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline justify-between pt-2 border-t border-taupe/15" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-sm text-noir tabular-nums" }, Number(p.price).toLocaleString(), " MAD"), /* @__PURE__ */ React.createElement("span", { className: "text-xs text-caramel font-semibold" }, "Voir la page \u2192"))
+      ), p.videoUrl && /* @__PURE__ */ React.createElement("span", { className: "absolute bottom-2 start-2 bg-noir/85 text-[#E6C687] text-[9px] font-bold px-1.5 py-0.5 rounded-2xs flex items-center gap-1" }, /* @__PURE__ */ React.createElement("span", null, "\u25B6"), /* @__PURE__ */ React.createElement("span", null, "Vid\xE9o"))),
+      /* @__PURE__ */ React.createElement("div", { className: "text-[9px] sm:text-[10px] text-taupe-dark uppercase tracking-wider mb-1 truncate" }, p.category),
+      /* @__PURE__ */ React.createElement("h3", { className: "font-serif text-sm sm:text-lg font-semibold text-noir mb-2 group-hover:text-caramel transition-colors line-clamp-1" }, relTitle),
+      /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline justify-between pt-2 border-t border-taupe/15 mt-auto" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-xs sm:text-sm text-noir tabular-nums" }, Number(p.price).toLocaleString(), " MAD"), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] sm:text-xs text-caramel font-semibold" }, "Voir \u2192"))
     );
   })))));
 }
@@ -1645,7 +1821,11 @@ function App() {
   }, [appliedPromo]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedSizeFilter, setSelectedSizeFilter] = useState("all");
+  const [selectedColorFilter, setSelectedColorFilter] = useState("all");
+  const [priceRangeFilter, setPriceRangeFilter] = useState("all");
   const [onlyInStock, setOnlyInStock] = useState(false);
+  const [onlyWithVideo, setOnlyWithVideo] = useState(false);
   const [sortOrder, setSortOrder] = useState("default");
   const [gridCols, setGridCols] = useState(3);
   const [catalogPage, setCatalogPage] = useState(1);
@@ -1691,6 +1871,20 @@ function App() {
     }
     return null;
   };
+  const checkIsProductsPageURL = () => {
+    try {
+      const p = (window.location.pathname || "").toLowerCase().replace(/\/+$/, "");
+      const h = (window.location.hash || "").toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      const pageParam = (params.get("page") || "").toLowerCase();
+      if (p === "/produits" || p === "/catalogue" || p === "/products") return true;
+      if (pageParam === "produits" || pageParam === "catalogue" || pageParam === "products") return true;
+      if (h === "#produits" || h === "#catalogue" || h === "#/produits") return true;
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
   const checkIsAdminURL = () => {
     try {
       const p = (window.location.pathname || "").toLowerCase();
@@ -1702,6 +1896,7 @@ function App() {
     }
   };
   const [selectedProductIdentifier, setSelectedProductIdentifier] = useState(() => getProductIdentifierFromURL());
+  const [isProductsPage, setIsProductsPage] = useState(() => checkIsProductsPageURL());
   const [directCheckoutItem, setDirectCheckoutItem] = useState(null);
   const navigateToProduct = useCallback((target) => {
     if (!target) return;
@@ -1717,8 +1912,24 @@ function App() {
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [products]);
+  const navigateToProductsPage = useCallback((initialCategory = null) => {
+    setSelectedProductIdentifier(null);
+    setIsProductsPage(true);
+    setCatalogPage(1);
+    if (initialCategory && typeof initialCategory === "string") {
+      setSelectedCategory(initialCategory);
+    }
+    try {
+      window.history.pushState({ page: "produits" }, "", "/produits");
+    } catch (e) {
+      window.history.pushState({ page: "produits" }, "", "?page=produits");
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
   const backToHome = useCallback(() => {
     setSelectedProductIdentifier(null);
+    setIsProductsPage(false);
+    setCatalogPage(1);
     try {
       window.history.pushState({}, "", "/");
     } catch (e) {
@@ -1730,6 +1941,7 @@ function App() {
     const handleUrlChange = () => {
       const id = getProductIdentifierFromURL();
       setSelectedProductIdentifier(id);
+      setIsProductsPage(checkIsProductsPageURL());
       if (checkIsAdminURL()) {
         setAdminOpen(true);
       }
@@ -1759,10 +1971,12 @@ function App() {
     if (selectedProduct) {
       const prodName = lang === "ar" ? selectedProduct.nameAr || selectedProduct.nameFr : selectedProduct.nameFr;
       document.title = `${prodName} | ${t.brand} \u2014 Men's Essentials`;
+    } else if (isProductsPage) {
+      document.title = `${lang === "ar" ? "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A \u0648\u0627\u0644\u0641\u0644\u062A\u0631\u0629" : "Tous les Produits & Filtres"} | ${t.brand} \u2014 Men's Essentials`;
     } else {
       document.title = `${t.brand} \u2014 Men's Essentials | Luxe Minimaliste Maroc`;
     }
-  }, [selectedProduct, lang, t]);
+  }, [selectedProduct, isProductsPage, lang, t]);
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
@@ -2069,13 +2283,73 @@ function App() {
     setQuickViewSize(product.sizes && product.sizes[0] || "");
     setQuickViewColor(product.colors && product.colors[0] || "");
   };
+  const availableFilterSizes = useMemo(() => {
+    const set = /* @__PURE__ */ new Set();
+    (products || []).forEach((p) => {
+      if (Array.isArray(p?.sizes)) {
+        p.sizes.forEach((sz) => {
+          const clean = String(sz || "").trim();
+          if (clean) set.add(clean);
+        });
+      }
+    });
+    return Array.from(set);
+  }, [products]);
+  const availableFilterColors = useMemo(() => {
+    const map = /* @__PURE__ */ new Map();
+    (products || []).forEach((p) => {
+      if (Array.isArray(p?.colors)) {
+        p.colors.forEach((col) => {
+          const labelFr = getColorLabel(col, "fr");
+          const key = labelFr.toLowerCase();
+          if (key && !map.has(key)) {
+            map.set(key, {
+              key,
+              raw: col,
+              labelFr,
+              labelAr: getColorLabel(col, "ar"),
+              hex: getColorCss(col)
+            });
+          }
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [products]);
+  const resetAllCatalogFilters = useCallback(() => {
+    setSelectedCategory("all");
+    setSelectedSizeFilter("all");
+    setSelectedColorFilter("all");
+    setPriceRangeFilter("all");
+    setOnlyInStock(false);
+    setOnlyWithVideo(false);
+    setSearchQuery("");
+    setSortOrder("default");
+    setCatalogPage(1);
+  }, []);
   const filteredProducts = useMemo(() => {
     const list = products.filter((p) => {
+      if (!p) return false;
+      if (!isProductsPage && p.showOnHome === false) return false;
       if (selectedCategory !== "all" && String(p.category || "").trim().toLowerCase() !== String(selectedCategory).trim().toLowerCase()) return false;
+      if (selectedSizeFilter !== "all") {
+        const pSizes = Array.isArray(p.sizes) ? p.sizes.map((s) => String(s || "").trim().toLowerCase()) : [];
+        if (!pSizes.includes(String(selectedSizeFilter).trim().toLowerCase())) return false;
+        if (onlyInStock && !isSizeAvailableInAnyColor(p, selectedSizeFilter)) return false;
+      }
+      if (selectedColorFilter !== "all") {
+        const pColors = Array.isArray(p.colors) ? p.colors.map((c) => getColorLabel(c, "fr").toLowerCase()) : [];
+        if (!pColors.includes(String(selectedColorFilter).trim().toLowerCase())) return false;
+      }
+      const priceNum = Number(p.price || 0);
+      if (priceRangeFilter === "under300" && priceNum >= 300) return false;
+      if (priceRangeFilter === "300to500" && (priceNum < 300 || priceNum > 500)) return false;
+      if (priceRangeFilter === "over500" && priceNum <= 500) return false;
       if (onlyInStock && (!p.inStock || p.stock <= 0)) return false;
+      if (onlyWithVideo && !String(p.videoUrl || "").trim()) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const matchFr = (p.nameFr || "").toLowerCase().includes(q) || (p.descFr || "").toLowerCase().includes(q);
+        const matchFr = (p.nameFr || "").toLowerCase().includes(q) || (p.descFr || "").toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q);
         const matchAr = (p.nameAr || "").toLowerCase().includes(q) || (p.descAr || "").toLowerCase().includes(q);
         if (!matchFr && !matchAr) return false;
       }
@@ -2084,7 +2358,7 @@ function App() {
     if (sortOrder === "asc") return [...list].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
     if (sortOrder === "desc") return [...list].sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
     return list;
-  }, [products, selectedCategory, onlyInStock, searchQuery, sortOrder]);
+  }, [products, isProductsPage, selectedCategory, selectedSizeFilter, selectedColorFilter, priceRangeFilter, onlyInStock, onlyWithVideo, searchQuery, sortOrder]);
   const totalCatalogPages = Math.max(1, Math.ceil(filteredProducts.length / CATALOG_PER_PAGE));
   const safeCatalogPage = Math.min(Math.max(1, catalogPage), totalCatalogPages);
   const startCatalogIdx = (safeCatalogPage - 1) * CATALOG_PER_PAGE;
@@ -2148,29 +2422,35 @@ function App() {
       "aria-label": "Menu"
     },
     /* @__PURE__ */ React.createElement("svg", { className: "w-6 h-6", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "1.75", d: "M4 6h16M4 12h16M4 18h16" }))
-  ), /* @__PURE__ */ React.createElement("nav", { className: "hidden md:flex items-center gap-8 text-sm font-medium tracking-wide" }, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("nav", { className: "hidden md:flex items-center gap-6 text-sm font-medium tracking-wide" }, /* @__PURE__ */ React.createElement(
     "a",
     {
-      href: "#collection",
+      href: "/",
       onClick: (e) => {
-        if (selectedProductId) {
-          e.preventDefault();
-          backToHome();
-          setTimeout(() => {
-            const el = document.getElementById("collection");
-            if (el) el.scrollIntoView({ behavior: "smooth" });
-          }, 60);
-        }
+        e.preventDefault();
+        backToHome();
       },
-      className: "nav-link-indicator py-1 text-noir hover:text-caramel transition-colors whitespace-nowrap"
+      className: `nav-link-indicator py-1 transition-colors whitespace-nowrap ${!selectedProductId && !isProductsPage ? "text-caramel font-semibold" : "text-noir hover:text-caramel"}`
     },
-    t.nav_collection
+    lang === "ar" ? "\u0627\u0644\u0631\u0626\u064A\u0633\u064A\u0629" : "Accueil"
+  ), /* @__PURE__ */ React.createElement(
+    "a",
+    {
+      href: "/produits",
+      onClick: (e) => {
+        e.preventDefault();
+        navigateToProductsPage();
+      },
+      className: `nav-link-indicator py-1 transition-colors whitespace-nowrap flex items-center gap-1.5 ${!selectedProductId && isProductsPage ? "text-caramel font-semibold" : "text-noir hover:text-caramel"}`
+    },
+    /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A" : "Tous les Produits"),
+    /* @__PURE__ */ React.createElement("span", { className: "text-[10px] font-mono text-taupe-dark" }, "(", products.length, ")")
   ), /* @__PURE__ */ React.createElement(
     "a",
     {
       href: "#savoir-faire",
       onClick: (e) => {
-        if (selectedProductId) {
+        if (selectedProductId || isProductsPage) {
           e.preventDefault();
           backToHome();
           setTimeout(() => {
@@ -2187,7 +2467,7 @@ function App() {
     {
       href: "#temoignages",
       onClick: (e) => {
-        if (selectedProductId) {
+        if (selectedProductId || isProductsPage) {
           e.preventDefault();
           backToHome();
           setTimeout(() => {
@@ -2288,7 +2568,7 @@ function App() {
       className: "px-6 py-3 bg-noir text-white text-xs font-semibold uppercase tracking-wider hover:bg-caramel transition-colors"
     },
     t.product_back_to_collection
-  )) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+  )) : /* @__PURE__ */ React.createElement(React.Fragment, null, !isProductsPage && /* @__PURE__ */ React.createElement(
     "section",
     {
       className: "relative overflow-hidden bg-noir select-none border-b border-taupe/20",
@@ -2414,23 +2694,47 @@ function App() {
       );
     }))),
     /* @__PURE__ */ React.createElement("div", { className: "relative z-20 bg-black/55 backdrop-blur-md border-t border-white/10 py-4 px-4" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4 text-center text-xs text-white/90" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-2.5" }, /* @__PURE__ */ React.createElement("span", { className: "text-base" }, "\u{1F1F2}\u{1F1E6}"), /* @__PURE__ */ React.createElement("span", { className: "font-medium tracking-wide" }, t.trust_delivery)), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-2.5" }, /* @__PURE__ */ React.createElement("span", { className: "text-base" }, "\u{1F4B5}"), /* @__PURE__ */ React.createElement("span", { className: "font-medium tracking-wide" }, t.trust_cod)), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-2.5" }, /* @__PURE__ */ React.createElement("span", { className: "text-base" }, "\u2728"), /* @__PURE__ */ React.createElement("span", { className: "font-medium tracking-wide" }, t.trust_exchange))))
-  ), /* @__PURE__ */ React.createElement("section", { id: "collection", className: "py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b border-taupe/15 pb-8" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-2" }, t.brand, " ATELIER"), /* @__PURE__ */ React.createElement("h2", { className: "font-serif text-3xl sm:text-4xl text-noir font-normal" }, t.nav_collection)), /* @__PURE__ */ React.createElement("div", { className: "relative w-full md:w-80" }, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("section", { id: "collection", className: `${isProductsPage ? "py-8 sm:py-14" : "py-14 sm:py-24"} max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 w-full` }, isProductsPage && /* @__PURE__ */ React.createElement("div", { className: "mb-6 pb-4 border-b border-taupe/20 flex flex-wrap items-center justify-between gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 text-xs text-taupe-dark" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: backToHome,
+      className: "hover:text-noir font-medium transition-colors flex items-center gap-1"
+    },
+    /* @__PURE__ */ React.createElement("span", null, "\u2190"),
+    /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? "\u0627\u0644\u0631\u0626\u064A\u0633\u064A\u0629" : "Accueil")
+  ), /* @__PURE__ */ React.createElement("span", null, "/"), /* @__PURE__ */ React.createElement("span", { className: "text-noir font-semibold" }, lang === "ar" ? "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A \u0648\u0627\u0644\u0641\u0644\u062A\u0631\u0629" : "Tous les Produits & Filtres")), /* @__PURE__ */ React.createElement("span", { className: "text-xs font-mono text-taupe-dark" }, filteredProducts.length, " / ", products.length, " ", lang === "ar" ? "\u0645\u0646\u062A\u062C" : "produits affich\xE9s")), /* @__PURE__ */ React.createElement("div", { className: "flex flex-col md:flex-row md:items-end justify-between gap-5 mb-8 border-b border-taupe/15 pb-6" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-2" }, isProductsPage ? lang === "ar" ? "\u0627\u0644\u0643\u062A\u0627\u0644\u0648\u062C \u0627\u0644\u0643\u0627\u0645\u0644 \u0648\u0627\u0644\u0641\u0644\u062A\u0631\u0629 \u0627\u0644\u0645\u062A\u0642\u062F\u0645\u0629" : "CATALOGUE COMPLET & RECHERCHE AVANC\xC9E" : `${t.brand} ATELIER \u2014 S\xC9LECTION ACCUEIL`), /* @__PURE__ */ React.createElement("h2", { className: "font-serif text-2xl sm:text-4xl text-noir font-normal" }, isProductsPage ? lang === "ar" ? "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A" : "Tous nos Produits" : t.nav_collection)), /* @__PURE__ */ React.createElement("div", { className: "flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto" }, /* @__PURE__ */ React.createElement("div", { className: "relative w-full sm:w-72" }, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "text",
       value: searchQuery,
-      onChange: (e) => setSearchQuery(e.target.value),
+      onChange: (e) => {
+        setSearchQuery(e.target.value);
+        setCatalogPage(1);
+      },
       placeholder: t.search_placeholder,
       className: "w-full bg-card border border-taupe/30 px-4 py-2.5 ps-10 text-xs text-noir rounded-none focus:border-caramel focus:bg-white transition-colors"
     }
-  ), /* @__PURE__ */ React.createElement("svg", { className: "w-4 h-4 text-taupe absolute start-3 top-3.5", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2", d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" })), searchQuery && /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("svg", { className: "w-4 h-4 text-taupe absolute start-3 top-3", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2", d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" })), searchQuery && /* @__PURE__ */ React.createElement(
     "button",
     {
-      onClick: () => setSearchQuery(""),
-      className: "absolute end-3 top-3 text-taupe hover:text-noir text-xs"
+      onClick: () => {
+        setSearchQuery("");
+        setCatalogPage(1);
+      },
+      className: "absolute end-3 top-2.5 text-taupe hover:text-noir text-xs"
     },
     "\u2715"
-  ))), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center justify-between gap-4 mb-8 bg-card/60 p-4 border border-taupe/15" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center gap-1.5 max-w-full overflow-x-auto pb-1" }, [
+  )), !isProductsPage && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => navigateToProductsPage(),
+      className: "px-4 py-2.5 bg-noir hover:bg-caramel text-white text-xs font-semibold uppercase tracking-wider transition-colors whitespace-nowrap flex items-center justify-center gap-2 shadow-xs"
+    },
+    /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A \u0648\u0627\u0644\u0641\u0644\u062A\u0631\u0629" : "Tous les Produits & Filtres"),
+    /* @__PURE__ */ React.createElement("span", { className: "font-mono text-[11px] opacity-80" }, "(", products.length, ") \u2192")
+  ))), /* @__PURE__ */ React.createElement("div", { className: "mb-8 bg-card/60 p-3.5 sm:p-5 border border-taupe/15 space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center justify-between gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center gap-1.5 max-w-full overflow-x-auto pb-1" }, [
     { id: "all", label: t.filter_all },
     ...PRODUCT_CATEGORIES.map((cat) => ({ id: cat, label: cat }))
   ].map((cat) => {
@@ -2439,30 +2743,50 @@ function App() {
       "button",
       {
         key: cat.id,
-        onClick: () => setSelectedCategory(cat.id),
+        onClick: () => {
+          setSelectedCategory(cat.id);
+          setCatalogPage(1);
+        },
         className: `px-3 py-1.5 text-xs font-medium tracking-wide transition-colors whitespace-nowrap rounded-xs ${isSelected ? "bg-noir text-white shadow-xs font-semibold" : "bg-card text-taupe-dark hover:text-noir border border-taupe/20"}`
       },
       cat.label
     );
-  })), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-4 flex-wrap" }, /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-2 text-xs text-noir cursor-pointer select-none" }, /* @__PURE__ */ React.createElement(
+  })), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3 sm:gap-4 flex-wrap" }, /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-1.5 text-xs text-noir cursor-pointer select-none" }, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "checkbox",
       checked: onlyInStock,
-      onChange: (e) => setOnlyInStock(e.target.checked),
+      onChange: (e) => {
+        setOnlyInStock(e.target.checked);
+        setCatalogPage(1);
+      },
       className: "accent-caramel w-4 h-4 rounded-xs border-taupe/40"
     }
-  ), /* @__PURE__ */ React.createElement("span", null, t.in_stock_only)), /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("span", null, t.in_stock_only)), /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-1.5 text-xs text-noir cursor-pointer select-none" }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "checkbox",
+      checked: onlyWithVideo,
+      onChange: (e) => {
+        setOnlyWithVideo(e.target.checked);
+        setCatalogPage(1);
+      },
+      className: "accent-caramel w-4 h-4 rounded-xs border-taupe/40"
+    }
+  ), /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? "\u0645\u0639 \u0641\u064A\u062F\u064A\u0648 \u{1F3AC}" : "Avec vid\xE9o \u{1F3AC}")), /* @__PURE__ */ React.createElement(
     "select",
     {
       value: sortOrder,
-      onChange: (e) => setSortOrder(e.target.value),
+      onChange: (e) => {
+        setSortOrder(e.target.value);
+        setCatalogPage(1);
+      },
       className: "bg-canvas border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
     },
     /* @__PURE__ */ React.createElement("option", { value: "default" }, t.sort_default),
     /* @__PURE__ */ React.createElement("option", { value: "asc" }, t.sort_asc),
     /* @__PURE__ */ React.createElement("option", { value: "desc" }, t.sort_desc)
-  ), /* @__PURE__ */ React.createElement("div", { className: "hidden lg:flex items-center gap-1 border-s border-taupe/20 ps-3" }, [1, 2, 3].map((cols) => /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("div", { className: "hidden lg:flex items-center gap-1 border-s border-taupe/20 ps-3" }, [2, 3].map((cols) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: cols,
@@ -2471,27 +2795,79 @@ function App() {
       title: `${cols} colonnes`
     },
     cols
-  ))))), loadingProducts ? /* @__PURE__ */ React.createElement("div", { className: "py-24 text-center text-taupe-dark" }, /* @__PURE__ */ React.createElement("div", { className: "animate-spin w-8 h-8 border-2 border-caramel border-t-transparent rounded-full mx-auto mb-4" }), /* @__PURE__ */ React.createElement("p", { className: "text-xs uppercase tracking-widest" }, "Chargement des cr\xE9ations...")) : filteredProducts.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "py-20 text-center bg-card border border-taupe/15 p-8" }, /* @__PURE__ */ React.createElement("p", { className: "font-serif text-2xl text-taupe-dark mb-2" }, "Aucun essentiel ne correspond \xE0 votre recherche."), /* @__PURE__ */ React.createElement(
+  ))))), (isProductsPage || selectedSizeFilter !== "all" || selectedColorFilter !== "all" || priceRangeFilter !== "all") && /* @__PURE__ */ React.createElement("div", { className: "pt-3 border-t border-taupe/15 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-end" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block text-[10px] font-bold uppercase tracking-wider text-taupe-dark mb-1" }, lang === "ar" ? "\u0627\u0644\u0645\u0642\u0627\u0633 / \u0627\u0644\u0642\u0627\u0644\u0628" : "Taille / Pointure"), /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      value: selectedSizeFilter,
+      onChange: (e) => {
+        setSelectedSizeFilter(e.target.value);
+        setCatalogPage(1);
+      },
+      className: "w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+    },
+    /* @__PURE__ */ React.createElement("option", { value: "all" }, lang === "ar" ? "\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0642\u0627\u0633\u0627\u062A" : "Toutes les tailles / pointures"),
+    availableFilterSizes.map((sz) => /* @__PURE__ */ React.createElement("option", { key: sz, value: sz }, sz))
+  )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block text-[10px] font-bold uppercase tracking-wider text-taupe-dark mb-1" }, lang === "ar" ? "\u0627\u0644\u0644\u0648\u0646" : "Couleur"), /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      value: selectedColorFilter,
+      onChange: (e) => {
+        setSelectedColorFilter(e.target.value);
+        setCatalogPage(1);
+      },
+      className: "w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+    },
+    /* @__PURE__ */ React.createElement("option", { value: "all" }, lang === "ar" ? "\u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u0644\u0648\u0627\u0646" : "Toutes les couleurs"),
+    availableFilterColors.map((colObj) => /* @__PURE__ */ React.createElement("option", { key: colObj.key, value: colObj.labelFr }, lang === "ar" ? colObj.labelAr : colObj.labelFr))
+  )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block text-[10px] font-bold uppercase tracking-wider text-taupe-dark mb-1" }, lang === "ar" ? "\u0627\u0644\u0645\u064A\u0632\u0627\u0646\u064A\u0629 (\u062F\u0631\u0647\u0645)" : "Budget / Prix (MAD)"), /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      value: priceRangeFilter,
+      onChange: (e) => {
+        setPriceRangeFilter(e.target.value);
+        setCatalogPage(1);
+      },
+      className: "w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+    },
+    /* @__PURE__ */ React.createElement("option", { value: "all" }, lang === "ar" ? "\u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u0633\u0639\u0627\u0631" : "Tous les prix"),
+    /* @__PURE__ */ React.createElement("option", { value: "under300" }, lang === "ar" ? "\u0623\u0642\u0644 \u0645\u0646 300 \u062F\u0631\u0647\u0645" : "Moins de 300 MAD"),
+    /* @__PURE__ */ React.createElement("option", { value: "300to500" }, lang === "ar" ? "\u0628\u064A\u0646 300 \u0648 500 \u062F\u0631\u0647\u0645" : "300 MAD \xE0 500 MAD"),
+    /* @__PURE__ */ React.createElement("option", { value: "over500" }, lang === "ar" ? "\u0623\u0643\u062B\u0631 \u0645\u0646 500 \u062F\u0631\u0647\u0645" : "Plus de 500 MAD")
+  )), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between sm:justify-end gap-2" }, /* @__PURE__ */ React.createElement(
     "button",
     {
-      onClick: () => {
-        setSelectedCategory("all");
-        setSearchQuery("");
-        setOnlyInStock(false);
-      },
-      className: "mt-4 text-xs font-semibold uppercase tracking-wider text-caramel hover:underline"
+      type: "button",
+      onClick: resetAllCatalogFilters,
+      className: "w-full sm:w-auto px-3.5 py-2 bg-white hover:bg-noir text-noir hover:text-white border border-taupe/30 text-xs font-semibold uppercase tracking-wider transition-colors"
+    },
+    lang === "ar" ? "\u0625\u0639\u0627\u062F\u0629 \u0636\u0628\u0637 \u0627\u0644\u0641\u0644\u0627\u062A\u0631 \u21BA" : "R\xE9initialiser les filtres \u21BA"
+  )))), loadingProducts ? /* @__PURE__ */ React.createElement("div", { className: "py-24 text-center text-taupe-dark" }, /* @__PURE__ */ React.createElement("div", { className: "animate-spin w-8 h-8 border-2 border-caramel border-t-transparent rounded-full mx-auto mb-4" }), /* @__PURE__ */ React.createElement("p", { className: "text-xs uppercase tracking-widest" }, "Chargement des cr\xE9ations...")) : filteredProducts.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "py-20 text-center bg-card border border-taupe/15 p-8" }, /* @__PURE__ */ React.createElement("p", { className: "font-serif text-2xl text-taupe-dark mb-2" }, "Aucun essentiel ne correspond \xE0 votre recherche."), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center justify-center gap-3 mt-4" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: resetAllCatalogFilters,
+      className: "px-4 py-2 bg-noir text-white text-xs font-semibold uppercase tracking-wider hover:bg-caramel transition-colors"
     },
     "R\xE9initialiser les filtres"
-  )) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+  ), !isProductsPage && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => navigateToProductsPage(),
+      className: "px-4 py-2 border border-noir text-noir text-xs font-semibold uppercase tracking-wider hover:bg-noir hover:text-white transition-colors"
+    },
+    "Voir tous les produits du catalogue (",
+    products.length,
+    ") \u2192"
+  ))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
     "div",
     {
-      className: `grid gap-8 ${gridCols === 1 ? "grid-cols-1 max-w-xl mx-auto" : gridCols === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"}`
+      className: `grid gap-2.5 sm:gap-6 lg:gap-8 ${gridCols === 1 ? "grid-cols-1 max-w-xl mx-auto" : gridCols === 2 ? "grid-cols-2" : "grid-cols-2 md:grid-cols-2 lg:grid-cols-3"}`
     },
     paginatedCatalogProducts.map((product, idx) => {
       const prodNumber = startCatalogIdx + idx + 1;
       const isWish = wishlist.includes(product.id);
       const isOut = !product.inStock || product.stock <= 0;
       const isLow = product.stock > 0 && product.stock < 5;
+      const hasVideo = Boolean(product.videoUrl && String(product.videoUrl).trim());
       const title = lang === "ar" ? product.nameAr || product.nameFr : product.nameFr;
       const desc = lang === "ar" ? product.descAr || product.descFr : product.descFr;
       const imagesArr = Array.isArray(product.images) && product.images.length > 0 ? product.images : [""];
@@ -2530,7 +2906,7 @@ function App() {
                 stepCardImage(null, deltaX > 0 ? -1 : 1);
               }
             },
-            className: "relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden cursor-pointer rounded-xs p-3 flex items-center justify-center select-none"
+            className: "relative aspect-[3/4] w-full bg-[#F7F5F0] overflow-hidden cursor-pointer rounded-xs p-1.5 sm:p-3 flex items-center justify-center select-none"
           },
           /* @__PURE__ */ React.createElement(
             "img",
@@ -2546,30 +2922,30 @@ function App() {
             {
               type: "button",
               onClick: (e) => stepCardImage(e, -1),
-              className: "absolute start-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95",
+              className: "absolute start-1 sm:start-2 top-1/2 -translate-y-1/2 z-20 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95",
               title: "Photo pr\xE9c\xE9dente",
               "aria-label": "Photo pr\xE9c\xE9dente"
             },
-            /* @__PURE__ */ React.createElement("svg", { className: "w-4 h-4", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2.2", d: "M15 19l-7-7 7-7" }))
+            /* @__PURE__ */ React.createElement("svg", { className: "w-3 h-3 sm:w-4 sm:h-4", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2.2", d: "M15 19l-7-7 7-7" }))
           ), /* @__PURE__ */ React.createElement(
             "button",
             {
               type: "button",
               onClick: (e) => stepCardImage(e, 1),
-              className: "absolute end-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95",
+              className: "absolute end-1 sm:end-2 top-1/2 -translate-y-1/2 z-20 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-noir text-noir hover:text-white border border-taupe/30 shadow-sm flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95",
               title: "Photo suivante",
               "aria-label": "Photo suivante"
             },
-            /* @__PURE__ */ React.createElement("svg", { className: "w-4 h-4", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2.2", d: "M9 5l7 7-7 7" }))
+            /* @__PURE__ */ React.createElement("svg", { className: "w-3 h-3 sm:w-4 sm:h-4", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2.2", d: "M9 5l7 7-7 7" }))
           )),
-          /* @__PURE__ */ React.createElement("div", { className: "absolute top-3 start-3 flex flex-col gap-1 z-10 pointer-events-none" }, isOut ? /* @__PURE__ */ React.createElement("span", { className: "bg-noir/90 text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider" }, t.badge_out) : product.badge === "exclusive" ? /* @__PURE__ */ React.createElement("span", { className: "bg-caramel text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider" }, t.badge_exclusive) : product.badge === "luxury" ? /* @__PURE__ */ React.createElement("span", { className: "bg-[#4A3525] text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider" }, t.badge_luxury) : product.isNew ? /* @__PURE__ */ React.createElement("span", { className: "bg-noir text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider" }, t.badge_new) : null),
+          /* @__PURE__ */ React.createElement("div", { className: "absolute top-1.5 start-1.5 sm:top-3 sm:start-3 flex flex-col gap-1 z-10 pointer-events-none" }, isOut ? /* @__PURE__ */ React.createElement("span", { className: "bg-noir/90 text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 uppercase tracking-wider" }, t.badge_out) : product.badge === "exclusive" ? /* @__PURE__ */ React.createElement("span", { className: "bg-caramel text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 uppercase tracking-wider" }, t.badge_exclusive) : product.badge === "luxury" ? /* @__PURE__ */ React.createElement("span", { className: "bg-[#4A3525] text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 uppercase tracking-wider" }, t.badge_luxury) : product.isNew ? /* @__PURE__ */ React.createElement("span", { className: "bg-noir text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 uppercase tracking-wider" }, t.badge_new) : null, hasVideo && /* @__PURE__ */ React.createElement("span", { className: "bg-noir/85 text-[#E6C687] text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 uppercase tracking-wider flex items-center gap-1" }, /* @__PURE__ */ React.createElement("span", null, "\u25B6"), /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? "\u0641\u064A\u062F\u064A\u0648" : "Vid\xE9o"))),
           imagesArr.length > 1 && /* @__PURE__ */ React.createElement(
             "div",
             {
               onClick: (e) => e.stopPropagation(),
-              className: "absolute bottom-3 inset-x-3 flex items-center justify-between z-10 pointer-events-auto"
+              className: "absolute bottom-1.5 inset-x-1.5 sm:bottom-3 sm:inset-x-3 flex items-center justify-between z-10 pointer-events-auto"
             },
-            /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1 bg-black/55 px-2 py-1 rounded-xs backdrop-blur-xs" }, imagesArr.map((_, dIdx) => /* @__PURE__ */ React.createElement(
+            /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1 bg-black/55 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-xs backdrop-blur-xs" }, imagesArr.map((_, dIdx) => /* @__PURE__ */ React.createElement(
               "button",
               {
                 key: dIdx,
@@ -2578,13 +2954,13 @@ function App() {
                   e.stopPropagation();
                   setCardImageIdxMap((prev) => ({ ...prev, [product.id]: dIdx }));
                 },
-                className: `h-1.5 rounded-full transition-all ${activeCardImgIdx === dIdx ? "w-3.5 bg-caramel" : "w-1.5 bg-white/60 hover:bg-white"}`,
+                className: `h-1 sm:h-1.5 rounded-full transition-all ${activeCardImgIdx === dIdx ? "w-2.5 sm:w-3.5 bg-caramel" : "w-1 sm:w-1.5 bg-white/60 hover:bg-white"}`,
                 "aria-label": `Photo ${dIdx + 1}`
               }
             ))),
-            /* @__PURE__ */ React.createElement("span", { className: "bg-black/65 text-white text-[10px] px-2 py-0.5 backdrop-blur-xs font-mono tabular-nums rounded-xs" }, activeCardImgIdx + 1, "/", imagesArr.length)
+            /* @__PURE__ */ React.createElement("span", { className: "bg-black/65 text-white text-[9px] sm:text-[10px] px-1.5 py-0.5 backdrop-blur-xs font-mono tabular-nums rounded-xs" }, activeCardImgIdx + 1, "/", imagesArr.length)
           ),
-          /* @__PURE__ */ React.createElement("div", { className: "absolute top-3 end-3 flex items-center gap-1.5 z-10" }, /* @__PURE__ */ React.createElement(
+          /* @__PURE__ */ React.createElement("div", { className: "absolute top-1.5 end-1.5 sm:top-3 sm:end-3 flex items-center gap-1 sm:gap-1.5 z-10" }, /* @__PURE__ */ React.createElement(
             "button",
             {
               type: "button",
@@ -2598,11 +2974,11 @@ function App() {
                   showToast(url, "info");
                 }
               },
-              className: "w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90 text-noir/70 hover:text-caramel",
+              className: "w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90 text-noir/70 hover:text-caramel",
               title: "Copier le lien direct client",
               "aria-label": "Copier le lien client"
             },
-            /* @__PURE__ */ React.createElement("svg", { className: "w-3.5 h-3.5", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2", d: "M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" }))
+            /* @__PURE__ */ React.createElement("svg", { className: "w-3 h-3 sm:w-3.5 sm:h-3.5", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2", d: "M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" }))
           ), /* @__PURE__ */ React.createElement(
             "button",
             {
@@ -2611,13 +2987,13 @@ function App() {
                 e.stopPropagation();
                 toggleWishlist(product.id);
               },
-              className: "w-8 h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90",
+              className: "w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90",
               "aria-label": "Wishlist"
             },
             /* @__PURE__ */ React.createElement(
               "svg",
               {
-                className: `w-4 h-4 transition-colors ${isWish ? "fill-caramel text-caramel animate-heart-pop" : "text-noir/60 hover:text-noir"}`,
+                className: `w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${isWish ? "fill-caramel text-caramel animate-heart-pop" : "text-noir/60 hover:text-noir"}`,
                 viewBox: "0 0 24 24",
                 stroke: "currentColor",
                 strokeWidth: "1.75"
@@ -2626,30 +3002,30 @@ function App() {
             )
           ))
         ),
-        /* @__PURE__ */ React.createElement("div", { className: "p-6 flex flex-col flex-1" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between text-[11px] text-taupe-dark uppercase tracking-wider mb-2" }, /* @__PURE__ */ React.createElement("span", null, product.category), /* @__PURE__ */ React.createElement("span", { className: "text-caramel font-semibold" }, "\u2605 ", product.rating || 5, ".0")), /* @__PURE__ */ React.createElement(
+        /* @__PURE__ */ React.createElement("div", { className: "p-2.5 sm:p-6 flex flex-col flex-1" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between text-[9px] sm:text-[11px] text-taupe-dark uppercase tracking-wider mb-1 sm:mb-2" }, /* @__PURE__ */ React.createElement("span", { className: "truncate" }, product.category), /* @__PURE__ */ React.createElement("span", { className: "text-caramel font-semibold shrink-0" }, "\u2605 ", product.rating || 5, ".0")), /* @__PURE__ */ React.createElement(
           "h3",
           {
             onClick: () => navigateToProduct(product.id),
-            className: "font-serif text-xl font-semibold text-noir mb-2 group-hover:text-caramel transition-colors cursor-pointer"
+            className: "font-serif text-sm sm:text-xl font-semibold text-noir mb-1 sm:mb-2 group-hover:text-caramel transition-colors cursor-pointer line-clamp-1 sm:line-clamp-2 leading-snug"
           },
           title
-        ), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-taupe-dark line-clamp-2 leading-relaxed mb-4 flex-1" }, desc), isLow && /* @__PURE__ */ React.createElement("p", { className: "text-[11px] font-semibold text-[#B91C1C] mb-3 flex items-center" }, /* @__PURE__ */ React.createElement("span", { className: "animate-flame me-1 inline-block" }, "\u{1F525}"), /* @__PURE__ */ React.createElement("span", null, t.low_stock_alert.replace("\u{1F525} ", "").replace("{n}", product.stock))), /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline gap-2.5 mb-5 pt-2 border-t border-taupe/15" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-lg text-noir tabular-nums" }, Number(product.price).toLocaleString(), " MAD"), product.oldPrice && /* @__PURE__ */ React.createElement("span", { className: "text-xs text-taupe line-through tabular-nums" }, Number(product.oldPrice).toLocaleString(), " MAD")), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2 mt-auto" }, /* @__PURE__ */ React.createElement(
+        ), /* @__PURE__ */ React.createElement("p", { className: "hidden sm:block text-xs text-taupe-dark line-clamp-2 leading-relaxed mb-4 flex-1" }, desc), isLow && /* @__PURE__ */ React.createElement("p", { className: "text-[9px] sm:text-[11px] font-semibold text-[#B91C1C] mb-1.5 sm:mb-3 flex items-center" }, /* @__PURE__ */ React.createElement("span", { className: "animate-flame me-1 inline-block" }, "\u{1F525}"), /* @__PURE__ */ React.createElement("span", { className: "truncate" }, t.low_stock_alert.replace("\u{1F525} ", "").replace("{n}", product.stock))), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-baseline gap-1.5 sm:gap-2.5 mb-2.5 sm:mb-5 pt-1.5 sm:pt-2 border-t border-taupe/15 mt-auto" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-xs sm:text-lg text-noir tabular-nums" }, Number(product.price).toLocaleString(), " MAD"), product.oldPrice && /* @__PURE__ */ React.createElement("span", { className: "text-[10px] sm:text-xs text-taupe line-through tabular-nums" }, Number(product.oldPrice).toLocaleString(), " MAD")), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-1.5 sm:gap-2" }, /* @__PURE__ */ React.createElement(
           "button",
           {
             type: "button",
             onClick: () => navigateToProduct(product.id),
-            className: "px-3 py-2.5 border border-taupe/30 text-xs font-semibold uppercase tracking-wider text-noir hover:border-noir hover:bg-noir hover:text-white transition-all flex items-center justify-center gap-1",
+            className: "px-1.5 py-2 sm:px-3 sm:py-2.5 border border-taupe/30 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-noir hover:border-noir hover:bg-noir hover:text-white transition-all flex items-center justify-center gap-1 whitespace-nowrap",
             title: "Ouvrir la page d\xE9di\xE9e avec lien direct"
           },
           /* @__PURE__ */ React.createElement("span", null, t.admin_view_product || "Voir"),
-          /* @__PURE__ */ React.createElement("span", { className: "text-[10px]" }, "\u2192")
+          /* @__PURE__ */ React.createElement("span", { className: "hidden sm:inline text-[10px]" }, "\u2192")
         ), /* @__PURE__ */ React.createElement(
           "button",
           {
             type: "button",
             disabled: isOut,
             onClick: () => addToCart(product),
-            className: `px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${isOut ? "bg-taupe/20 text-taupe-dark cursor-not-allowed" : "bg-noir text-white hover:bg-caramel active:scale-95 shadow-xs"}`
+            className: `px-1.5 py-2 sm:px-3 sm:py-2.5 text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all duration-150 truncate ${isOut ? "bg-taupe/20 text-taupe-dark cursor-not-allowed" : "bg-noir text-white hover:bg-caramel active:scale-95 shadow-xs"}`
           },
           isOut ? t.out_of_stock : t.add_to_cart
         )))
@@ -2694,14 +3070,23 @@ function App() {
       className: `px-3.5 py-2 text-xs font-semibold rounded-xs border transition-colors ${safeCatalogPage >= totalCatalogPages ? "bg-canvas text-taupe border-taupe/20 cursor-not-allowed opacity-60" : "bg-card text-noir border-taupe/30 hover:border-noir"}`
     },
     "Suivant \u2192"
-  ))))), /* @__PURE__ */ React.createElement("section", { id: "savoir-faire", className: "py-20 sm:py-28 bg-[#F3EFEA] border-y border-taupe/20" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-3" }, cms.storyBadge || "H\xC9RITAGE & MATI\xC8RES"), /* @__PURE__ */ React.createElement("h2", { className: "font-serif italic text-3xl sm:text-5xl text-noir font-normal mb-6 leading-tight" }, cms.storyTitle || t.craft_title), /* @__PURE__ */ React.createElement("p", { className: "text-sm sm:text-base text-taupe-dark leading-relaxed mb-4" }, cms.storyText1 || t.craft_desc_1), /* @__PURE__ */ React.createElement("p", { className: "text-sm sm:text-base text-taupe-dark leading-relaxed mb-8" }, cms.storyText2 || t.craft_desc_2), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-3 gap-4 pt-6 border-t border-taupe/25" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "font-serif text-2xl sm:text-3xl font-bold text-noir" }, t.craft_stat_1_val), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark uppercase tracking-wider mt-1" }, t.craft_stat_1_lbl)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "font-serif text-2xl sm:text-3xl font-bold text-noir" }, t.craft_stat_2_val), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark uppercase tracking-wider mt-1" }, t.craft_stat_2_lbl)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "font-serif text-2xl sm:text-3xl font-bold text-noir" }, t.craft_stat_3_val), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark uppercase tracking-wider mt-1" }, t.craft_stat_3_lbl)))), /* @__PURE__ */ React.createElement("div", { className: "relative aspect-4/3 bg-[#EAE4DC] border border-taupe/30 overflow-hidden shadow-sm flex items-center justify-center" }, cms.storyImage && !cms.storyImage.includes("svg") ? /* @__PURE__ */ React.createElement(
+  ))), !isProductsPage && /* @__PURE__ */ React.createElement("div", { className: "mt-10 text-center" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => navigateToProductsPage(),
+      className: "inline-flex items-center gap-3 px-7 py-3.5 bg-noir hover:bg-caramel text-white text-xs font-semibold uppercase tracking-[0.18em] transition-colors shadow-sm"
+    },
+    /* @__PURE__ */ React.createElement("span", null, lang === "ar" ? "\u0627\u0633\u062A\u0643\u0634\u0641 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A \u0645\u0639 \u0627\u0644\u0641\u0644\u0627\u062A\u0631" : "Explorer Tous les Produits & Filtres"),
+    /* @__PURE__ */ React.createElement("span", null, "\u2192")
+  )))), !isProductsPage && /* @__PURE__ */ React.createElement("section", { id: "savoir-faire", className: "py-20 sm:py-28 bg-[#F3EFEA] border-y border-taupe/20" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-3" }, cms.storyBadge || "H\xC9RITAGE & MATI\xC8RES"), /* @__PURE__ */ React.createElement("h2", { className: "font-serif italic text-3xl sm:text-5xl text-noir font-normal mb-6 leading-tight" }, cms.storyTitle || t.craft_title), /* @__PURE__ */ React.createElement("p", { className: "text-sm sm:text-base text-taupe-dark leading-relaxed mb-4" }, cms.storyText1 || t.craft_desc_1), /* @__PURE__ */ React.createElement("p", { className: "text-sm sm:text-base text-taupe-dark leading-relaxed mb-8" }, cms.storyText2 || t.craft_desc_2), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-3 gap-4 pt-6 border-t border-taupe/25" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "font-serif text-2xl sm:text-3xl font-bold text-noir" }, t.craft_stat_1_val), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark uppercase tracking-wider mt-1" }, t.craft_stat_1_lbl)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "font-serif text-2xl sm:text-3xl font-bold text-noir" }, t.craft_stat_2_val), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark uppercase tracking-wider mt-1" }, t.craft_stat_2_lbl)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "font-serif text-2xl sm:text-3xl font-bold text-noir" }, t.craft_stat_3_val), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark uppercase tracking-wider mt-1" }, t.craft_stat_3_lbl)))), /* @__PURE__ */ React.createElement("div", { className: "relative aspect-4/3 bg-[#EAE4DC] border border-taupe/30 overflow-hidden shadow-sm flex items-center justify-center" }, cms.storyImage && !cms.storyImage.includes("svg") ? /* @__PURE__ */ React.createElement(
     "img",
     {
       src: cms.storyImage,
       alt: "Atelier MODANOVA",
       className: "w-full h-full object-cover transition-transform duration-700 hover:scale-105"
     }
-  ) : /* @__PURE__ */ React.createElement("div", { className: "p-8 w-full h-full flex items-center justify-center" }, /* @__PURE__ */ React.createElement("svg", { className: "w-full h-full max-h-80", viewBox: "0 0 600 450", fill: "none", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("rect", { width: "600", height: "450", fill: "#EAE4DC" }), /* @__PURE__ */ React.createElement("g", { className: "animate-spin-slow", style: { transformOrigin: "300px 225px" } }, /* @__PURE__ */ React.createElement("circle", { cx: "300", cy: "225", r: "160", stroke: "#9E8C7A", strokeWidth: "1.5", strokeDasharray: "6 6" })), /* @__PURE__ */ React.createElement("circle", { cx: "300", cy: "225", r: "130", fill: "#FAF9F6", stroke: "#9E8C7A", strokeWidth: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M220 180C250 140 350 140 380 180C400 210 390 270 300 290C210 270 200 210 220 180Z", fill: "#3D2B1F" }), /* @__PURE__ */ React.createElement("path", { d: "M250 190C270 165 330 165 350 190C360 210 340 240 300 250C260 240 240 210 250 190Z", fill: "#634731" }), /* @__PURE__ */ React.createElement("text", { x: "300", y: "340", "font-family": "'Cormorant Garamond', serif", "font-size": "22", fill: "#171717", "text-anchor": "middle", "letter-spacing": "4" }, "MODANOVA"), /* @__PURE__ */ React.createElement("text", { x: "300", y: "365", "font-family": "'Plus Jakarta Sans', sans-serif", "font-size": "11", fill: "#9E8C7A", "text-anchor": "middle", "letter-spacing": "3" }, "KENITRA & MAROC"))))))), /* @__PURE__ */ React.createElement("section", { id: "temoignages", className: "py-20 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full" }, /* @__PURE__ */ React.createElement("div", { className: "text-center max-w-2xl mx-auto mb-16" }, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-2" }, "CONFIANCE & RETOURS"), /* @__PURE__ */ React.createElement("h2", { className: "font-serif text-3xl sm:text-4xl text-noir font-normal mb-3" }, t.testim_title), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-taupe-dark" }, t.testim_subtitle)), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-8" }, testimonials.map((item, idx) => /* @__PURE__ */ React.createElement("div", { key: item.id || idx, className: "bg-card border border-taupe/20 p-8 flex flex-col justify-between hover:border-caramel/40 transition-colors shadow-xs" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1 text-caramel text-sm" }, "\u2605".repeat(item.rating || 5)), item.verified !== false && /* @__PURE__ */ React.createElement("span", { className: "text-[10px] bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] px-2 py-0.5 rounded-xs font-semibold" }, "\u2713 ", lang === "ar" ? "\u0637\u0644\u0628 \u0645\u0648\u062B\u0642" : "Achat v\xE9rifi\xE9")), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-noir/90 leading-relaxed font-light italic mb-6" }, '"', item.text, '"')), /* @__PURE__ */ React.createElement("div", { className: "pt-4 border-t border-taupe/20 flex items-center justify-between" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "text-sm font-semibold text-noir" }, item.name), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-taupe-dark" }, "\u{1F4CD} ", item.city || "Maroc")), item.date && /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-taupe-dark font-mono" }, item.date))))))), /* @__PURE__ */ React.createElement("footer", { className: "mt-auto bg-noir text-canvas pt-16 pb-12 border-t border-taupe/20" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-white/10" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "font-serif text-2xl font-bold tracking-[0.2em] text-white uppercase block mb-2" }, t.brand), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] tracking-[0.25em] text-caramel uppercase block mb-4" }, t.tagline), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-white/60 leading-relaxed font-light" }, t.footer_desc)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "text-xs font-bold uppercase tracking-wider text-caramel mb-4" }, t.footer_nav), /* @__PURE__ */ React.createElement("ul", { className: "space-y-2.5 text-xs text-white/70" }, /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("a", { href: "#collection", className: "hover:text-white transition-colors" }, t.nav_collection)), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("a", { href: "#savoir-faire", className: "hover:text-white transition-colors" }, t.nav_craft)), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("a", { href: "#temoignages", className: "hover:text-white transition-colors" }, t.nav_testimonials)), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("button", { onClick: () => setTrackingOpen(true), className: "hover:text-white transition-colors text-start" }, t.nav_tracking)), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("button", { onClick: () => setAdminOpen(true), className: "hover:text-white transition-colors text-start text-white/40" }, t.nav_admin, " (Ctrl+Shift+A)")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "text-xs font-bold uppercase tracking-wider text-caramel mb-4" }, t.footer_contact), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-white/70 leading-relaxed mb-3" }, "Atelier & Support : Kenitra, Maroc"), /* @__PURE__ */ React.createElement(
+  ) : /* @__PURE__ */ React.createElement("div", { className: "p-8 w-full h-full flex items-center justify-center" }, /* @__PURE__ */ React.createElement("svg", { className: "w-full h-full max-h-80", viewBox: "0 0 600 450", fill: "none", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("rect", { width: "600", height: "450", fill: "#EAE4DC" }), /* @__PURE__ */ React.createElement("g", { className: "animate-spin-slow", style: { transformOrigin: "300px 225px" } }, /* @__PURE__ */ React.createElement("circle", { cx: "300", cy: "225", r: "160", stroke: "#9E8C7A", strokeWidth: "1.5", strokeDasharray: "6 6" })), /* @__PURE__ */ React.createElement("circle", { cx: "300", cy: "225", r: "130", fill: "#FAF9F6", stroke: "#9E8C7A", strokeWidth: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M220 180C250 140 350 140 380 180C400 210 390 270 300 290C210 270 200 210 220 180Z", fill: "#3D2B1F" }), /* @__PURE__ */ React.createElement("path", { d: "M250 190C270 165 330 165 350 190C360 210 340 240 300 250C260 240 240 210 250 190Z", fill: "#634731" }), /* @__PURE__ */ React.createElement("text", { x: "300", y: "340", "font-family": "'Cormorant Garamond', serif", "font-size": "22", fill: "#171717", "text-anchor": "middle", "letter-spacing": "4" }, "MODANOVA"), /* @__PURE__ */ React.createElement("text", { x: "300", y: "365", "font-family": "'Plus Jakarta Sans', sans-serif", "font-size": "11", fill: "#9E8C7A", "text-anchor": "middle", "letter-spacing": "3" }, "KENITRA & MAROC"))))))), !isProductsPage && /* @__PURE__ */ React.createElement("section", { id: "temoignages", className: "py-20 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full" }, /* @__PURE__ */ React.createElement("div", { className: "text-center max-w-2xl mx-auto mb-16" }, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-bold tracking-[0.2em] uppercase text-caramel block mb-2" }, "CONFIANCE & RETOURS"), /* @__PURE__ */ React.createElement("h2", { className: "font-serif text-3xl sm:text-4xl text-noir font-normal mb-3" }, t.testim_title), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-taupe-dark" }, t.testim_subtitle)), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-8" }, testimonials.map((item, idx) => /* @__PURE__ */ React.createElement("div", { key: item.id || idx, className: "bg-card border border-taupe/20 p-8 flex flex-col justify-between hover:border-caramel/40 transition-colors shadow-xs" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1 text-caramel text-sm" }, "\u2605".repeat(item.rating || 5)), item.verified !== false && /* @__PURE__ */ React.createElement("span", { className: "text-[10px] bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] px-2 py-0.5 rounded-xs font-semibold" }, "\u2713 ", lang === "ar" ? "\u0637\u0644\u0628 \u0645\u0648\u062B\u0642" : "Achat v\xE9rifi\xE9")), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-noir/90 leading-relaxed font-light italic mb-6" }, '"', item.text, '"')), /* @__PURE__ */ React.createElement("div", { className: "pt-4 border-t border-taupe/20 flex items-center justify-between" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "text-sm font-semibold text-noir" }, item.name), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-taupe-dark" }, "\u{1F4CD} ", item.city || "Maroc")), item.date && /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-taupe-dark font-mono" }, item.date))))))), /* @__PURE__ */ React.createElement("footer", { className: "mt-auto bg-noir text-canvas pt-16 pb-12 border-t border-taupe/20" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-white/10" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "font-serif text-2xl font-bold tracking-[0.2em] text-white uppercase block mb-2" }, t.brand), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] tracking-[0.25em] text-caramel uppercase block mb-4" }, t.tagline), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-white/60 leading-relaxed font-light" }, t.footer_desc)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "text-xs font-bold uppercase tracking-wider text-caramel mb-4" }, t.footer_nav), /* @__PURE__ */ React.createElement("ul", { className: "space-y-2.5 text-xs text-white/70" }, /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("a", { href: "#collection", className: "hover:text-white transition-colors" }, t.nav_collection)), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("a", { href: "#savoir-faire", className: "hover:text-white transition-colors" }, t.nav_craft)), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("a", { href: "#temoignages", className: "hover:text-white transition-colors" }, t.nav_testimonials)), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("button", { onClick: () => setTrackingOpen(true), className: "hover:text-white transition-colors text-start" }, t.nav_tracking)), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("button", { onClick: () => setAdminOpen(true), className: "hover:text-white transition-colors text-start text-white/40" }, t.nav_admin, " (Ctrl+Shift+A)")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "text-xs font-bold uppercase tracking-wider text-caramel mb-4" }, t.footer_contact), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-white/70 leading-relaxed mb-3" }, "Atelier & Support : Kenitra, Maroc"), /* @__PURE__ */ React.createElement(
     "a",
     {
       href: "https://wa.me/212600773716",
@@ -2784,16 +3169,42 @@ function App() {
   ))), /* @__PURE__ */ React.createElement("div", { className: "py-6 border-b border-taupe/20 space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "text-[11px] font-bold text-taupe-dark uppercase tracking-wider mb-2" }, "NAVIGATION"), /* @__PURE__ */ React.createElement(
     "a",
     {
-      href: "#collection",
-      onClick: () => setMobileDrawerOpen(false),
-      className: "block text-base font-medium text-noir hover:text-caramel"
+      href: "/",
+      onClick: (e) => {
+        e.preventDefault();
+        setMobileDrawerOpen(false);
+        backToHome();
+      },
+      className: `block text-base font-medium ${!isProductsPage && !selectedProductId ? "text-caramel font-semibold" : "text-noir hover:text-caramel"}`
     },
-    t.nav_collection
+    lang === "ar" ? "\u0627\u0644\u0631\u0626\u064A\u0633\u064A\u0629 (Accueil)" : "Accueil (Page Principale)"
+  ), /* @__PURE__ */ React.createElement(
+    "a",
+    {
+      href: "/produits",
+      onClick: (e) => {
+        e.preventDefault();
+        setMobileDrawerOpen(false);
+        navigateToProductsPage();
+      },
+      className: `block text-base font-medium ${isProductsPage && !selectedProductId ? "text-caramel font-semibold" : "text-noir hover:text-caramel"}`
+    },
+    lang === "ar" ? `\u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0646\u062A\u062C\u0627\u062A \u0648\u0627\u0644\u0641\u0644\u062A\u0631\u0629 (${products.length})` : `Tous les Produits & Filtres (${products.length})`
   ), /* @__PURE__ */ React.createElement(
     "a",
     {
       href: "#savoir-faire",
-      onClick: () => setMobileDrawerOpen(false),
+      onClick: (e) => {
+        setMobileDrawerOpen(false);
+        if (isProductsPage || selectedProductId) {
+          e.preventDefault();
+          backToHome();
+          setTimeout(() => {
+            const el = document.getElementById("savoir-faire");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }, 60);
+        }
+      },
       className: "block text-base font-medium text-noir hover:text-caramel"
     },
     t.nav_craft
@@ -2801,7 +3212,17 @@ function App() {
     "a",
     {
       href: "#temoignages",
-      onClick: () => setMobileDrawerOpen(false),
+      onClick: (e) => {
+        setMobileDrawerOpen(false);
+        if (isProductsPage || selectedProductId) {
+          e.preventDefault();
+          backToHome();
+          setTimeout(() => {
+            const el = document.getElementById("temoignages");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }, 60);
+        }
+      },
       className: "block text-base font-medium text-noir hover:text-caramel"
     },
     t.nav_testimonials
@@ -4233,11 +4654,49 @@ function AdminModal({
       setDeletingOrderId(null);
     }
   };
+  const [prodHomeFilter, setProdHomeFilter] = useState("ALL");
+  const [togglingHomeProdId, setTogglingHomeProdId] = useState(null);
+  const handleToggleProductHome = async (prod) => {
+    if (!prod || !prod.id || togglingHomeProdId === prod.id) return;
+    const nextShowOnHome = prod.showOnHome === false ? true : false;
+    setTogglingHomeProdId(prod.id);
+    if (onReorderProductsLocal && Array.isArray(products)) {
+      onReorderProductsLocal(
+        products.map((item) => Number(item?.id) === Number(prod.id) ? { ...item, showOnHome: nextShowOnHome } : item)
+      );
+    }
+    try {
+      const res = await fetch(`/api/products/${encodeURIComponent(prod.id)}/home-visibility`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ showOnHome: nextShowOnHome })
+      });
+      if (res.ok) {
+        await onRefreshProducts();
+        showToast(
+          nextShowOnHome ? `\u{1F3E0} \xAB ${prod.nameFr} \xBB est maintenant affich\xE9 sur la Page Principale (Index) !` : `\u{1F4C2} \xAB ${prod.nameFr} \xBB est masqu\xE9 de l'Index (visible uniquement sur Tous les Produits).`,
+          "success"
+        );
+      } else {
+        await onRefreshProducts();
+        showToast("Erreur lors de la mise \xE0 jour de l'affichage Accueil", "error");
+      }
+    } catch {
+      await onRefreshProducts();
+      showToast("Erreur de connexion", "error");
+    } finally {
+      setTogglingHomeProdId(null);
+    }
+  };
   const filteredProducts = (products || []).filter((p) => {
     if (!p) return false;
     const matchSearch = !prodSearch || p.nameFr && p.nameFr.toLowerCase().includes(prodSearch.toLowerCase()) || p.nameAr && p.nameAr.toLowerCase().includes(prodSearch.toLowerCase()) || p.id && String(p.id).toLowerCase().includes(prodSearch.toLowerCase());
     const matchCat = prodCat === "ALL" || String(p.category || "").toLowerCase() === String(prodCat).toLowerCase();
-    return matchSearch && matchCat;
+    const matchHome = prodHomeFilter === "ALL" ? true : prodHomeFilter === "HOME_ONLY" ? p.showOnHome !== false : p.showOnHome === false;
+    return matchSearch && matchCat && matchHome;
   });
   const totalProdPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
   const safeProdPage = Math.min(Math.max(1, prodPage), totalProdPages);
@@ -4491,7 +4950,7 @@ function AdminModal({
     /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("div", { className: "text-[10px] uppercase font-bold tracking-wider text-taupe-dark group-hover:text-noir" }, "Articles en Ligne"), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] font-semibold text-caramel group-hover:underline" }, "Voir tout \u2192")),
     /* @__PURE__ */ React.createElement("div", { className: "font-serif text-2xl font-bold text-noir mt-1 tabular-nums" }, (products || []).length),
     /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe mt-0.5" }, (products || []).filter((p) => p && (p.stock || 0) > 0).length, " en stock imm\xE9diat")
-  )), activeTab === "products" && /* @__PURE__ */ React.createElement("div", { className: "bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "p-4 border-b border-taupe/15 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between bg-canvas/40" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center gap-3 w-full lg:w-auto" }, /* @__PURE__ */ React.createElement(
+  )), activeTab === "products" && /* @__PURE__ */ React.createElement("div", { className: "bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "p-4 border-b border-taupe/15 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between bg-canvas/40" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center gap-2.5 w-full lg:w-auto" }, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "text",
@@ -4501,7 +4960,7 @@ function AdminModal({
         setProdPage(1);
       },
       placeholder: "Rechercher par nom ou r\xE9f\xE9rence...",
-      className: "w-full sm:w-64 bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
+      className: "w-full sm:w-56 bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel"
     }
   ), /* @__PURE__ */ React.createElement(
     "select",
@@ -4515,7 +4974,21 @@ function AdminModal({
     },
     /* @__PURE__ */ React.createElement("option", { value: "ALL" }, "Toutes Cat\xE9gories"),
     PRODUCT_CATEGORIES.map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, c))
-  ), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark bg-white/80 border border-taupe/20 px-2.5 py-1 rounded-xs flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement("span", null, "\u21C5"), /* @__PURE__ */ React.createElement("span", null, "D\xE9placez vos produits (menu ", /* @__PURE__ */ React.createElement("strong", null, "Position 1er, 2e, 3e..."), ", fl\xE8ches ", /* @__PURE__ */ React.createElement("strong", null, "\u2191 \u2193"), " ou glisser-d\xE9poser)"))), /* @__PURE__ */ React.createElement("div", { className: "text-xs font-semibold text-taupe-dark whitespace-nowrap flex items-center gap-2 justify-end" }, reorderingProds && /* @__PURE__ */ React.createElement("span", { className: "text-[11px] text-caramel font-bold animate-pulse" }, "\u23F3 Sauvegarde de l'ordre..."), /* @__PURE__ */ React.createElement("span", null, filteredProducts.length === 0 ? "0 produit" : `Produits ${startProdIdx + 1}\u2013${Math.min(startProdIdx + PRODUCTS_PER_PAGE, filteredProducts.length)} sur ${filteredProducts.length}`))), /* @__PURE__ */ React.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React.createElement("table", { className: "w-full text-left text-xs border-collapse" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { className: "bg-canvas border-b border-taupe/20 text-taupe-dark uppercase text-[10px] tracking-wider" }, /* @__PURE__ */ React.createElement("th", { className: "p-3 text-center w-36" }, "Ordre / Position"), /* @__PURE__ */ React.createElement("th", { className: "p-3" }, "Aper\xE7u"), /* @__PURE__ */ React.createElement("th", { className: "p-3" }, "D\xE9signation"), /* @__PURE__ */ React.createElement("th", { className: "p-3" }, "Cat\xE9gorie"), /* @__PURE__ */ React.createElement("th", { className: "p-3" }, "Prix"), /* @__PURE__ */ React.createElement("th", { className: "p-3" }, "Stock"), /* @__PURE__ */ React.createElement("th", { className: "p-3 text-right" }, "Actions"))), /* @__PURE__ */ React.createElement("tbody", { className: "divide-y divide-taupe/15" }, paginatedProducts.length === 0 ? /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { colSpan: "7", className: "p-8 text-center text-taupe-dark" }, "Aucun produit ne correspond \xE0 votre recherche.")) : paginatedProducts.map((p, idx) => {
+  ), /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      value: prodHomeFilter,
+      onChange: (e) => {
+        setProdHomeFilter(e.target.value);
+        setProdPage(1);
+      },
+      className: "bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel font-medium",
+      title: "Filtrer selon la pr\xE9sence sur la Page Principale (Index)"
+    },
+    /* @__PURE__ */ React.createElement("option", { value: "ALL" }, "Affichage : Tous (", (products || []).length, ")"),
+    /* @__PURE__ */ React.createElement("option", { value: "HOME_ONLY" }, "\u{1F3E0} Sur Page Principale (", (products || []).filter((p) => p && p.showOnHome !== false).length, ")"),
+    /* @__PURE__ */ React.createElement("option", { value: "CATALOG_ONLY" }, "\u{1F4C2} Catalogue seul (", (products || []).filter((p) => p && p.showOnHome === false).length, ")")
+  ), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark bg-white/80 border border-taupe/20 px-2.5 py-1 rounded-xs flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement("span", null, "\u21C5"), /* @__PURE__ */ React.createElement("span", null, "D\xE9placez vos produits ou cochez ", /* @__PURE__ */ React.createElement("strong", null, "\u{1F3E0} Page Index"), " pour choisir ceux affich\xE9s sur l'accueil"))), /* @__PURE__ */ React.createElement("div", { className: "text-xs font-semibold text-taupe-dark whitespace-nowrap flex items-center gap-2 justify-end" }, reorderingProds && /* @__PURE__ */ React.createElement("span", { className: "text-[11px] text-caramel font-bold animate-pulse" }, "\u23F3 Sauvegarde de l'ordre..."), /* @__PURE__ */ React.createElement("span", null, filteredProducts.length === 0 ? "0 produit" : `Produits ${startProdIdx + 1}\u2013${Math.min(startProdIdx + PRODUCTS_PER_PAGE, filteredProducts.length)} sur ${filteredProducts.length}`))), /* @__PURE__ */ React.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React.createElement("table", { className: "w-full text-left text-xs border-collapse" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { className: "bg-canvas border-b border-taupe/20 text-taupe-dark uppercase text-[10px] tracking-wider" }, /* @__PURE__ */ React.createElement("th", { className: "p-3 text-center w-36" }, "Ordre / Position"), /* @__PURE__ */ React.createElement("th", { className: "p-3" }, "Aper\xE7u"), /* @__PURE__ */ React.createElement("th", { className: "p-3" }, "D\xE9signation"), /* @__PURE__ */ React.createElement("th", { className: "p-3 text-center" }, "Page Principale (Index)"), /* @__PURE__ */ React.createElement("th", { className: "p-3" }, "Cat\xE9gorie"), /* @__PURE__ */ React.createElement("th", { className: "p-3" }, "Prix"), /* @__PURE__ */ React.createElement("th", { className: "p-3" }, "Stock"), /* @__PURE__ */ React.createElement("th", { className: "p-3 text-right" }, "Actions"))), /* @__PURE__ */ React.createElement("tbody", { className: "divide-y divide-taupe/15" }, paginatedProducts.length === 0 ? /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { colSpan: "8", className: "p-8 text-center text-taupe-dark" }, "Aucun produit ne correspond \xE0 votre recherche.")) : paginatedProducts.map((p, idx) => {
     const prodNum = startProdIdx + idx + 1;
     const globalIdx = (products || []).findIndex((item) => Number(item?.id) === Number(p.id));
     const globalRank = globalIdx >= 0 ? globalIdx + 1 : prodNum;
@@ -4625,7 +5098,18 @@ function AdminModal({
         },
         "\u203A"
       ), /* @__PURE__ */ React.createElement("span", { className: "absolute bottom-0.5 end-0.5 bg-black/70 text-white text-[8px] font-mono px-1 rounded-2xs tabular-nums" }, curThumbIdx + 1, "/", imgs.length)))),
-      /* @__PURE__ */ React.createElement("td", { className: "p-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 flex-wrap" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-noir" }, p.nameFr), globalRank === 1 && /* @__PURE__ */ React.createElement("span", { className: "text-[9px] uppercase tracking-wider font-bold text-caramel" }, "\u2022 1er de la liste")), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark font-arabic" }, p.nameAr), /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-taupe font-mono mt-0.5" }, "REF: ", p.id)),
+      /* @__PURE__ */ React.createElement("td", { className: "p-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5 flex-wrap" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold text-noir" }, p.nameFr), globalRank === 1 && /* @__PURE__ */ React.createElement("span", { className: "text-[9px] uppercase tracking-wider font-bold text-caramel" }, "\u2022 1er de la liste"), p.videoUrl && String(p.videoUrl).trim() && /* @__PURE__ */ React.createElement("span", { className: "px-1.5 py-0.5 bg-noir text-[#E6C687] text-[9px] font-bold uppercase rounded-2xs" }, "\u{1F3AC} Vid\xE9o")), /* @__PURE__ */ React.createElement("div", { className: "text-[11px] text-taupe-dark font-arabic" }, p.nameAr), /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-taupe font-mono mt-0.5" }, "REF: ", p.id)),
+      /* @__PURE__ */ React.createElement("td", { className: "p-3 text-center" }, /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          type: "button",
+          disabled: togglingHomeProdId === p.id,
+          onClick: () => handleToggleProductHome(p),
+          className: `px-2.5 py-1.5 rounded-xs border text-[10px] font-bold uppercase tracking-wider transition-all inline-flex items-center gap-1.5 ${p.showOnHome !== false ? "bg-emerald-50 border-emerald-400 text-emerald-800 hover:bg-emerald-100" : "bg-canvas border-taupe/35 text-taupe-dark hover:border-noir hover:text-noir"}`,
+          title: "Cliquez pour afficher ou masquer ce produit sur la Page Principale (Index)"
+        },
+        /* @__PURE__ */ React.createElement("span", null, p.showOnHome !== false ? "\u{1F3E0} Oui (Index)" : "\u{1F4C2} Non (Catalogue)")
+      )),
       /* @__PURE__ */ React.createElement("td", { className: "p-3" }, /* @__PURE__ */ React.createElement("span", { className: "inline-block px-2 py-0.5 bg-canvas border border-taupe/20 text-[10px] text-noir" }, p.category)),
       /* @__PURE__ */ React.createElement("td", { className: "p-3" }, /* @__PURE__ */ React.createElement("div", { className: "font-bold text-noir tabular-nums" }, p.price, " MAD"), p.oldPrice && /* @__PURE__ */ React.createElement("div", { className: "text-[10px] text-taupe line-through tabular-nums" }, p.oldPrice, " MAD")),
       /* @__PURE__ */ React.createElement("td", { className: "p-3" }, p.stock > 0 ? /* @__PURE__ */ React.createElement("span", { className: "text-emerald-700 font-semibold" }, p.stock, " ex. total") : /* @__PURE__ */ React.createElement("span", { className: "text-red-600 font-semibold" }, "Rupture (0)"), hasVariantStockMatrix(p) && /* @__PURE__ */ React.createElement("div", { className: "mt-1 flex flex-wrap gap-1 max-w-[210px]" }, Object.entries(p.variantStock).slice(0, 6).map(([k, v]) => {
@@ -5303,6 +5787,8 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
   const [stock, setStock] = useState(initialData.stock ?? 10);
   const [category, setCategory] = useState(initialData.category || PRODUCT_CATEGORIES[0]);
   const [badge, setBadge] = useState(initialData.badge || "new");
+  const [showOnHome, setShowOnHome] = useState(initialData.showOnHome !== false);
+  const [videoUrl, setVideoUrl] = useState(initialData.videoUrl || "");
   const [imagesList, setImagesList] = useState(Array.isArray(initialData.images) ? [...initialData.images] : []);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [draggedImgIdx, setDraggedImgIdx] = useState(null);
@@ -5500,6 +5986,8 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
         category,
         badge: sumStock <= 0 ? "out" : badge === "out" ? "new" : badge,
         isNew: badge === "new",
+        showOnHome: Boolean(showOnHome),
+        videoUrl: (videoUrl || "").trim(),
         rating: initialData.rating || 5,
         images: finalImages.length > 0 ? finalImages : ['data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="%23f3f1ec"/><text x="200" y="200" fill="%23999" text-anchor="middle">MODANOVA</text></svg>'],
         descFr,
@@ -5589,7 +6077,32 @@ function ProductFormModal({ initialData, token, lang, t, onClose, onSaved, onErr
     /* @__PURE__ */ React.createElement("option", { value: "exclusive" }, "Exclusif"),
     /* @__PURE__ */ React.createElement("option", { value: "luxury" }, "\xC9dition Limit\xE9e"),
     /* @__PURE__ */ React.createElement("option", { value: "out" }, "Rupture")
-  ))), /* @__PURE__ */ React.createElement("div", { className: "border border-dashed border-caramel/50 bg-[#FAF7F2] p-4 rounded-xs space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col sm:flex-row sm:items-center justify-between gap-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "font-bold uppercase text-[11px] text-noir block" }, "\u{1F4F8} Photos du Produit & Ordre d'Affichage (1er, 2\xE8me, 3\xE8me...)"), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] text-taupe-dark block mt-0.5" }, "D\xE9placez les photos (fl\xE8ches ", /* @__PURE__ */ React.createElement("strong", null, "\u2190 \u2192"), ", menu ", /* @__PURE__ */ React.createElement("strong", null, "1er, 2e, 3e..."), " ou glisser-d\xE9poser) pour choisir la 1\xE8re photo principale, la 2\xE8me, la 3\xE8me, etc.")), /* @__PURE__ */ React.createElement("label", { className: `px-3.5 py-2 bg-noir hover:bg-caramel text-white text-[11px] font-semibold cursor-pointer rounded-xs transition-colors flex items-center gap-1.5 shrink-0 shadow-xs ${uploading ? "opacity-50 pointer-events-none" : ""}` }, /* @__PURE__ */ React.createElement("span", null, uploading ? "\u23F3 Upload Firebase..." : "\u{1F4C1} Ajouter photo(s)"), /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", { className: `p-3.5 rounded-xs border transition-colors flex items-start justify-between gap-3 ${showOnHome ? "bg-emerald-50/70 border-emerald-400" : "bg-card border-taupe/30"}` }, /* @__PURE__ */ React.createElement("label", { className: "flex items-start gap-3 cursor-pointer select-none flex-1" }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "checkbox",
+      checked: showOnHome,
+      onChange: (e) => setShowOnHome(e.target.checked),
+      className: "mt-0.5 w-4 h-4 accent-noir cursor-pointer"
+    }
+  ), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "font-bold uppercase text-[11px] text-noir block" }, "\u{1F3E0} Afficher ce produit sur la Page Principale (Index / Accueil)"), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] text-taupe-dark block mt-0.5" }, showOnHome ? "\u2705 Ce produit est visible sur la Page Principale (Accueil) ET sur la page \xAB Tous les Produits & Filtres \xBB." : "\u{1F4C2} Ce produit est masqu\xE9 de la Page Principale (Accueil) et s'affiche uniquement sur la page \xAB Tous les Produits & Filtres \xBB (/produits)."))), /* @__PURE__ */ React.createElement("span", { className: `px-2 py-0.5 text-[10px] font-bold uppercase rounded-2xs shrink-0 ${showOnHome ? "bg-emerald-700 text-white" : "bg-taupe/30 text-noir"}` }, showOnHome ? "Sur Index" : "Catalogue seul")), /* @__PURE__ */ React.createElement("div", { className: "border border-taupe/35 bg-white p-4 rounded-xs space-y-3 shadow-2xs" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between gap-2" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "font-bold uppercase text-[11px] text-noir block" }, "\u{1F3AC} Lien Vid\xE9o du Produit (Optionnel)"), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] text-taupe-dark block mt-0.5" }, "Collez un lien vid\xE9o ", /* @__PURE__ */ React.createElement("strong", null, "YouTube"), ", ", /* @__PURE__ */ React.createElement("strong", null, "YouTube Shorts"), ", ", /* @__PURE__ */ React.createElement("strong", null, "TikTok"), ", ", /* @__PURE__ */ React.createElement("strong", null, "Vimeo"), ", ", /* @__PURE__ */ React.createElement("strong", null, "Google Drive"), ", ", /* @__PURE__ */ React.createElement("strong", null, "Instagram Reel"), " ou un lien direct ", /* @__PURE__ */ React.createElement("strong", null, ".mp4 / .webm"), ".")), videoUrl && videoUrl.trim() && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: () => setVideoUrl(""),
+      className: "px-2.5 py-1 bg-red-50 hover:bg-red-600 text-red-700 hover:text-white border border-red-200 text-[10px] font-bold rounded-2xs transition-colors shrink-0"
+    },
+    "\u2715 Supprimer vid\xE9o"
+  )), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      type: "url",
+      value: videoUrl,
+      onChange: (e) => setVideoUrl(e.target.value),
+      placeholder: "Ex: https://www.youtube.com/watch?v=... ou https://youtu.be/... ou https://.../video.mp4",
+      className: "w-full bg-card border border-taupe/30 px-3 py-2 font-mono text-xs text-noir focus:border-caramel"
+    }
+  ), videoUrl && videoUrl.trim() && /* @__PURE__ */ React.createElement("div", { className: "pt-2 border-t border-taupe/15" }, /* @__PURE__ */ React.createElement("div", { className: "text-[10px] font-bold uppercase tracking-wider text-caramel mb-1.5" }, "\u25B6 Aper\xE7u en direct de la vid\xE9o :"), /* @__PURE__ */ React.createElement("div", { className: "max-w-sm mx-auto" }, /* @__PURE__ */ React.createElement(ProductVideoPlayer, { videoUrl, title: nameFr || "Aper\xE7u Vid\xE9o", lang })))), /* @__PURE__ */ React.createElement("div", { className: "border border-dashed border-caramel/50 bg-[#FAF7F2] p-4 rounded-xs space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col sm:flex-row sm:items-center justify-between gap-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "font-bold uppercase text-[11px] text-noir block" }, "\u{1F4F8} Photos du Produit & Ordre d'Affichage (1er, 2\xE8me, 3\xE8me...)"), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] text-taupe-dark block mt-0.5" }, "D\xE9placez les photos (fl\xE8ches ", /* @__PURE__ */ React.createElement("strong", null, "\u2190 \u2192"), ", menu ", /* @__PURE__ */ React.createElement("strong", null, "1er, 2e, 3e..."), " ou glisser-d\xE9poser) pour choisir la 1\xE8re photo principale, la 2\xE8me, la 3\xE8me, etc.")), /* @__PURE__ */ React.createElement("label", { className: `px-3.5 py-2 bg-noir hover:bg-caramel text-white text-[11px] font-semibold cursor-pointer rounded-xs transition-colors flex items-center gap-1.5 shrink-0 shadow-xs ${uploading ? "opacity-50 pointer-events-none" : ""}` }, /* @__PURE__ */ React.createElement("span", null, uploading ? "\u23F3 Upload Firebase..." : "\u{1F4C1} Ajouter photo(s)"), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "file",
