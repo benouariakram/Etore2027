@@ -1042,8 +1042,14 @@
 
         const itemsRows = (parsedItems || []).map((item, idx) => {
           const name = escapeHTML(isAr ? (item.nameAr || item.nameFr || item.name || 'Article') : (item.nameFr || item.name || 'Article'));
-          const size = escapeHTML(item.size || '-');
-          const color = escapeHTML(item.color || '');
+          const size = escapeHTML(item.size || 'Unique');
+          const rawColor = String(item.color || '').trim();
+          const colorName = item.colorLabel
+            ? escapeHTML(item.colorLabel)
+            : (rawColor ? escapeHTML(getColorLabel(rawColor, lang)) : (isAr ? 'قياسي' : 'Standard'));
+          const colorHex = rawColor && rawColor.toLowerCase() !== 'default' && rawColor.toLowerCase() !== 'standard'
+            ? escapeHTML(getColorCss(rawColor))
+            : '';
           const qty = Number(item.quantity || item.qty || 1);
           const price = Number(item.price || 0).toLocaleString(isAr ? 'ar-MA' : 'fr-FR');
           const lineTotal = (Number(item.price || 0) * qty).toLocaleString(isAr ? 'ar-MA' : 'fr-FR');
@@ -1052,8 +1058,14 @@
             <tr style="border-bottom: 1px solid #ECE7E1;">
               <td style="padding: 10px 12px; text-align: ${isAr ? 'right' : 'left'}; font-weight: 600; color: #171717;">
                 ${name}
-                <div style="font-size: 11px; color: #7A6C5D; font-weight: normal; margin-top: 2px;">
-                  ${isAr ? 'المقاس/الخيار:' : 'Option:'} ${size} ${color ? `| ${color}` : ''}
+                <div style="font-size: 11px; color: #555; font-weight: normal; margin-top: 3px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                  <span>${isAr ? 'المقاس:' : 'Taille :'} <strong style="color:#171717;">${size}</strong></span>
+                  <span style="color:#C7BEB5;">|</span>
+                  <span style="display:inline-flex; align-items:center; gap:4px;">
+                    ${isAr ? 'اللون:' : 'Couleur :'}
+                    ${colorHex ? `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorHex};border:1px solid rgba(0,0,0,0.3);"></span>` : ''}
+                    <strong style="color:#171717;">${colorName}</strong>
+                  </span>
                 </div>
               </td>
               <td style="padding: 10px 12px; text-align: center; color: #555; font-size: 13px;">${qty}</td>
@@ -1141,7 +1153,11 @@
                 ` : ''}
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #555; font-size: 12px;">
                   <span>${isAr ? 'التوصيل السريع:' : 'Livraison express:'}</span>
-                  <span style="color: #10B981; font-weight: 600;">${isAr ? 'مجاناً' : 'Gratuite'}</span>
+                  <span style="color: ${Number(order.shippingFee || 0) > 0 ? '#171717' : '#10B981'}; font-weight: 600;">
+                    ${Number(order.shippingFee || 0) > 0
+                      ? `${Number(order.shippingFee).toLocaleString(isAr ? 'ar-MA' : 'fr-FR')} MAD`
+                      : (isAr ? 'مجاناً' : 'Gratuite')}
+                  </span>
                 </div>
                 <div style="border-top: 2px solid #171717; padding-top: 8px; display: flex; justify-content: space-between; font-size: 16px; font-weight: 700; color: #171717;">
                   <span>${isAr ? 'المجموع للدفع عند الاستلام:' : 'TOTAL À PAYER (COD):'}</span>
@@ -1242,12 +1258,19 @@
         const isAr = lang === 'ar';
         const phone = "212600773716";
         const itemsSummary = (order.items || [])
-          .map(i => `• ${isAr ? (i.nameAr || i.nameFr) : i.nameFr} (x${i.quantity || 1}) - ${i.price} MAD`)
+          .map(i => {
+            const name = isAr ? (i.nameAr || i.nameFr) : i.nameFr;
+            const sz = i.size ? `${isAr ? 'المقاس' : 'Taille'}: ${i.size}` : '';
+            const rawCol = i.colorLabel || (i.color ? getColorLabel(i.color, lang) : '');
+            const col = rawCol ? `${isAr ? 'اللون' : 'Couleur'}: ${rawCol}` : '';
+            const meta = [sz, col].filter(Boolean).join(' | ');
+            return `• ${name}${meta ? ` (${meta})` : ''} (x${i.quantity || 1}) - ${i.price} MAD`;
+          })
           .join('\n');
 
         const message = isAr
-          ? `مرحباً مودانوفا 👋\nأود تأكيد طلبي عبر واتساب:\n\n*رقم الطلب:* ${order.id}\n*الاسم:* ${order.customerName}\n*الهاتف:* ${order.customerPhone}\n*المدينة:* ${order.city}\n*العنوان:* ${order.address}\n\n*المنتجات:*\n${itemsSummary}\n\n*المجموع الصافي:* ${order.total} درهم (الدفع عند الاستلام)\n\nشكراً لكم!`
-          : `Bonjour MODANOVA 👋\nJe souhaite confirmer ma commande COD :\n\n*Commande N° :* ${order.id}\n*Client :* ${order.customerName}\n*Téléphone :* ${order.customerPhone}\n*Ville :* ${order.city}\n*Adresse :* ${order.address}\n\n*Articles :*\n${itemsSummary}\n\n*Total à payer :* ${order.total} MAD (Paiement à la livraison)\n\nMerci !`;
+          ? `مرحباً مودانوفا،\nأود تأكيد طلبي عبر واتساب:\n\n*رقم الطلب:* ${order.id}\n*الاسم:* ${order.customerName}\n*الهاتف:* ${order.customerPhone}\n*المدينة:* ${order.city}\n*العنوان:* ${order.address}\n\n*المنتجات:*\n${itemsSummary}\n\n*المجموع الصافي:* ${order.total} درهم (الدفع عند الاستلام)\n\nشكراً لكم!`
+          : `Bonjour MODANOVA,\nJe souhaite confirmer ma commande COD :\n\n*Commande N° :* ${order.id}\n*Client :* ${order.customerName}\n*Téléphone :* ${order.customerPhone}\n*Ville :* ${order.city}\n*Adresse :* ${order.address}\n\n*Articles :*\n${itemsSummary}\n\n*Total à payer :* ${order.total} MAD (Paiement à la livraison)\n\nMerci !`;
 
         return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
       }
@@ -1256,12 +1279,19 @@
         const isAr = lang === 'ar';
         const clientPhone = formatMoroccanPhone(order.customerPhone);
         const itemsSummary = (order.items || [])
-          .map(i => `• ${isAr ? (i.nameAr || i.nameFr) : i.nameFr} (x${i.quantity || 1}) - ${i.price} MAD`)
+          .map(i => {
+            const name = isAr ? (i.nameAr || i.nameFr) : i.nameFr;
+            const sz = i.size ? `${isAr ? 'المقاس' : 'Taille'}: ${i.size}` : '';
+            const rawCol = i.colorLabel || (i.color ? getColorLabel(i.color, lang) : '');
+            const col = rawCol ? `${isAr ? 'اللون' : 'Couleur'}: ${rawCol}` : '';
+            const meta = [sz, col].filter(Boolean).join(' | ');
+            return `• ${name}${meta ? ` (${meta})` : ''} (x${i.quantity || 1}) - ${i.price} MAD`;
+          })
           .join('\n');
 
         const message = isAr
-          ? `مرحباً ${order.customerName} 👋\nمعك خدمة عملاء مودانوفا (MODANOVA).\nنشكركم على اختياركم متجرنا! نود تأكيد طلبكم رقم *${order.id}* :\n\n📦 *المنتجات :*\n${itemsSummary}\n\n💰 *المبلغ الإجمالي :* ${order.total} درهم (الدفع نقداً عند الاستلام)\n📍 *عنوان التوصيل :* ${order.address}، ${order.city}\n\nيرجى الرد لتأكيد هذا الطلب لنباشر الشحن الفوري إليكم. شكراً جزيلاً!`
-          : `Bonjour ${order.customerName} 👋\nC'est le support MODANOVA.\nNous vous remercions pour votre confiance ! Nous souhaitons confirmer avec vous votre commande N° *${order.id}* :\n\n📦 *Articles commandés :*\n${itemsSummary}\n\n💰 *Total à régler :* ${order.total} MAD (Paiement à la livraison)\n📍 *Adresse de livraison :* ${order.address}, ${order.city}\n\nPourriez-vous s'il vous plaît nous confirmer cette commande afin que nous puissions lancer l'expédition express immédiatement ? Merci !`;
+          ? `مرحباً ${order.customerName}،\nمعك خدمة عملاء مودانوفا (MODANOVA).\nنشكركم على اختياركم متجرنا! نود تأكيد طلبكم رقم *${order.id}* :\n\n*المنتجات :*\n${itemsSummary}\n\n*المبلغ الإجمالي :* ${order.total} درهم (الدفع نقداً عند الاستلام)\n*عنوان التوصيل :* ${order.address}، ${order.city}\n\nيرجى الرد لتأكيد هذا الطلب لنباشر الشحن الفوري إليكم. شكراً جزيلاً!`
+          : `Bonjour ${order.customerName},\nC'est le support MODANOVA.\nNous vous remercions pour votre confiance ! Nous souhaitons confirmer avec vous votre commande N° *${order.id}* :\n\n*Articles commandés :*\n${itemsSummary}\n\n*Total à régler :* ${order.total} MAD (Paiement à la livraison)\n*Adresse de livraison :* ${order.address}, ${order.city}\n\nPourriez-vous s'il vous plaît nous confirmer cette commande afin que nous puissions lancer l'expédition express immédiatement ? Merci !`;
 
         return `https://wa.me/${clientPhone}?text=${encodeURIComponent(message)}`;
       }
@@ -1301,7 +1331,7 @@
 
       function getColorLabel(rawColor, lang = 'fr') {
         const c = String(rawColor || '').trim();
-        if (!c) return lang === 'ar' ? 'قياسي' : 'Standard';
+        if (!c || c.toLowerCase() === 'default') return lang === 'ar' ? 'قياسي' : 'Standard';
         if (c.includes(':')) {
           return c.split(':')[0].trim() || c;
         }
@@ -1780,8 +1810,8 @@
 
         const shareWhatsApp = () => {
           const text = lang === 'ar'
-            ? `مرحباً 👋 اكتشف هذه القطعة الراقية من دار مودانوفا (MODANOVA):\n\n*${title}*\nالسعر: ${product.price} درهم مغربي (الدفع عند الاستلام)\n\nرابط المنتج المباشر:\n${currentUrl}`
-            : `Bonjour 👋 Découvrez cette création de la Maison MODANOVA :\n\n*${title}*\nPrix : ${product.price} MAD (Paiement à la livraison)\n\nLien direct vers la pièce :\n${currentUrl}`;
+            ? `مرحباً، اكتشف هذه القطعة الراقية من دار مودانوفا (MODANOVA):\n\n*${title}*\nالسعر: ${product.price} درهم مغربي (الدفع عند الاستلام)\n\nرابط المنتج المباشر:\n${currentUrl}`
+            : `Bonjour, découvrez cette création de la Maison MODANOVA :\n\n*${title}*\nPrix : ${product.price} MAD (Paiement à la livraison)\n\nLien direct vers la pièce :\n${currentUrl}`;
           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         };
 
@@ -1804,6 +1834,7 @@
             stock: selectedVariantStock,
             size: selectedSize,
             color: selectedColor,
+            colorLabel: selectedColorName,
             image: (product.images && product.images[0]) || '',
             lineKey: `${product.id}_${selectedSize}_${selectedColor}`
           };
@@ -1821,8 +1852,8 @@
             return;
           }
           const text = lang === 'ar'
-            ? `السلام عليكم دار مودانوفا 👋\nأرغب في تأكيد طلب هذه القطعة الفاخرة (الدفع عند الاستلام):\n\n*${title}*\n- السعر: ${product.price} درهم مغربي\n- المقاس / الخيار: ${selectedSize || 'قياسي'}\n- اللون: ${selectedColorName}\n- الكمية: ${qty}\n\nالرابط: ${currentUrl}\n\nيرجى التواصل معي لتأكيد موعد التوصيل والعنوان.`
-            : `Bonjour Maison MODANOVA 👋\nJe souhaite commander cette pièce en paiement à la livraison (COD) :\n\n*${title}*\n- Prix : ${product.price} MAD\n- Taille / Pointure / Format : ${selectedSize || 'Standard'}\n- Couleur : ${selectedColorName}\n- Quantité : ${qty}\n\nLien : ${currentUrl}\n\nMerci de confirmer la disponibilité et le créneau de livraison.`;
+            ? `السلام عليكم دار مودانوفا،\nأرغب في تأكيد طلب هذه القطعة الفاخرة (الدفع عند الاستلام):\n\n*${title}*\n- السعر: ${product.price} درهم مغربي\n- المقاس / الخيار: ${selectedSize || 'قياسي'}\n- اللون: ${selectedColorName}\n- الكمية: ${qty}\n\nالرابط: ${currentUrl}\n\nيرجى التواصل معي لتأكيد موعد التوصيل والعنوان.`
+            : `Bonjour Maison MODANOVA,\nJe souhaite commander cette pièce en paiement à la livraison (COD) :\n\n*${title}*\n- Prix : ${product.price} MAD\n- Taille / Pointure / Format : ${selectedSize || 'Standard'}\n- Couleur : ${selectedColorName}\n- Quantité : ${qty}\n\nLien : ${currentUrl}\n\nMerci de confirmer la disponibilité et le créneau de livraison.`;
           window.open(`https://wa.me/212600773716?text=${encodeURIComponent(text)}`, '_blank');
         };
 
@@ -6283,12 +6314,16 @@
         const [reorderingProds, setReorderingProds] = useState(false);
         const PRODUCTS_PER_PAGE = 10;
 
-        // Order filter, search & pagination (10 orders per page)
+        // Order filter, search, edit & pagination (10 orders per page)
         const [orderFilter, setOrderFilter] = useState('ALL');
         const [orderSearch, setOrderSearch] = useState('');
         const [orderPage, setOrderPage] = useState(1);
         const [confirmDeleteOrderId, setConfirmDeleteOrderId] = useState(null);
         const [deletingOrderId, setDeletingOrderId] = useState(null);
+        const [editingOrder, setEditingOrder] = useState(null);
+        const [orderEditForm, setOrderEditForm] = useState(null);
+        const [orderSaving, setOrderSaving] = useState(false);
+        const [addProdToOrderId, setAddProdToOrderId] = useState('');
         const ORDERS_PER_PAGE = 10;
 
         // CMS state
@@ -7086,7 +7121,7 @@
           }
         };
 
-        // Orders & Products status handlers
+        // Orders & Products status & edit handlers
         const handleStatusChange = async (orderId, newStatus) => {
           try {
             const res = await fetch(`/api/orders/${orderId}`, {
@@ -7103,6 +7138,155 @@
             }
           } catch {
             showToast('Erreur mise à jour', 'error');
+          }
+        };
+
+        const openEditOrder = (order) => {
+          if (!order) return;
+          const itemsArr = Array.isArray(order.items) ? order.items : [];
+          setEditingOrder(order);
+          setAddProdToOrderId('');
+          setOrderEditForm({
+            customerName: order.customerName || '',
+            customerPhone: order.customerPhone || '',
+            city: order.city || 'Casablanca',
+            address: order.address || '',
+            notes: order.notes || '',
+            status: order.status || 'En attente',
+            paymentMethod: order.paymentMethod || 'COD (Paiement à la livraison)',
+            promoCode: order.promoCode || '',
+            discount: Number(order.discount || 0),
+            shippingFee: Number(order.shippingFee || 0),
+            items: itemsArr.map((it, idx) => ({
+              _key: `${idx}_${it.productId || 'p'}`,
+              productId: it.productId || 0,
+              nameFr: it.nameFr || it.name || 'Article',
+              nameAr: it.nameAr || it.nameFr || it.name || 'منتج',
+              price: Number(it.price || 0),
+              quantity: Math.max(1, Number(it.quantity || it.qty || 1)),
+              size: it.size || 'Unique',
+              color: it.color || 'Noir:#171717',
+              colorLabel: it.colorLabel || getColorLabel(it.color || '', 'fr'),
+              image: it.image || ''
+            }))
+          });
+        };
+
+        const updateEditOrderItem = (idx, field, val) => {
+          setOrderEditForm(prev => {
+            if (!prev) return prev;
+            const nextItems = prev.items.map((item, i) => {
+              if (i !== idx) return item;
+              const updated = { ...item, [field]: val };
+              if (field === 'color') {
+                updated.colorLabel = getColorLabel(val, 'fr');
+              }
+              return updated;
+            });
+            return { ...prev, items: nextItems };
+          });
+        };
+
+        const removeEditOrderItem = (idx) => {
+          setOrderEditForm(prev => {
+            if (!prev || prev.items.length <= 1) {
+              showToast('La commande doit contenir au moins un article.', 'error');
+              return prev;
+            }
+            return {
+              ...prev,
+              items: prev.items.filter((_, i) => i !== idx)
+            };
+          });
+        };
+
+        const addCatalogProductToEditOrder = () => {
+          const prod = (products || []).find(p => String(p.id) === String(addProdToOrderId));
+          if (!prod) return;
+          const defSize = (Array.isArray(prod.sizes) && prod.sizes[0]) || 'Unique';
+          const defColor = (Array.isArray(prod.colors) && prod.colors[0]) || 'Noir:#171717';
+          setOrderEditForm(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              items: [
+                ...prev.items,
+                {
+                  _key: `${Date.now()}_${prod.id}`,
+                  productId: prod.id,
+                  nameFr: prod.nameFr,
+                  nameAr: prod.nameAr || prod.nameFr,
+                  price: Number(prod.price || 0),
+                  quantity: 1,
+                  size: defSize,
+                  color: defColor,
+                  colorLabel: getColorLabel(defColor, 'fr'),
+                  image: (Array.isArray(prod.images) && prod.images[0]) || ''
+                }
+              ]
+            };
+          });
+          setAddProdToOrderId('');
+        };
+
+        const handleSaveOrderEdit = async (e) => {
+          e.preventDefault();
+          if (!editingOrder || !orderEditForm || orderSaving) return;
+          const cleanPhone = String(orderEditForm.customerPhone || '').trim().replace(/\s+/g, '');
+          if (!/^(06|07)\d{8}$/.test(cleanPhone)) {
+            showToast('Le téléphone doit comporter 10 chiffres (06 ou 07).', 'error');
+            return;
+          }
+          if (!orderEditForm.customerName.trim() || !orderEditForm.city.trim() || !orderEditForm.address.trim()) {
+            showToast('Veuillez remplir le nom, la ville et l’adresse.', 'error');
+            return;
+          }
+          setOrderSaving(true);
+          try {
+            const payload = {
+              customerName: orderEditForm.customerName.trim(),
+              customerPhone: cleanPhone,
+              city: orderEditForm.city.trim(),
+              address: orderEditForm.address.trim(),
+              notes: String(orderEditForm.notes || '').trim(),
+              status: orderEditForm.status,
+              paymentMethod: orderEditForm.paymentMethod,
+              promoCode: String(orderEditForm.promoCode || '').trim() || null,
+              discount: Math.max(0, Number(orderEditForm.discount) || 0),
+              shippingFee: Math.max(0, Number(orderEditForm.shippingFee) || 0),
+              items: orderEditForm.items.map(it => ({
+                productId: Number(it.productId || 0),
+                nameFr: String(it.nameFr || 'Article').trim(),
+                nameAr: String(it.nameAr || it.nameFr || 'منتج').trim(),
+                price: Math.max(0, Number(it.price) || 0),
+                quantity: Math.max(1, Math.floor(Number(it.quantity) || 1)),
+                size: String(it.size || 'Unique').trim(),
+                color: String(it.color || 'Standard').trim(),
+                colorLabel: String(it.colorLabel || getColorLabel(it.color || '', 'fr')).trim(),
+                image: String(it.image || '')
+              }))
+            };
+            const res = await fetch(`/api/orders/${encodeURIComponent(editingOrder.id)}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.order) {
+              await onRefreshOrders();
+              setEditingOrder(null);
+              setOrderEditForm(null);
+              showToast(`Commande ${data.order.id} modifiée et enregistrée sur Firebase !`, 'success');
+            } else {
+              showToast(data.error || 'Erreur lors de la modification de la commande.', 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion au serveur', 'error');
+          } finally {
+            setOrderSaving(false);
           }
         };
 
@@ -8345,6 +8529,14 @@
                                         <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
                                         <span>Confirmer WhatsApp</span>
                                       </a>
+                                      <button
+                                        type="button"
+                                        onClick={() => openEditOrder(o)}
+                                        className="px-2.5 py-1.5 bg-noir hover:bg-caramel text-white text-[11px] font-semibold rounded-xs transition-colors whitespace-nowrap"
+                                        title="Modifier les informations de la commande"
+                                      >
+                                        ✏️ Modifier
+                                      </button>
                                       <button
                                         onClick={() => onViewInvoice(o)}
                                         className="px-2 py-1.5 border border-taupe/30 hover:border-noir text-noir text-[11px] rounded-xs bg-white shadow-2xs whitespace-nowrap"
@@ -9799,6 +9991,339 @@
                       </button>
                     </div>
                   </form>
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================= */}
+            {/* ORDER EDIT MODAL (Modifier toutes les infos commande)   */}
+            {/* ======================================================= */}
+            {editingOrder && orderEditForm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setEditingOrder(null)} />
+                <div className="relative bg-canvas w-full max-w-3xl max-h-[92vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-5 sm:p-7 rounded-xs">
+                  <button
+                    type="button"
+                    onClick={() => setEditingOrder(null)}
+                    className="absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg"
+                  >
+                    ✕
+                  </button>
+
+                  <div className="mb-5 pb-3 border-b border-taupe/20">
+                    <h3 className="font-serif text-2xl font-bold text-noir">
+                      Modifier la Commande <span className="text-caramel font-mono">{editingOrder.id}</span>
+                    </h3>
+                    <p className="text-xs text-taupe-dark mt-0.5">
+                      Modifiez les coordonnées du client, l'adresse, les articles (taille, couleur, quantité, prix), la remise ou les frais de livraison.
+                    </p>
+                  </div>
+
+                  {(() => {
+                    const editSubtotal = (orderEditForm.items || []).reduce(
+                      (acc, it) => acc + (Math.max(0, Number(it.price) || 0) * Math.max(1, Number(it.quantity) || 1)),
+                      0
+                    );
+                    const editDiscount = Math.max(0, Number(orderEditForm.discount) || 0);
+                    const editShipping = Math.max(0, Number(orderEditForm.shippingFee) || 0);
+                    const editTotal = Math.max(0, editSubtotal - editDiscount + editShipping);
+                    const isCustomCity = !MOROCCAN_CITIES.some(c => c.nameFr === orderEditForm.city);
+
+                    return (
+                      <form onSubmit={handleSaveOrderEdit} className="space-y-5 text-xs">
+                        {/* Section 1: Client & Livraison */}
+                        <div className="bg-white border border-taupe/20 p-4 rounded-xs space-y-3">
+                          <div className="font-bold uppercase tracking-wider text-[11px] text-noir border-b border-taupe/15 pb-2">
+                            1. Coordonnées Client & Livraison
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Nom du Client *</label>
+                              <input
+                                type="text"
+                                required
+                                value={orderEditForm.customerName}
+                                onChange={(e) => setOrderEditForm(p => ({ ...p, customerName: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Téléphone (06/07) *</label>
+                              <input
+                                type="tel"
+                                required
+                                value={orderEditForm.customerPhone}
+                                onChange={(e) => setOrderEditForm(p => ({ ...p, customerPhone: e.target.value }))}
+                                placeholder="06XXXXXXXX"
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs font-mono text-noir focus:border-caramel"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Ville *</label>
+                              <select
+                                value={isCustomCity ? '__CUSTOM__' : orderEditForm.city}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (v !== '__CUSTOM__') {
+                                    setOrderEditForm(p => ({ ...p, city: v }));
+                                  }
+                                }}
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel mb-1.5"
+                              >
+                                {MOROCCAN_CITIES.map(c => (
+                                  <option key={c.id} value={c.nameFr}>{c.nameFr}</option>
+                                ))}
+                                {isCustomCity && (
+                                  <option value="__CUSTOM__">{orderEditForm.city}</option>
+                                )}
+                              </select>
+                              <input
+                                type="text"
+                                required
+                                value={orderEditForm.city}
+                                onChange={(e) => setOrderEditForm(p => ({ ...p, city: e.target.value }))}
+                                placeholder="Nom de la ville"
+                                className="w-full bg-white border border-taupe/25 px-2.5 py-1.5 text-[11px] text-noir focus:border-caramel"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Statut de la Commande</label>
+                              <select
+                                value={orderEditForm.status}
+                                onChange={(e) => setOrderEditForm(p => ({ ...p, status: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs font-semibold text-noir focus:border-caramel"
+                              >
+                                {['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(st => (
+                                  <option key={st} value={st}>{st}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Adresse Complète *</label>
+                            <input
+                              type="text"
+                              required
+                              value={orderEditForm.address}
+                              onChange={(e) => setOrderEditForm(p => ({ ...p, address: e.target.value }))}
+                              className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Méthode de Paiement</label>
+                              <input
+                                type="text"
+                                value={orderEditForm.paymentMethod}
+                                onChange={(e) => setOrderEditForm(p => ({ ...p, paymentMethod: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Note / Instructions</label>
+                              <input
+                                type="text"
+                                value={orderEditForm.notes}
+                                onChange={(e) => setOrderEditForm(p => ({ ...p, notes: e.target.value }))}
+                                placeholder="Ex: Livrer après 17h..."
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Section 2: Articles de la commande */}
+                        <div className="bg-white border border-taupe/20 p-4 rounded-xs space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-taupe/15 pb-2">
+                            <span className="font-bold uppercase tracking-wider text-[11px] text-noir">
+                              2. Articles Commandés ({orderEditForm.items.length})
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <select
+                                value={addProdToOrderId}
+                                onChange={(e) => setAddProdToOrderId(e.target.value)}
+                                className="bg-card border border-taupe/30 px-2 py-1 text-[11px] text-noir max-w-[200px]"
+                              >
+                                <option value="">+ Ajouter un produit du catalogue...</option>
+                                {(products || []).map(pr => (
+                                  <option key={pr.id} value={pr.id}>{pr.nameFr} ({pr.price} MAD)</option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                disabled={!addProdToOrderId}
+                                onClick={addCatalogProductToEditOrder}
+                                className="px-2.5 py-1 bg-noir hover:bg-caramel disabled:opacity-40 text-white text-[11px] font-semibold rounded-2xs transition-colors"
+                              >
+                                Ajouter
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            {orderEditForm.items.map((it, idx) => (
+                              <div key={it._key || idx} className="p-3 bg-canvas/70 border border-taupe/20 rounded-xs space-y-2.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex-1">
+                                    <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-0.5">Article</label>
+                                    <input
+                                      type="text"
+                                      required
+                                      value={it.nameFr}
+                                      onChange={(e) => updateEditOrderItem(idx, 'nameFr', e.target.value)}
+                                      className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs font-semibold text-noir"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEditOrderItem(idx)}
+                                    className="mt-4 px-2 py-1.5 border border-red-200 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold rounded-2xs transition-colors"
+                                    title="Retirer cet article"
+                                  >
+                                    ✕ Retirer
+                                  </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                  <div>
+                                    <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-0.5">Taille / Option</label>
+                                    <input
+                                      type="text"
+                                      value={it.size}
+                                      onChange={(e) => updateEditOrderItem(idx, 'size', e.target.value)}
+                                      className="w-full bg-white border border-taupe/30 px-2 py-1 text-xs font-mono text-noir"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-0.5">Couleur</label>
+                                    <div className="flex items-center gap-1.5">
+                                      <span
+                                        className="w-4 h-4 rounded-full border border-black/30 shrink-0"
+                                        style={{ backgroundColor: getColorCss(it.color) }}
+                                      />
+                                      <input
+                                        type="text"
+                                        value={it.color}
+                                        onChange={(e) => updateEditOrderItem(idx, 'color', e.target.value)}
+                                        placeholder="Ex: Noir:#171717"
+                                        className="w-full bg-white border border-taupe/30 px-2 py-1 text-xs text-noir"
+                                      />
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {PRESET_COLOR_PALETTE.slice(0, 5).map(pc => (
+                                        <button
+                                          key={pc.labelFr}
+                                          type="button"
+                                          onClick={() => updateEditOrderItem(idx, 'color', `${pc.labelFr}:${pc.hex}`)}
+                                          className="w-3.5 h-3.5 rounded-full border border-black/30 hover:scale-110 transition-transform"
+                                          style={{ backgroundColor: pc.hex }}
+                                          title={pc.labelFr}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-0.5">Prix Unitaire (MAD)</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={it.price}
+                                      onChange={(e) => updateEditOrderItem(idx, 'price', e.target.value)}
+                                      className="w-full bg-white border border-taupe/30 px-2 py-1 text-xs font-mono font-bold text-noir"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-0.5">Quantité</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={it.quantity}
+                                      onChange={(e) => updateEditOrderItem(idx, 'quantity', e.target.value)}
+                                      className="w-full bg-white border border-taupe/30 px-2 py-1 text-xs font-mono font-bold text-noir"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Section 3: Montants & Remise */}
+                        <div className="bg-white border border-taupe/20 p-4 rounded-xs space-y-3">
+                          <div className="font-bold uppercase tracking-wider text-[11px] text-noir border-b border-taupe/15 pb-2">
+                            3. Tarification, Remise & Total Final
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Code Promo (Optionnel)</label>
+                              <input
+                                type="text"
+                                value={orderEditForm.promoCode}
+                                onChange={(e) => setOrderEditForm(p => ({ ...p, promoCode: e.target.value.toUpperCase() }))}
+                                placeholder="Ex: RAWCRAFT10"
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs font-mono uppercase text-noir"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Remise (MAD)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={orderEditForm.discount}
+                                onChange={(e) => setOrderEditForm(p => ({ ...p, discount: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs font-mono font-bold text-noir"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Frais de Livraison (MAD)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={orderEditForm.shippingFee}
+                                onChange={(e) => setOrderEditForm(p => ({ ...p, shippingFee: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs font-mono font-bold text-noir"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="bg-[#FAF7F2] border border-caramel/30 p-3 rounded-xs flex flex-wrap items-center justify-between gap-3">
+                            <div className="text-xs text-taupe-dark space-x-3">
+                              <span>Sous-total : <strong className="text-noir">{editSubtotal} MAD</strong></span>
+                              {editDiscount > 0 && (
+                                <span>Remise : <strong className="text-emerald-700">-{editDiscount} MAD</strong></span>
+                              )}
+                              <span>Livraison : <strong className="text-noir">{editShipping > 0 ? `${editShipping} MAD` : 'Gratuite'}</strong></span>
+                            </div>
+                            <div className="text-sm font-bold text-noir font-mono">
+                              TOTAL COD : <span className="text-caramel text-base">{editTotal} MAD</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingOrder(null)}
+                            className="px-4 py-2 border border-taupe/30 hover:border-noir text-noir text-xs"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={orderSaving}
+                            className="px-6 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-2xs"
+                          >
+                            {orderSaving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+                          </button>
+                        </div>
+                      </form>
+                    );
+                  })()}
                 </div>
               </div>
             )}

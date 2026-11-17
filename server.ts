@@ -171,21 +171,31 @@ function formatAdminWhatsappDigits(phone: string): string {
 
 function buildOrderWhatsAppAlertText(order: any): string {
   const itemsLines = (order.items || [])
-    .map((it: any) => `• ${it.quantity}x ${it.nameFr}${it.size ? ` (Taille: ${it.size})` : ""} — ${it.price * it.quantity} MAD`)
+    .map((it: any) => {
+      const sizePart = it.size ? `Taille: ${it.size}` : "";
+      const rawCol = it.colorLabel || (it.color ? formatColorLabelFr(it.color) : "");
+      const colPart = rawCol ? `Couleur: ${rawCol}` : "";
+      const meta = [sizePart, colPart].filter(Boolean).join(" | ");
+      return `- ${it.quantity || 1}x ${it.nameFr}${meta ? ` (${meta})` : ""} -- ${Number(it.price || 0) * Number(it.quantity || 1)} MAD`;
+    })
     .join("\n");
+  const discountLine = Number(order.discount || 0) > 0
+    ? `- *Remise${order.promoCode ? ` (${order.promoCode})` : ""} :* -${order.discount} MAD\n`
+    : "";
   return (
-    `🛍️ *NOUVELLE COMMANDE MODANOVA*\n` +
-    `━━━━━━━━━━━━━━━\n` +
-    `📦 *N° Commande :* ${order.id}\n` +
-    `👤 *Client :* ${order.customerName}\n` +
-    `📞 *Téléphone :* ${order.customerPhone}\n` +
-    `🏙️ *Ville :* ${order.city}\n` +
-    `📍 *Adresse :* ${order.address}\n` +
-    (order.notes ? `📝 *Note :* ${order.notes}\n` : "") +
-    `━━━━━━━━━━━━━━━\n` +
-    `🛒 *Articles :*\n${itemsLines}\n` +
-    `━━━━━━━━━━━━━━━\n` +
-    `💰 *TOTAL COD : ${order.total} MAD*`
+    `*NOUVELLE COMMANDE MODANOVA*\n` +
+    `------------------------------\n` +
+    `- *N° Commande :* ${order.id}\n` +
+    `- *Client :* ${order.customerName}\n` +
+    `- *Téléphone :* ${order.customerPhone}\n` +
+    `- *Ville :* ${order.city}\n` +
+    `- *Adresse :* ${order.address}\n` +
+    (order.notes ? `- *Note :* ${order.notes}\n` : "") +
+    `------------------------------\n` +
+    `*Articles :*\n${itemsLines}\n` +
+    `------------------------------\n` +
+    discountLine +
+    `*TOTAL COD : ${order.total} MAD*`
   );
 }
 
@@ -1128,7 +1138,7 @@ app.put('/api/products/reorder', async (req: Request, res: Response) => {
 // Helper: Color readable name in French for error/order messages
 function formatColorLabelFr(rawColor: string): string {
   const c = String(rawColor || '').trim();
-  if (!c) return 'Standard';
+  if (!c || c.toLowerCase() === 'default') return 'Standard';
   if (c.includes(':')) {
     return c.split(':')[0].trim() || c;
   }
@@ -1987,6 +1997,121 @@ app.patch('/api/orders/:id', async (req: Request, res: Response) => {
   }
 
   return res.json({ ok: true, order });
+});
+
+// Edit full order details (Admin — Persisted in Firebase Firestore)
+app.put('/api/orders/:id', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const orderId = String(req.params.id).trim().toUpperCase();
+  const idx = ordersStore.findIndex(o => String(o.id || '').trim().toUpperCase() === orderId);
+  let existingOrder = idx >= 0 ? ordersStore[idx] : null;
+  if (!existingOrder) {
+    try {
+      const { getFirestoreOrder } = await import('./src/firebase.ts');
+      existingOrder = await getFirestoreOrder(orderId);
+      if (existingOrder) {
+        ordersStore.unshift(existingOrder);
+      }
+    } catch {}
+  }
+  if (!existingOrder) {
+    return res.status(404).json({ error: "Commande introuvable" });
+  }
+
+  const body = req.body || {};
+  const customerName = String(body.customerName ?? existingOrder.customerName ?? '').trim().slice(0, 200);
+  const cleanPhone = String(body.customerPhone ?? existingOrder.customerPhone ?? '').trim().replace(/\s+/g, '');
+  const city = String(body.city ?? existingOrder.city ?? '').trim().slice(0, 100);
+  const address = String(body.address ?? existingOrder.address ?? '').trim().slice(0, 500);
+  const notes = String(body.notes ?? existingOrder.notes ?? '').trim().slice(0, 500);
+  const status = String(body.status ?? existingOrder.status ?? 'En attente').trim();
+  const paymentMethod = String(body.paymentMethod ?? existingOrder.paymentMethod ?? 'COD (Paiement à la livraison)').trim().slice(0, 100);
+
+  if (customerName.length < 1) {
+    return res.status(400).json({ error: "Le nom du client est obligatoire." });
+  }
+  if (!/^(06|07)\d{8}$/.test(cleanPhone)) {
+    return res.status(400).json({ error: "Le numéro de téléphone doit comporter 10 chiffres et commencer par 06 ou 07." });
+  }
+  if (city.length < 1 || address.length < 1) {
+    return res.status(400).json({ error: "La ville et l'adresse sont obligatoires." });
+  }
+  if (!ALLOWED_STATUSES.includes(status)) {
+    return res.status(400).json({ error: "Statut de commande invalide." });
+  }
+
+  const rawItems = Array.isArray(body.items) ? body.items : existingOrder.items;
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    return res.status(400).json({ error: "La commande doit contenir au moins un article." });
+  }
+
+  const cleanItems = rawItems.slice(0, 100).map((it: any) => {
+    const qty = Math.max(1, Math.floor(Number(it.quantity || it.qty || 1) || 1));
+    const unitPrice = Math.max(0, Number(it.price || 0) || 0);
+    const chosenSize = String(it.size || 'Unique').trim() || 'Unique';
+    const chosenColor = String(it.color || 'Standard').trim() || 'Standard';
+    const computedColorLabel = it.colorLabel
+      ? String(it.colorLabel).trim()
+      : formatColorLabelFr(chosenColor);
+    return {
+      productId: it.productId !== undefined ? Number(it.productId) : (it.id !== undefined ? Number(it.id) : 0),
+      nameFr: String(it.nameFr || it.name || 'Article').trim(),
+      nameAr: String(it.nameAr || it.nameFr || it.name || 'منتج').trim(),
+      price: unitPrice,
+      quantity: qty,
+      size: chosenSize,
+      color: chosenColor,
+      colorLabel: computedColorLabel,
+      image: String(it.image || '')
+    };
+  });
+
+  const subtotal = cleanItems.reduce((sum: number, it: any) => sum + Number(it.price) * Number(it.quantity), 0);
+  const discount = Math.max(0, Number(body.discount ?? existingOrder.discount ?? 0) || 0);
+  const shippingFee = Math.max(0, Number(body.shippingFee ?? existingOrder.shippingFee ?? 0) || 0);
+  const promoCodeRaw = body.promoCode !== undefined ? body.promoCode : existingOrder.promoCode;
+  const promoCode = promoCodeRaw && String(promoCodeRaw).trim()
+    ? String(promoCodeRaw).trim().toUpperCase().slice(0, 40)
+    : null;
+  const total = Math.max(0, subtotal - discount + shippingFee);
+
+  const updatedOrder = {
+    id: orderId,
+    date: String(existingOrder.date || new Date().toISOString()),
+    status,
+    customerName,
+    customerPhone: cleanPhone,
+    city,
+    address,
+    notes,
+    items: cleanItems,
+    subtotal,
+    discount,
+    promoCode,
+    shippingFee,
+    total,
+    paymentMethod,
+    updatedAt: new Date().toISOString()
+  };
+
+  const targetIdx = ordersStore.findIndex(o => String(o.id || '').trim().toUpperCase() === orderId);
+  if (targetIdx >= 0) {
+    ordersStore[targetIdx] = updatedOrder;
+  } else {
+    ordersStore.unshift(updatedOrder);
+  }
+  savePersistedStore();
+
+  try {
+    const { updateFirestoreOrder } = await import('./src/firebase.ts');
+    await updateFirestoreOrder(orderId, updatedOrder);
+  } catch (err) {
+    console.error('Error updating order in Firestore:', err);
+  }
+
+  return res.json({ ok: true, order: updatedOrder });
 });
 
 // Delete order (Admin — Deleted from Firebase Firestore)

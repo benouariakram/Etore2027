@@ -1,118 +1,28 @@
 {
   "products": [
     {
-      "price": 799,
-      "id": 1794789320862,
-      "category": "Chaussures",
-      "showOnHome": true,
-      "inStock": true,
       "rating": 5,
-      "nameFr": "Nike Air Jordan 1 Low SE Metallic Silver Tiempo",
-      "descFr": "La Nike Air Jordan 1 Low SE Metallic Silver Tiempo revisite la silhouette emblématique du basketball en lui apportant une touche inspirée des chaussures de football.\n• Design et matériaux : Elle associe une base en cuir blanc lisse à des empiècements en cuir argent métallisé brillant et un Swoosh noir contrastant.\n• Détail signature : Sa languette noire rabattable (façon crampons Tiempo) arbore le logo Jumpman et apporte une esthétique rétro unique.\n• Confort : Dotée d'une unité Air-Sole encapsulée au talon, elle offre un amorti léger et un confort optimal au quotidien, complété par une semelle extérieure en caoutchouc noir durable.\n",
-      "badge": "new",
-      "sizes": [
-        "40",
-        "41",
-        "42",
-        "43",
-        "44"
-      ],
-      "videoUrl": "https://www.tiktok.com/@modanova.ma/video/7708886979336834326",
-      "descAr": "يجمع حذاء Nike Air Jordan 1 Low SE Metallic Silver Tiempo بين التصميم الكلاسيكي لكرة السلة ولمسة مستوحاة من أحذية كرة القدم.\n• التصميم والخامات: يتميز بقاعدة من الجلد الأبيض الناعم مع طبقات من الجلد الفضي اللامع (ميتاليك)، بالإضافة إلى شعار نايكي (Swoosh) باللون الأسود المتباين.\n• تفاصيل مميزة: يحتوي الحذاء على لسان أسود قابل للطي مستوحى من أحذية كرة القدم الشهيرة (Tiempo) مزين بشعار Jumpman، مما يمنحه مظهراً فريداً وجريئاً.\n• الراحة والأداء: مزود بوحدة توسيد هوائية (Air-Sole) مدمجة في الكعب لتوفير خفة وراحة فائقة طوال اليوم، مع نعل خارجي مطاطي متين باللون الأسود.\n",
-      "position": 1,
-      "stock": 23,
-      "variantStock": {
-        "41__Blanc:#FFFFFF": 5,
-        "42__Blanc:#FFFFFF": 5,
-        "44__Blanc:#FFFFFF": 5,
-        "43__Blanc:#FFFFFF": 5,
-        "40__Blanc:#FFFFFF": 3
-      },
-      "updatedAt": "2026-11-16T21:58:18.471Z",
-      "images": [
-        "/uploads/products_1794789427944_image_20261116_003630_final.jpg",
-        "/uploads/products_1794789270999_36183372_68068062_1000-changer-arriere-p.jpg",
-        "/uploads/products_1794789271278_36183372_68068052_1000-changer-arriere-p.jpg",
-        "/uploads/products_1794789271577_36183372_68068049_1000-changer-arriere-p.jpg",
-        "/uploads/products_1794789271811_36183372_68068058_1000-changer-arriere-p.jpg"
-      ],
-      "isNew": true,
-      "oldPrice": 1200,
-      "nameAr": "Nike Air Jordan 1 Low SE Metallic Silver Tiempo",
-      "colors": [
-        "Blanc:#FFFFFF"
-      ],
-      "createdAt": "2026-11-16T00:35:20.863Z"
-    },
-    {
-      "sizes": [
-        "40",
-        "41",
-        "42",
-        "43",
-        "44"
-      ],
-      "variantStock": {
-        "44__Smokey": 5,
-        "41__Smokey": 5,
-        "40__Smokey": 5,
-        "43__Smokey": 5,
-        "42__Smokey": 5
-      },
-      "oldPrice": 1000,
-      "descFr": "Légères, respirantes et ultra-confortables. Dotées de la semelle amortissante CloudTec Phase® et d'une tige en mesh technique violet lavande, ces baskets offrent une foulée fluide et un style urbain épuré au quotidien.",
-      "nameFr": "​On Running Cloudsurfer",
-      "badge": "new",
-      "rating": 5,
-      "price": 799,
-      "position": 2,
-      "nameAr": "​حذاء On Running Cloudsurfer",
-      "colors": [
-        "Smokey"
-      ],
-      "isNew": true,
-      "images": [
-        "/uploads/products_1794787792610_35821148_67399553_1000-generate-5-photos.jpg",
-        "/uploads/products_1794787794075_35821148_67399554_2048-generate-5-photos.jpg",
-        "/uploads/products_1794787791880_35821148_67399552_1000-generate-5-photos.jpg",
-        "/uploads/products_1794787792995_35821148_67399557_1000-generate-5-photos.jpg",
-        "/uploads/products_1794787793450_35821148_67399555_1000-generate-5-photos.jpg"
-      ],
-      "id": 1794664326383,
-      "inStock": true,
-      "stock": 25,
-      "createdAt": "2026-11-14T13:52:06.383Z",
-      "category": "Chaussures",
-      "updatedAt": "2026-11-16T00:16:08.331Z",
-      "descAr": "​حذاء On Running Cloudsurfer \nخفة فائقة وراحة تدوم طوال اليوم. بفضل نعل CloudTec Phase® المبتكر لامتصاص الصدمات وتصميمه الشبكي الأنيق باللون البنفسجي الهادئ، يمنحك هذا الحذاء مرونة مثالية وإطلالة عصرية في كل خطوة"
-    },
-    {
-      "position": 3,
-      "badge": "new",
-      "inStock": true,
+      "nameAr": "سترة صوفية (فليس) من Carhartt WIP",
       "sizes": [
         "M",
         "L",
         "XL"
       ],
-      "updatedAt": "2026-11-14T13:23:16.658Z",
-      "price": 750,
       "oldPrice": 900,
-      "createdAt": "2026-11-11T22:03:57.160Z",
-      "rating": 5,
+      "price": 750,
       "nameFr": "Veste polaire Carhartt WIP Nord ",
-      "descFr": "Veste polaire épaisse, chaude et confortable au style streetwear. Elle dispose d'empiècements noirs contrastants aux épaules, d'un col montant, d'une fermeture éclair intégrale et de trois poches zippées pratiques (deux latérales et une sur la poitrine avec le logo Carhartt).",
-      "isNew": true,
-      "category": "Outerwear",
       "descAr": "سترة صوفية دافئة ومريحة بتصميم عصري وأنيق. تتميز بأكتاف باللون الأسود، ياقة مرتفعة، سحاب أمامي كامل، وثلاثة جيوب بسحاب (جيبان جانبيان وجيب على الصدر يحمل شعار Carhartt). ",
-      "id": 2,
+      "position": 1,
       "colors": [
         "#323B2B",
         "#2A3B56",
         "#45494E"
       ],
-      "nameAr": "سترة صوفية (فليس) من Carhartt WIP",
-      "stock": 6,
+      "createdAt": "2026-11-11T22:03:57.160Z",
+      "isNew": true,
+      "badge": "new",
+      "category": "Outerwear",
+      "descFr": "Veste polaire épaisse, chaude et confortable au style streetwear. Elle dispose d'empiècements noirs contrastants aux épaules, d'un col montant, d'une fermeture éclair intégrale et de trois poches zippées pratiques (deux latérales et une sur la poitrine avec le logo Carhartt).",
       "images": [
         "/uploads/products_1794435044123_be899a62-69be-4003-a6da-2f1f60b38037.webp",
         "/uploads/products_1794435045292_41bff39c-a128-45cc-a86e-d789e8491aad.webp",
@@ -120,59 +30,58 @@
         "/uploads/products_1794435047428_e6cabaa0-fbcf-462e-8dc0-55fb2ff8a585.webp",
         "/uploads/products_1794435048380_126708e9-dc06-4414-bbf5-16fa69994ea9.webp",
         "/uploads/products_1794446959640_14000ec0-bd94-413f-8718-4ed9987aa797.webp"
-      ]
+      ],
+      "id": 2,
+      "inStock": true,
+      "stock": 6,
+      "updatedAt": "2026-11-14T13:23:16.658Z"
     },
     {
-      "updatedAt": "2026-11-14T13:23:34.625Z",
+      "isNew": true,
+      "badge": "new",
+      "createdAt": "2026-11-11T23:56:39.686Z",
+      "videoUrl": "",
+      "variantStock": {
+        "M__#CEDBF0": 1,
+        "M__#242625": 1,
+        "L__#242625": 1,
+        "L__#CEDBF0": 1
+      },
+      "nameFr": "Arc'teryx Beta LT Jacket pour homme",
+      "id": 1,
+      "descAr": "🔥 Arc'teryx GORE-TEX Jacket - جودة عالية 🔥\n\nسترة فنية للعلامة التجارية الأسطورية Arc'teryx، مثالية لفصل الشتاء والأمطار والجبال.\n\n✅ الخصائص:\nالمواد: أصلي GORE-TEX 100٪ مقاوم للماء وعازل للرياح\nشعار Arc'teryx المطرز\n- غطاء قابل للتعديل مع الحبل\n- إغلاق جودة عالية\nاللون: أسود - يرتدي مع كل شيء\n- الحالة: ممتازة كجديد\n\n✅ مزايا:\nضد المطر والثلوج\nتنفس، لا تتعرق.\nخفيفة ومريحة\n- مطلوبة للغاية بعد العلامة التجارية العالمية\n📦 Delivery متاح في أي مكان في المغرب\n📏 الحجم: M / L ",
+      "stock": 4,
+      "rating": 5,
+      "nameAr": "Arc'teryx Beta LT Jacket pour homme",
+      "oldPrice": 900,
+      "updatedAt": "2026-11-17T20:06:17.311Z",
       "sizes": [
         "M",
         "L"
       ],
-      "category": "Jackets",
-      "badge": "new",
-      "id": 1,
-      "createdAt": "2026-11-11T23:56:39.686Z",
-      "price": 550,
       "inStock": true,
-      "descFr": "🔥 Veste Arc'teryx GORE-TEX - Haute Qualité 🔥\n\nVeste technique de la marque légendaire Arc'teryx, parfaite pour l'hiver, la pluie et la montagne.\n\n✅ CARACTÉRISTIQUES:\n- Matière: GORE-TEX original 100% imperméable et coupe-vent\n- Logo Arc'teryx brodé\n- Capuche réglable avec cordon\n- Fermetures de haute qualité\n- Couleur: Noir - se porte avec tout\n- État: Excellent comme neuf\n\n✅ AVANTAGES:\n- Contre la pluie et la neige\n- Respirante, ne fait pas transpirer\n- Légère et confortable\n- Marque mondiale très recherchée\n📦 Livraison disponible partout au Maroc\n📏 Taille: M / L",
-      "nameFr": "Arc'teryx Beta LT Jacket pour homme",
-      "rating": 5,
-      "isNew": true,
-      "descAr": "🔥 Arc'teryx GORE-TEX Jacket - جودة عالية 🔥\n\nسترة فنية للعلامة التجارية الأسطورية Arc'teryx، مثالية لفصل الشتاء والأمطار والجبال.\n\n✅ الخصائص:\nالمواد: أصلي GORE-TEX 100٪ مقاوم للماء وعازل للرياح\nشعار Arc'teryx المطرز\n- غطاء قابل للتعديل مع الحبل\n- إغلاق جودة عالية\nاللون: أسود - يرتدي مع كل شيء\n- الحالة: ممتازة كجديد\n\n✅ مزايا:\nضد المطر والثلوج\nتنفس، لا تتعرق.\nخفيفة ومريحة\n- مطلوبة للغاية بعد العلامة التجارية العالمية\n📦 Delivery متاح في أي مكان في المغرب\n📏 الحجم: M / L ",
-      "position": 4,
-      "stock": 1,
-      "nameAr": "Arc'teryx Beta LT Jacket pour homme",
+      "showOnHome": true,
       "colors": [
         "#242625",
         "#CEDBF0"
       ],
+      "position": 2,
+      "price": 550,
       "images": [
+        "/uploads/products_1794308643412_1000547302.jpg",
+        "/uploads/products_1794308643143_1000547305.jpg",
+        "/uploads/products_1794308643971_1000547304.jpg",
+        "/uploads/products_1794308643687_1000547303.jpg",
         "/uploads/products_1794308641928_1000547306.jpg",
         "/uploads/products_1794308642315_1000547307.jpg",
         "/uploads/products_1794308642652_1000547308.jpg",
-        "/uploads/products_1794308642898_1000547309.jpg",
-        "/uploads/products_1794308643143_1000547305.jpg",
-        "/uploads/products_1794308643412_1000547302.jpg",
-        "/uploads/products_1794308643687_1000547303.jpg",
-        "/uploads/products_1794308643971_1000547304.jpg"
+        "/uploads/products_1794308642898_1000547309.jpg"
       ],
-      "oldPrice": 900
+      "descFr": "🔥 Veste Arc'teryx GORE-TEX - Haute Qualité 🔥\n\nVeste technique de la marque légendaire Arc'teryx, parfaite pour l'hiver, la pluie et la montagne.\n\n✅ CARACTÉRISTIQUES:\n- Matière: GORE-TEX original 100% imperméable et coupe-vent\n- Logo Arc'teryx brodé\n- Capuche réglable avec cordon\n- Fermetures de haute qualité\n- Couleur: Noir - se porte avec tout\n- État: Excellent comme neuf\n\n✅ AVANTAGES:\n- Contre la pluie et la neige\n- Respirante, ne fait pas transpirer\n- Légère et confortable\n- Marque mondiale très recherchée\n📦 Livraison disponible partout au Maroc\n📏 Taille: M / L",
+      "category": "Jackets"
     },
     {
-      "stock": 9,
-      "category": "Jackets",
-      "nameFr": "Carhartt WIP OG Detroit",
-      "descFr": "La veste OG Detroit est confectionnée dans notre coupe ample originale en sergé de coton mi-lourd, avec une doublure en popeline pour le corps et des manches doublées en nylon. Une fermeture éclair frontale à double sens, deux poches passepoilées et une poche poitrine zippée apportent une touche de fonctionnalité. Une étiquette carrée tissée complète le modèle.\n\nPoignets et ourlet réglables , boutons-pression , fermeture éclair à double sens  \nPoche poitrine  , poches passepoilées , poche zippée  \nCol en velours côtelé\nRembourrage léger\n",
-      "rating": 5,
-      "isNew": true,
-      "descAr": "ارتقِ بإطلالتك اليومية مع سترة OG Detroit الأيقونية!\nتجمع هذه السترة بين المتانة والأناقة العصرية بفضل قصّتها الواسعة والمريحة، حيث صُممت بعناية من نسيج القطن الفاخر متوسط الوزن لتمنحك الدفء والراحة طوال اليوم. تأتي مزوّدة ببطانة داخلية ناعمة من البوبلين للجسم، وأكمام مبطنة بالنايلون لسهولة الارتداء وحرية الحركة، بالإضافة إلى لمسة كلاسيكية فاخرة مع ياقة من المخمل المضلّع (كوردروي).\nأبرز المميزات:\n• تصميم عملي ومرن: سحّاب أمامي ثنائي الاتجاه لسهولة التحكم، مع أساور وحافة سفلية قابلة للتعديل بأزرار كبس لتناسب مقاسك بدقة.\n• مساحة تخزين آمنة: مزوّدة بجيب صدر بسحّاب لحفظ مقتنياتك الثمينة، وجيبين جانبيين أنيقين لتدفئة اليدين.\n• دفء مثالي: حشوة خفيفة تمنحك التوازن المثالي بين الدفء والخفة في مختلف الأجواء.\n• تفاصيل أصيلة: لمسة نهائية راقية مع الشعار المربع المنسوج الذي يعكس جودة التصميم.",
       "price": 850,
-      "position": 5,
-      "sizes": [
-        "M",
-        "L",
-        "XL"
-      ],
       "images": [
         "/uploads/products_1794419342841_edc6c2dc-9ab7-42e7-8ef0-f6656a119c57.webp",
         "/uploads/products_1794447429130_I036489_3AM_02-OF-03.jpg",
@@ -182,34 +91,47 @@
         "/uploads/products_1794447428390_I036489_3AM_02-OF-04.jpg",
         "/uploads/products_1794447429458_I036489_3AM_02-OF-01.jpg"
       ],
+      "descFr": "La veste OG Detroit est confectionnée dans notre coupe ample originale en sergé de coton mi-lourd, avec une doublure en popeline pour le corps et des manches doublées en nylon. Une fermeture éclair frontale à double sens, deux poches passepoilées et une poche poitrine zippée apportent une touche de fonctionnalité. Une étiquette carrée tissée complète le modèle.\n\nPoignets et ourlet réglables , boutons-pression , fermeture éclair à double sens  \nPoche poitrine  , poches passepoilées , poche zippée  \nCol en velours côtelé\nRembourrage léger\n",
+      "sizes": [
+        "M",
+        "L",
+        "XL"
+      ],
       "id": 1794419369603,
-      "updatedAt": "2026-11-14T14:42:34.108Z",
-      "badge": "new",
-      "inStock": true,
-      "nameAr": "",
+      "oldPrice": 1200,
       "colors": [
         "#ba7a3e",
         "#1e2430",
         "#e2c5a1"
       ],
-      "oldPrice": 1200,
-      "createdAt": "2026-11-12T01:26:37.020Z"
+      "inStock": true,
+      "descAr": "ارتقِ بإطلالتك اليومية مع سترة OG Detroit الأيقونية!\nتجمع هذه السترة بين المتانة والأناقة العصرية بفضل قصّتها الواسعة والمريحة، حيث صُممت بعناية من نسيج القطن الفاخر متوسط الوزن لتمنحك الدفء والراحة طوال اليوم. تأتي مزوّدة ببطانة داخلية ناعمة من البوبلين للجسم، وأكمام مبطنة بالنايلون لسهولة الارتداء وحرية الحركة، بالإضافة إلى لمسة كلاسيكية فاخرة مع ياقة من المخمل المضلّع (كوردروي).\nأبرز المميزات:\n• تصميم عملي ومرن: سحّاب أمامي ثنائي الاتجاه لسهولة التحكم، مع أساور وحافة سفلية قابلة للتعديل بأزرار كبس لتناسب مقاسك بدقة.\n• مساحة تخزين آمنة: مزوّدة بجيب صدر بسحّاب لحفظ مقتنياتك الثمينة، وجيبين جانبيين أنيقين لتدفئة اليدين.\n• دفء مثالي: حشوة خفيفة تمنحك التوازن المثالي بين الدفء والخفة في مختلف الأجواء.\n• تفاصيل أصيلة: لمسة نهائية راقية مع الشعار المربع المنسوج الذي يعكس جودة التصميم.",
+      "stock": 8,
+      "nameFr": "Carhartt WIP OG Detroit",
+      "updatedAt": "2026-11-14T14:42:34.108Z",
+      "position": 3,
+      "badge": "new",
+      "isNew": true,
+      "category": "Jackets",
+      "nameAr": "",
+      "createdAt": "2026-11-12T01:26:37.020Z",
+      "rating": 5
     },
     {
-      "category": "Bag Small",
-      "isNew": true,
-      "id": 3,
-      "rating": 5,
-      "descFr": "Sacoche Bandoulière Carhartt WIP – L'essentiel urbain compact, robuste et stylé\nAlliant style streetwear iconique et fonctionnalité au quotidien, la sacoche bandoulière Carhartt WIP est l'accessoire indispensable pour transporter vos effets personnels en toute sécurité. Conçue dans une toile robuste, elle résiste à l'usure quotidienne tout en complétant votre tenue avec une touche urbaine authentique.   Rangement optimisé : Deux compartiments principaux zippés, une poche avant à rabat et une poche zippée verticale en façade.   Matière ultra-résistante : Tissu canvas haute densité conçu pour durer.   Confort sur mesure : Bandoulière réglable et amovible pour un porté épaule ou croisé.   Finition authentique : Patch logo Carhartt cousu à l'avant et tirettes griffées Carhartt WIP.   5 déclinaisons disponibles : Noir & Camo, Rouge Framboise, Camo Clair, Camo Foncé, Tricolore (Marine/Bordeaux/Kaki). ",
-      "nameFr": "Sacoche Bandoulière Carhartt WIP",
-      "stock": 5,
-      "badge": "new",
-      "createdAt": "2026-11-12T00:26:29.359Z",
       "sizes": [],
-      "position": 6,
-      "updatedAt": "2026-11-12T00:44:26.818Z",
+      "createdAt": "2026-11-12T00:26:29.359Z",
       "inStock": true,
+      "oldPrice": 400,
+      "nameFr": "Sacoche Bandoulière Carhartt WIP",
       "descAr": "حقيبة كروس بودي كارهارت (Carhartt WIP) – تصميم عصري، متين وعملي للاستخدام اليومي\nتجمع حقيبة الكتف Carhartt WIP بين الأناقة العصرية (Streetwear) والعملية اليومية، مما يجعلها الإكسسوار المثالي لحمل أغراضك الشخصية بأمان وتنظيم. صُممت الحقيبة من قماش الكانفاس المتين لتتحمل الاستخدام اليومي وتمنحك إطلالة شبابية مميزة.   تنظيم مثالي : جيبان رئيسيان بسحاب، جيب أمامي بغطاء، وجيب إضافي بسحاب عمودي لسهولة الوصول لأغراضك.   جودة ومتانة عالية : مصنوعة من قماش عالي الكثافة مقاوم للتآكل.   مريحة وقابلة للتعديل : حزام كتف قابل للتعديل والإزالة ليناسب جميع طرق الارتداء.   لمسة أصلية : رقعة شعار Carhartt الشهيرة مخيطة في الأمام مع سحابات تحمل علامة Carhartt WIP.   متوفرة بـ 5 ألوان : أسود وكامو، أحمر توتي، تمويهي فاتح، تمويهي غامق، وثلاثي الألوان (كحلي/عنابي/كاكي).   ",
+      "rating": 5,
+      "nameAr": "حقيبة كروس بودي كارهارت (Carhartt WIP) ",
+      "updatedAt": "2026-11-12T00:44:26.818Z",
+      "price": 250,
+      "position": 4,
+      "badge": "new",
+      "isNew": true,
+      "category": "Bag Small",
       "colors": [
         "#1E1F21",
         "#B82946",
@@ -217,53 +139,137 @@
         "#435237",
         "#1B2430"
       ],
-      "nameAr": "حقيبة كروس بودي كارهارت (Carhartt WIP) ",
-      "oldPrice": 400,
-      "price": 250,
+      "stock": 5,
+      "descFr": "Sacoche Bandoulière Carhartt WIP – L'essentiel urbain compact, robuste et stylé\nAlliant style streetwear iconique et fonctionnalité au quotidien, la sacoche bandoulière Carhartt WIP est l'accessoire indispensable pour transporter vos effets personnels en toute sécurité. Conçue dans une toile robuste, elle résiste à l'usure quotidienne tout en complétant votre tenue avec une touche urbaine authentique.   Rangement optimisé : Deux compartiments principaux zippés, une poche avant à rabat et une poche zippée verticale en façade.   Matière ultra-résistante : Tissu canvas haute densité conçu pour durer.   Confort sur mesure : Bandoulière réglable et amovible pour un porté épaule ou croisé.   Finition authentique : Patch logo Carhartt cousu à l'avant et tirettes griffées Carhartt WIP.   5 déclinaisons disponibles : Noir & Camo, Rouge Framboise, Camo Clair, Camo Foncé, Tricolore (Marine/Bordeaux/Kaki). ",
       "images": [
         "/uploads/products_1794444259743_deb6dace-2e29-47b1-9e20-89ec9a81337e.webp",
         "/uploads/products_1794444260376_e7036079-f3b6-430e-a9e5-db62780da175.webp",
         "/uploads/products_1794444260561_776d8e36-34c7-4266-adc8-44b02bc08737.webp",
         "/uploads/products_1794444260799_86d6041c-36ca-486c-a8c0-24048e78bb93.webp",
         "/uploads/products_1794444261003_24b7f959-f744-4e81-989a-77d0e3c17d59.webp"
-      ]
+      ],
+      "id": 3
     },
     {
-      "createdAt": "2026-11-12T18:19:07.847Z",
+      "price": 799,
+      "oldPrice": 1200,
+      "images": [
+        "/uploads/products_1794789427944_image_20261116_003630_final.jpg",
+        "/uploads/products_1794789270999_36183372_68068062_1000-changer-arriere-p.jpg",
+        "/uploads/products_1794789271278_36183372_68068052_1000-changer-arriere-p.jpg",
+        "/uploads/products_1794789271577_36183372_68068049_1000-changer-arriere-p.jpg",
+        "/uploads/products_1794789271811_36183372_68068058_1000-changer-arriere-p.jpg"
+      ],
+      "descFr": "La Nike Air Jordan 1 Low SE Metallic Silver Tiempo revisite la silhouette emblématique du basketball en lui apportant une touche inspirée des chaussures de football.\n• Design et matériaux : Elle associe une base en cuir blanc lisse à des empiècements en cuir argent métallisé brillant et un Swoosh noir contrastant.\n• Détail signature : Sa languette noire rabattable (façon crampons Tiempo) arbore le logo Jumpman et apporte une esthétique rétro unique.\n• Confort : Dotée d'une unité Air-Sole encapsulée au talon, elle offre un amorti léger et un confort optimal au quotidien, complété par une semelle extérieure en caoutchouc noir durable.\n",
+      "variantStock": {
+        "41__Blanc:#FFFFFF": 5,
+        "40__Blanc:#FFFFFF": 3,
+        "42__Blanc:#FFFFFF": 5,
+        "44__Blanc:#FFFFFF": 5,
+        "43__Blanc:#FFFFFF": 5
+      },
+      "colors": [
+        "Blanc:#FFFFFF"
+      ],
+      "createdAt": "2026-11-16T00:35:20.863Z",
+      "updatedAt": "2026-11-17T13:14:57.358Z",
+      "videoUrl": "https://www.tiktok.com/@modanova.ma/video/7708886979336834326",
+      "sizes": [
+        "40",
+        "41",
+        "42",
+        "43",
+        "44"
+      ],
+      "showOnHome": false,
+      "id": 1794789320862,
+      "category": "Chaussures",
+      "rating": 5,
+      "nameAr": "Nike Air Jordan 1 Low SE Metallic Silver Tiempo",
+      "stock": 23,
+      "position": 5,
+      "nameFr": "Nike Air Jordan 1 Low SE Metallic Silver Tiempo",
+      "descAr": "يجمع حذاء Nike Air Jordan 1 Low SE Metallic Silver Tiempo بين التصميم الكلاسيكي لكرة السلة ولمسة مستوحاة من أحذية كرة القدم.\n• التصميم والخامات: يتميز بقاعدة من الجلد الأبيض الناعم مع طبقات من الجلد الفضي اللامع (ميتاليك)، بالإضافة إلى شعار نايكي (Swoosh) باللون الأسود المتباين.\n• تفاصيل مميزة: يحتوي الحذاء على لسان أسود قابل للطي مستوحى من أحذية كرة القدم الشهيرة (Tiempo) مزين بشعار Jumpman، مما يمنحه مظهراً فريداً وجريئاً.\n• الراحة والأداء: مزود بوحدة توسيد هوائية (Air-Sole) مدمجة في الكعب لتوفير خفة وراحة فائقة طوال اليوم، مع نعل خارجي مطاطي متين باللون الأسود.\n",
+      "isNew": true,
+      "badge": "new",
+      "inStock": true
+    },
+    {
+      "inStock": true,
+      "sizes": [
+        "40",
+        "41",
+        "42",
+        "43",
+        "44"
+      ],
+      "oldPrice": 1000,
+      "colors": [
+        "Smokey"
+      ],
+      "variantStock": {
+        "43__Smokey": 5,
+        "44__Smokey": 5,
+        "40__Smokey": 5,
+        "41__Smokey": 5,
+        "42__Smokey": 5
+      },
+      "images": [
+        "/uploads/products_1794787792610_35821148_67399553_1000-generate-5-photos.jpg",
+        "/uploads/products_1794787794075_35821148_67399554_2048-generate-5-photos.jpg",
+        "/uploads/products_1794787791880_35821148_67399552_1000-generate-5-photos.jpg",
+        "/uploads/products_1794787792995_35821148_67399557_1000-generate-5-photos.jpg",
+        "/uploads/products_1794787793450_35821148_67399555_1000-generate-5-photos.jpg"
+      ],
+      "descFr": "Légères, respirantes et ultra-confortables. Dotées de la semelle amortissante CloudTec Phase® et d'une tige en mesh technique violet lavande, ces baskets offrent une foulée fluide et un style urbain épuré au quotidien.",
+      "price": 799,
+      "position": 6,
+      "badge": "new",
+      "isNew": true,
+      "category": "Chaussures",
+      "descAr": "​حذاء On Running Cloudsurfer \nخفة فائقة وراحة تدوم طوال اليوم. بفضل نعل CloudTec Phase® المبتكر لامتصاص الصدمات وتصميمه الشبكي الأنيق باللون البنفسجي الهادئ، يمنحك هذا الحذاء مرونة مثالية وإطلالة عصرية في كل خطوة",
+      "updatedAt": "2026-11-16T00:16:08.331Z",
+      "nameFr": "​On Running Cloudsurfer",
+      "stock": 25,
+      "nameAr": "​حذاء On Running Cloudsurfer",
+      "rating": 5,
+      "createdAt": "2026-11-14T13:52:06.383Z",
+      "id": 1794664326383
+    },
+    {
       "images": [
         "/uploads/products_1794507146302_e57ff6ef-2a4e-49ff-9b74-b87388660def.webp",
         "/uploads/products_1794507146959_540ad304-00db-408d-9178-60e9d14e97f0.webp",
         "/uploads/products_1794507147229_e3c03023-c722-41e2-85ad-43565f0cf27b.webp",
         "/uploads/products_1794507146655_c0512e0b-80a9-4ea2-8c97-3a3645d2dbd9.webp"
       ],
-      "position": 7,
-      "price": 200,
-      "updatedAt": "2026-11-14T13:24:28.642Z",
+      "descFr": "• Produit : Sac banane Carhartt WIP Payton Hip Bag.\n• Matière : Fabriqué en toile Cordura 100 % polyester déperlante, offrant une excellente résistance à l'usure et aux intempéries.\n• Dimensions et capacité : Format compact d'une capacité de 2,8 litres (environ 12 x 27,5 x 8,5 cm).\n• Rangements : Comprend un compartiment principal spacieux avec fermeture éclair ainsi qu'une poche supérieure zippée pour les petits objets.\n• Design et confort : Équipé d'une sangle réglable avec boucle de fermeture pour un port à la taille ou en bandoulière, et orné du logo Carhartt brodé en blanc sur le devant.",
+      "inStock": true,
+      "stock": 10,
       "colors": [
         "#37363d",
         "#4e5548",
         "#aa6729",
         "#0b3579"
       ],
-      "nameAr": " حقيبة خصر (بنان) Carhartt WIP Payton Hip Bag",
-      "descAr": "• المنتج: حقيبة خصر (بنان) Carhartt WIP Payton Hip Bag\n• الخامة: مصنوعة من نسيج كوردورا (Cordura) بوليستر 100% مقاوم للماء، مما يمنحها متانة عالية وقدرة على تحمل الاستخدام اليومي والظروف الجوية.\n• الأبعاد والسعة: تصميم عملي بسعة 2.8 لتر (الأبعاد التقريبية: 12 × 27.5 × 8.5 سم).\n• التخزين: تحتوي على جيب رئيسي واسع بسحاب، بالإضافة إلى جيب علوي بسحاب لتخزين الأغراض الصغيرة بأمان.\n• التصميم والراحة: مزودة بحزام قابل للتعديل مع إبزيم للإغلاق لارتدائها حول الخصر أو كحقيبة كتف، وتتميز بشعار Carhartt مطرز باللون الأبيض في الأمام.\n",
+      "position": 7,
       "badge": "new",
-      "sizes": [],
-      "oldPrice": null,
-      "rating": 5,
-      "nameFr": "Carhartt WIP Payton Hip Bag",
-      "descFr": "• Produit : Sac banane Carhartt WIP Payton Hip Bag.\n• Matière : Fabriqué en toile Cordura 100 % polyester déperlante, offrant une excellente résistance à l'usure et aux intempéries.\n• Dimensions et capacité : Format compact d'une capacité de 2,8 litres (environ 12 x 27,5 x 8,5 cm).\n• Rangements : Comprend un compartiment principal spacieux avec fermeture éclair ainsi qu'une poche supérieure zippée pour les petits objets.\n• Design et confort : Équipé d'une sangle réglable avec boucle de fermeture pour un port à la taille ou en bandoulière, et orné du logo Carhartt brodé en blanc sur le devant.",
-      "category": "Bag Small",
-      "stock": 10,
-      "inStock": true,
       "isNew": true,
-      "id": 1794507547847
+      "category": "Bag Small",
+      "price": 200,
+      "nameAr": " حقيبة خصر (بنان) Carhartt WIP Payton Hip Bag",
+      "rating": 5,
+      "createdAt": "2026-11-12T18:19:07.847Z",
+      "descAr": "• المنتج: حقيبة خصر (بنان) Carhartt WIP Payton Hip Bag\n• الخامة: مصنوعة من نسيج كوردورا (Cordura) بوليستر 100% مقاوم للماء، مما يمنحها متانة عالية وقدرة على تحمل الاستخدام اليومي والظروف الجوية.\n• الأبعاد والسعة: تصميم عملي بسعة 2.8 لتر (الأبعاد التقريبية: 12 × 27.5 × 8.5 سم).\n• التخزين: تحتوي على جيب رئيسي واسع بسحاب، بالإضافة إلى جيب علوي بسحاب لتخزين الأغراض الصغيرة بأمان.\n• التصميم والراحة: مزودة بحزام قابل للتعديل مع إبزيم للإغلاق لارتدائها حول الخصر أو كحقيبة كتف، وتتميز بشعار Carhartt مطرز باللون الأبيض في الأمام.\n",
+      "nameFr": "Carhartt WIP Payton Hip Bag",
+      "id": 1794507547847,
+      "updatedAt": "2026-11-14T13:24:28.642Z",
+      "sizes": [],
+      "oldPrice": null
     },
     {
-      "descAr": "قبعة \"هارلم\" مصنوعة من قماش الكوردروي ذي الثماني طبقات، وهو قماش قطني يتميز بخياطة عريضة. هذه القبعة غير مبطنة، وتتكون من ستة أجزاء، وتتميز بحافة صلبة منحنية وإبزيم قابل للتعديل. شعار \"C\" مطرز في الأمام.\nحزام قابل للتعديل مع مشبك معدني\nI037067_3YA_XX",
-      "position": 8,
-      "price": 250,
-      "badge": "new",
+      "oldPrice": null,
+      "descFr": "La casquette 'Harlem' est confectionnée en velours côtelé à 8 colonnes de mailles, un tissu en coton avec des colonnes de mailles larges. Non doublé, ce modèle est doté de six pans, et présente une visière incurvée ferme et une boucle ajustable. Le logo 'C' est brodé à l'avant.\n\nSangle réglable avec boucle en métal\nI037067_3YA_XX",
       "images": [
         "/uploads/products_1794446454102_I037067_0D2_XX-ST-01.jpg",
         "/uploads/products_1794446453692_I037067_0D2_XX-OF-01.jpg",
@@ -273,97 +279,130 @@
         "/uploads/products_1794446456282_004095911.jpg",
         "/uploads/products_1794446456833_004095911alt1.jpg"
       ],
-      "sizes": [],
-      "oldPrice": null,
-      "nameAr": "قبعة هارلم",
+      "stock": 3,
+      "updatedAt": "2026-11-14T13:24:49.742Z",
       "colors": [
         "Orange",
         "Black",
         "Pink"
       ],
       "createdAt": "2026-11-12T01:21:05.954Z",
+      "badge": "new",
+      "isNew": true,
       "id": 5,
-      "updatedAt": "2026-11-14T13:24:49.742Z",
-      "stock": 3,
+      "price": 250,
       "category": "Casquettes",
       "rating": 4,
-      "descFr": "La casquette 'Harlem' est confectionnée en velours côtelé à 8 colonnes de mailles, un tissu en coton avec des colonnes de mailles larges. Non doublé, ce modèle est doté de six pans, et présente une visière incurvée ferme et une boucle ajustable. Le logo 'C' est brodé à l'avant.\n\nSangle réglable avec boucle en métal\nI037067_3YA_XX",
+      "nameAr": "قبعة هارلم",
+      "position": 8,
       "nameFr": "Harlem Cap",
-      "isNew": true,
+      "descAr": "قبعة \"هارلم\" مصنوعة من قماش الكوردروي ذي الثماني طبقات، وهو قماش قطني يتميز بخياطة عريضة. هذه القبعة غير مبطنة، وتتكون من ستة أجزاء، وتتميز بحافة صلبة منحنية وإبزيم قابل للتعديل. شعار \"C\" مطرز في الأمام.\nحزام قابل للتعديل مع مشبك معدني\nI037067_3YA_XX",
+      "sizes": [],
       "inStock": true
     },
     {
       "nameAr": "قبعة دلو من قماش الدنيم من بيلمار",
+      "rating": 5,
+      "oldPrice": 300,
+      "createdAt": "2026-11-12T01:01:45.040Z",
+      "badge": "luxury",
+      "isNew": false,
+      "updatedAt": "2026-11-14T13:25:06.546Z",
+      "id": 4,
+      "descAr": "قبعة دلو، حافة عريضة، تفاصيل خياطة علوية، غسيل ممزق مع زخرفة متناثرة، شارة شعار منسوجة\nالتركيب والعناية: الخامة الأساسية: 100% قطن. يُغسل في الغسالة\nاللون: أزرق",
+      "nameFr": "Bob en denim Belmar",
+      "stock": 2,
+      "category": "Accessoires",
       "colors": [
         "#5d7382"
       ],
+      "position": 9,
+      "sizes": [],
       "images": [
         "/uploads/products_1794445568024_b2c86d9b170b4007998bac22936536c2.jpg",
         "/uploads/products_1794445568540_ee8fca36-4c11-43cd-894d-97995ff5bd89.webp",
         "/uploads/products_1794445569224_84569c10bf854837946e00b4b66faf44.jpg",
         "/uploads/products_1794445569886_02962912f8af4fb4b5ca8e34b7935293.jpg"
       ],
-      "position": 9,
-      "badge": "luxury",
-      "sizes": [],
-      "inStock": true,
-      "updatedAt": "2026-11-14T13:25:06.546Z",
-      "price": 200,
-      "oldPrice": 300,
-      "createdAt": "2026-11-12T01:01:45.040Z",
-      "descAr": "قبعة دلو، حافة عريضة، تفاصيل خياطة علوية، غسيل ممزق مع زخرفة متناثرة، شارة شعار منسوجة\nالتركيب والعناية: الخامة الأساسية: 100% قطن. يُغسل في الغسالة\nاللون: أزرق",
-      "isNew": false,
-      "category": "Accessoires",
-      "rating": 5,
       "descFr": "Bob, large bord, surpiqûres apparentes, effet usé avec éclaboussures, logo tissé\nComposition et entretien : Matière principale : 100 % coton. Lavable en machine.\nCouleur : Bleu",
-      "nameFr": "Bob en denim Belmar",
-      "stock": 2,
-      "id": 4
+      "price": 200,
+      "inStock": true
     }
   ],
-  "orders": [],
+  "orders": [
+    {
+      "address": "Masnana. Tenger",
+      "total": 850,
+      "customerName": "Hakim assioui",
+      "notes": "",
+      "status": "En attente",
+      "discount": 0,
+      "customerPhone": "0679708798",
+      "date": "2026-11-17T19:15:30.325Z",
+      "items": [
+        {
+          "nameFr": "Carhartt WIP OG Detroit",
+          "price": 850,
+          "color": "#ba7a3e",
+          "image": "/uploads/products_1794419342841_edc6c2dc-9ab7-42e7-8ef0-f6656a119c57.webp",
+          "colorLabel": "#ba7a3e",
+          "size": "M",
+          "nameAr": "",
+          "quantity": 1,
+          "productId": 1794419369603
+        }
+      ],
+      "shippingFee": 0,
+      "promoCode": null,
+      "subtotal": 850,
+      "paymentMethod": "COD (Paiement à la livraison)",
+      "id": "CMD-R6EUEY",
+      "city": "Tanger",
+      "_docId": "CMD-R6EUEY"
+    }
+  ],
   "deletedOrderIds": [
     "CMD-TESTDEL"
   ],
   "slider": [
     {
+      "badge": "Maison de maroquinerie & soins d'exception",
+      "categoryFilter": "Jackets",
       "tag": "01 - Jackets",
       "cta1": "Explorer la Collection",
-      "cta1Href": "#collection",
       "wallpaper": "/uploads/slider_1794604489261_1000551547.jpg",
       "cta2Href": "#savoir-faire",
-      "subtitle": "Pensé pour l'homme contemporain au Maroc. Matières nobles, savoir-faire séculaire et livraison express avec paiement sécurisé à la livraison.",
       "title": "L'Essence du Luxe Brut & Minimaliste",
-      "badge": "Maison de maroquinerie & soins d'exception",
-      "cta2": "Notre Savoir-Faire",
+      "cta1Href": "#collection",
       "id": 0,
-      "categoryFilter": "Jackets"
+      "subtitle": "Pensé pour l'homme contemporain au Maroc. Matières nobles, savoir-faire séculaire et livraison express avec paiement sécurisé à la livraison.",
+      "cta2": "Notre Savoir-Faire"
     },
     {
-      "categoryFilter": "Accessoires",
       "badge": "Accessoires & Maroquinerie d'Exception",
-      "wallpaper": "/uploads/slider_1794604787405_1000551551.jpg",
       "cta1": "Découvrir la Sélection",
-      "id": 1,
       "cta2Href": "#savoir-faire",
+      "cta1Href": "#collection",
+      "id": 1,
       "subtitle": "Sélection rigoureuse d'accessoires, maroquinerie d'exception et souliers façonnés par des maîtres artisans pour parfaire votre vestiaire.",
       "title": "L'Art du Détail & des Matières Nobles",
       "cta2": "Savoir-Faire Artisanal",
-      "tag": "02 - Accessoires",
-      "cta1Href": "#collection"
+      "wallpaper": "/uploads/slider_1794604787405_1000551551.jpg",
+      "categoryFilter": "Accessoires",
+      "tag": "02 - Accessoires"
     },
     {
-      "cta1Href": "#collection",
-      "id": 2,
-      "title": "Élégance Éternelle & Confort Suprême",
       "cta2Href": "#savoir-faire",
-      "cta1": "Voir les Chaussures",
-      "subtitle": "Mules, souliers et cuirs pleine fleur assemblés à la main au Maroc pour une démarche affirmée et un confort absolu.",
-      "categoryFilter": "Chaussures",
-      "wallpaper": "/uploads/slider_1794604652980_1000551550.jpg",
-      "badge": "Soulier & Chaussures Sartoriales",
       "tag": "03 - Chaussures",
-      "cta2": "Cuirs Sélectionnés"
+      "subtitle": "Mules, souliers et cuirs pleine fleur assemblés à la main au Maroc pour une démarche affirmée et un confort absolu.",
+      "cta1Href": "#collection",
+      "title": "Élégance Éternelle & Confort Suprême",
+      "cta2": "Cuirs Sélectionnés",
+      "categoryFilter": "Chaussures",
+      "cta1": "Voir les Chaussures",
+      "badge": "Soulier & Chaussures Sartoriales",
+      "id": 2,
+      "wallpaper": "/uploads/slider_1794604652980_1000551550.jpg"
     }
   ],
   "cms": {
@@ -382,52 +421,52 @@
     "guaranteeShipping": "Livraison Express 24/48h partout au Maroc avec suivi personnalisé.",
     "guaranteeCod": "Paiement à la livraison après vérification de votre commande.",
     "guaranteeQuality": "Garantie satisfaction et confection d'exception.",
-    "updatedAt": "2026-11-14T14:34:03.408Z",
     "topBannerFr": "",
+    "updatedAt": "2026-11-14T14:34:03.408Z",
     "topBannerAr": ""
   },
   "testimonials": [
     {
-      "text": "Qualité exceptionnelle ! La veste est impeccable, finitions très soignées et livraison reçue le lendemain à Casablanca. Paiement à la livraison très pratique.",
-      "id": 1,
-      "name": "Karim Bennani",
-      "date": "2025-01-14",
-      "verified": true,
       "city": "Casablanca",
-      "rating": 5
+      "rating": 5,
+      "name": "Karim Bennani",
+      "verified": true,
+      "date": "2025-01-14",
+      "id": 1,
+      "text": "Qualité exceptionnelle ! La veste est impeccable, finitions très soignées et livraison reçue le lendemain à Casablanca. Paiement à la livraison très pratique."
     },
     {
-      "text": "MODANOVA est devenue ma marque de référence. Coupe moderne, tissus résistants et service client via WhatsApp ultra réactif. Je recommande à 100%.",
-      "rating": 5,
       "city": "Rabat",
-      "verified": true,
-      "date": "2025-01-18",
       "id": 2,
-      "name": "Mehdi Tazi"
+      "name": "Mehdi Tazi",
+      "rating": 5,
+      "date": "2025-01-18",
+      "text": "MODANOVA est devenue ma marque de référence. Coupe moderne, tissus résistants et service client via WhatsApp ultra réactif. Je recommande à 100%.",
+      "verified": true
     },
     {
-      "verified": true,
       "text": "Très satisfait de ma commande. Les chaussures sont super confortables et la confection est de haut standing. Bravo pour ce niveau de qualité au Maroc.",
-      "city": "Marrakech",
-      "date": "2025-01-22",
-      "rating": 5,
       "id": 3,
-      "name": "Yassine El Amrani"
+      "verified": true,
+      "date": "2025-01-22",
+      "name": "Yassine El Amrani",
+      "rating": 5,
+      "city": "Marrakech"
     }
   ],
   "coupons": [
     {
-      "description": "Code promo de bienvenue (-10%)",
+      "maxUses": 3,
+      "usedCount": 0,
+      "value": 10,
+      "createdAt": "2025-01-01T00:00:00.000Z",
       "minOrder": 0,
-      "type": "percent",
-      "maxUses": null,
-      "active": true,
       "id": 1,
       "expiresAt": "",
-      "value": 10,
-      "usedCount": 0,
-      "createdAt": "2025-01-01T00:00:00.000Z",
-      "code": "RAWCRAFT10"
+      "code": "MODANOVA10",
+      "active": true,
+      "type": "percent",
+      "description": "Code promo de bienvenue (-10%)"
     }
   ],
   "adminConfig": {

@@ -252,6 +252,35 @@ export async function updateFirestoreOrderStatus(orderId: string, status: string
   }
 }
 
+export async function updateFirestoreOrder(orderId: string, orderData: any) {
+  const normalizedId = String(orderId || orderData?.id || '').trim().toUpperCase();
+  const path = `orders/${normalizedId}`;
+  const cleanOrder: Record<string, any> = {
+    id: normalizedId,
+    date: String(orderData.date || new Date().toISOString()),
+    status: String(orderData.status || 'En attente'),
+    customerName: String(orderData.customerName || '').trim(),
+    customerPhone: String(orderData.customerPhone || '').trim(),
+    city: String(orderData.city || '').trim(),
+    address: String(orderData.address || '').trim(),
+    notes: String(orderData.notes || '').trim(),
+    items: Array.isArray(orderData.items) ? orderData.items : [],
+    subtotal: Number(orderData.subtotal || 0),
+    discount: Number(orderData.discount || 0),
+    promoCode: orderData.promoCode ? String(orderData.promoCode).trim() : null,
+    shippingFee: Number(orderData.shippingFee || 0),
+    total: Number(orderData.total || 0),
+    paymentMethod: String(orderData.paymentMethod || 'COD (Paiement à la livraison)'),
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    await setDoc(doc(db, 'orders', normalizedId), cleanOrder);
+    return cleanOrder;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, path);
+  }
+}
+
 export async function deleteFirestoreOrder(orderId: string) {
   const normalizedId = String(orderId || '').trim().toUpperCase();
   const path = `orders/${normalizedId}`;

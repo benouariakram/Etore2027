@@ -152,9 +152,7 @@ service cloud.firestore {
         isValidOrder(incoming());
       allow update: if isValidId(orderId) &&
         isValidOrder(incoming()) &&
-        incoming().id == existing().id &&
-        incoming().total == existing().total &&
-        incoming().customerPhone == existing().customerPhone;
+        incoming().id == existing().id;
       allow delete: if isValidId(orderId);
     }
 
