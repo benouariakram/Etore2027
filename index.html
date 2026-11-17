@@ -355,7 +355,7 @@
         animation: slide-progress-fill 6.5s linear forwards;
       }
 
-      /* Print Area - Strict Single A4 Page Contract */
+      /* Print Area - A4 Invoices (Single & Bulk) + Thermal Labels 100x150mm */
       @page {
         size: A4;
         margin: 10mm;
@@ -379,6 +379,10 @@
         #print-area > div {
           padding: 0 !important;
           break-inside: avoid;
+        }
+        #print-area .print-page-break:not(:last-child) {
+          page-break-after: always !important;
+          break-after: page !important;
         }
       }
     </style>
@@ -1171,7 +1175,7 @@
               <div style="font-weight: 600; color: #171717; margin-bottom: 4px;">
                 ${isAr ? 'شكراً لثقتكم في مودانوفا — دار الأناقة الرجالية بالمغرب' : 'Merci pour votre confiance en MODANOVA — Maison Marocaine des Essentiels'}
               </div>
-              <div>Atelier & Support : Kenitra, Maroc | WhatsApp : +212 600-773716</div>
+              <div>Atelier & Support : Kenitra, Maroc | WhatsApp : ${escapeHTML(getActiveStorePhoneDisplay())}</div>
               <div style="font-size: 10px; color: #999; margin-top: 2px;">
                 ${isAr ? 'يرجى تحضير المبلغ نقداً عند قدوم مندوب التوصيل.' : 'Veuillez préparer le montant exact en espèces à la livraison.'}
               </div>
@@ -1181,26 +1185,209 @@
       }
 
       // ========================================================================
-      // Robust Print & Download Handlers
+      // Dynamic Global Store Phone Helpers
+      // ========================================================================
+      function normalizePhonePartsClient(rawPhone) {
+        let digits = String(rawPhone || '+212600773716').replace(/\D/g, '');
+        if (digits.startsWith('00')) digits = digits.slice(2);
+        if (digits.startsWith('0') && digits.length === 10) {
+          digits = '212' + digits.slice(1);
+        }
+        if (!digits) digits = '212600773716';
+        const e164 = `+${digits}`;
+        let display = e164;
+        if (digits.startsWith('212') && digits.length === 12) {
+          display = `+212 ${digits.slice(3, 6)}-${digits.slice(6)}`;
+        }
+        return { digits, e164, display };
+      }
+
+      function getActiveStorePhoneDigits() {
+        return (window.__MODANOVA_STORE_PHONE && window.__MODANOVA_STORE_PHONE.digits) || '212600773716';
+      }
+
+      function getActiveStorePhoneDisplay() {
+        return (window.__MODANOVA_STORE_PHONE && window.__MODANOVA_STORE_PHONE.display) || '+212 600-773716';
+      }
+
+      // ========================================================================
+      // Pure-JS ISO/IEC 15417 Code-128 Set B SVG Barcode Generator (Zero Deps)
+      // ========================================================================
+      const CODE128_PATTERNS = [
+        '212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
+        '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
+        '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
+        '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
+        '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
+        '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
+        '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
+        '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
+        '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
+        '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
+        '114131','311141','411131','211412','211214','211232','2331112'
+      ];
+
+      function generateCode128SVG(rawText, widthPx = 280, heightPx = 54) {
+        const cleanText = String(rawText || 'MODANOVA').replace(/[^\x20-\x7E]/g, '-');
+        const codes = [104]; // Start Code B
+        let checksum = 104;
+        for (let i = 0; i < cleanText.length; i++) {
+          const val = cleanText.charCodeAt(i) - 32;
+          const safeVal = (val >= 0 && val <= 94) ? val : 13;
+          codes.push(safeVal);
+          checksum += safeVal * (i + 1);
+        }
+        codes.push(checksum % 103);
+        codes.push(106); // Stop
+
+        const bars = codes.map(c => CODE128_PATTERNS[c] || CODE128_PATTERNS[0]).join('');
+        let totalUnits = 0;
+        for (let i = 0; i < bars.length; i++) totalUnits += Number(bars[i]);
+
+        const quietUnits = 10;
+        const viewWidth = totalUnits + quietUnits * 2;
+        let x = quietUnits;
+        let rects = '';
+        for (let i = 0; i < bars.length; i++) {
+          const w = Number(bars[i]);
+          if (i % 2 === 0) {
+            rects += `<rect x="${x}" y="0" width="${w}" height="100" fill="#000"/>`;
+          }
+          x += w;
+        }
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewWidth} 100" preserveAspectRatio="none" width="${widthPx}" height="${heightPx}" style="display:block;margin:0 auto;background:#fff;">${rects}</svg>`;
+      }
+
+      function buildThermalLabelHTML(order, cms) {
+        const ship = order.shipment || {};
+        const tracking = ship.trackingNumber || order.id || 'MODANOVA';
+        const carrierName = ship.carrierLabel || 'MODANOVA Express';
+        const pickupCity = ship.pickupCity || (cms && cms.conciergeCity) || 'Kénitra, Maroc';
+        const storePhone = getActiveStorePhoneDisplay();
+        const itemsText = (Array.isArray(order.items) ? order.items : [])
+          .map(it => `${it.quantity || 1}x ${it.nameFr || it.name || 'Article'} (${it.size || 'Std'}${it.colorLabel ? '/' + it.colorLabel : ''})`)
+          .join(' • ');
+        const dateStr = order.date ? new Date(order.date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR');
+        const barcodeSvg = generateCode128SVG(tracking, 310, 56);
+
+        return `
+          <div class="print-page-break" style="width:94mm; min-height:140mm; margin:0 auto; border:2px solid #000; padding:4mm; box-sizing:border-box; font-family:'Plus Jakarta Sans',Arial,sans-serif; color:#000; background:#fff; display:flex; flex-direction:column; justify-content:space-between;">
+            <div>
+              <!-- Carrier & Brand Header -->
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #000; padding-bottom:6px; margin-bottom:6px;">
+                <div>
+                  <div style="font-size:17px; font-weight:800; letter-spacing:2px; font-family:'Cormorant Garamond',serif;">MODANOVA</div>
+                  <div style="font-size:9px; text-transform:uppercase; letter-spacing:1px;">Expéditeur : ${escapeHTML(pickupCity)}</div>
+                  <div style="font-size:9px; font-family:monospace;">Tél : ${escapeHTML(storePhone)}</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="background:#000; color:#fff; padding:3px 8px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.8px;">${escapeHTML(carrierName)}</div>
+                  <div style="font-size:9px; margin-top:3px; font-weight:600;">${dateStr}</div>
+                </div>
+              </div>
+
+              <!-- Scannable Code-128 Barcode Block -->
+              <div style="text-align:center; border-bottom:2px solid #000; padding:6px 0 8px 0; margin-bottom:8px;">
+                ${barcodeSvg}
+                <div style="font-family:monospace; font-size:13px; font-weight:800; letter-spacing:1.5px; margin-top:4px;">${escapeHTML(tracking)}</div>
+                <div style="font-size:9px; color:#333;">Réf. Commande : <strong>${escapeHTML(order.id)}</strong></div>
+              </div>
+
+              <!-- Destinataire Box -->
+              <div style="border:1.5px solid #000; padding:6px 8px; margin-bottom:8px; background:#fafafa;">
+                <div style="font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid #ccc; padding-bottom:2px; margin-bottom:4px;">DESTINATAIRE</div>
+                <div style="font-size:13px; font-weight:800;">${escapeHTML(order.customerName || '')}</div>
+                <div style="font-size:12px; font-weight:700; font-family:monospace; margin-top:2px;">Tél : ${escapeHTML(order.customerPhone || '')}</div>
+                <div style="font-size:12px; font-weight:800; text-transform:uppercase; margin-top:3px;">VILLE : ${escapeHTML(order.city || '')}</div>
+                <div style="font-size:10px; line-height:1.3; margin-top:2px;">${escapeHTML(order.address || '')}</div>
+              </div>
+
+              <!-- Contents -->
+              <div style="font-size:9.5px; line-height:1.35; border-bottom:1px dashed #666; padding-bottom:6px; margin-bottom:6px;">
+                <strong>Contenu :</strong> ${escapeHTML(itemsText || 'Articles MODANOVA')}
+                ${order.notes ? `<div style="margin-top:2px;"><strong>Note :</strong> ${escapeHTML(order.notes)}</div>` : ''}
+              </div>
+            </div>
+
+            <!-- COD Amount Footer -->
+            <div>
+              <div style="border:2px solid #000; padding:6px 8px; display:flex; justify-content:space-between; align-items:center; background:#000; color:#fff;">
+                <span style="font-size:10px; font-weight:700; text-transform:uppercase;">MONTANT À ENCAISSER (COD)</span>
+                <span style="font-size:16px; font-weight:800; font-family:monospace;">${Number(order.total || 0).toLocaleString('fr-FR')} MAD</span>
+              </div>
+              <div style="text-align:center; font-size:8.5px; color:#333; margin-top:4px; font-weight:600;">
+                Autorisation d'ouverture & vérification avant paiement • MODANOVA Maroc
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function printThermalLabels(orderOrList, cms) {
+        const list = Array.isArray(orderOrList) ? orderOrList : [orderOrList];
+        const validList = list.filter(Boolean);
+        if (validList.length === 0) return;
+
+        const printArea = document.getElementById('print-area');
+        if (!printArea) { window.print(); return; }
+
+        let dynamicStyle = document.getElementById('dynamic-thermal-page-style');
+        if (!dynamicStyle) {
+          dynamicStyle = document.createElement('style');
+          dynamicStyle.id = 'dynamic-thermal-page-style';
+          document.head.appendChild(dynamicStyle);
+        }
+        dynamicStyle.textContent = '@page { size: 100mm 150mm; margin: 3mm; }';
+
+        printArea.innerHTML = validList.map(o => buildThermalLabelHTML(o, cms)).join('');
+
+        const handleAfterPrint = () => {
+          printArea.innerHTML = '';
+          if (dynamicStyle) dynamicStyle.textContent = '';
+          window.removeEventListener('afterprint', handleAfterPrint);
+        };
+        window.addEventListener('afterprint', handleAfterPrint);
+        setTimeout(() => { window.print(); }, 150);
+      }
+
+      // ========================================================================
+      // Robust Print & Download Handlers (Single & Bulk Multi-Page A4 PDF)
       // ========================================================================
       function printInvoice(order, lang) {
         if (!order) return;
         const printArea = document.getElementById('print-area');
         if (printArea) {
           printArea.innerHTML = buildInvoiceHTML(order, lang);
-
           const handleAfterPrint = () => {
             printArea.innerHTML = '';
             window.removeEventListener('afterprint', handleAfterPrint);
           };
           window.addEventListener('afterprint', handleAfterPrint);
-
-          setTimeout(() => {
-            window.print();
-          }, 150);
+          setTimeout(() => { window.print(); }, 150);
         } else {
           window.print();
         }
+      }
+
+      function printInvoicesBulk(ordersList, lang = 'fr') {
+        const list = (Array.isArray(ordersList) ? ordersList : []).filter(Boolean);
+        if (list.length === 0) return;
+        const printArea = document.getElementById('print-area');
+        if (!printArea) { window.print(); return; }
+
+        const dynamicStyle = document.getElementById('dynamic-thermal-page-style');
+        if (dynamicStyle) dynamicStyle.textContent = '';
+
+        printArea.innerHTML = list
+          .map(o => `<div class="print-page-break">${buildInvoiceHTML(o, lang)}</div>`)
+          .join('');
+
+        const handleAfterPrint = () => {
+          printArea.innerHTML = '';
+          window.removeEventListener('afterprint', handleAfterPrint);
+        };
+        window.addEventListener('afterprint', handleAfterPrint);
+        setTimeout(() => { window.print(); }, 180);
       }
 
       function downloadInvoice(order, lang = 'fr') {
@@ -1256,7 +1443,7 @@
 
       function buildWhatsAppLink(order, lang = 'fr') {
         const isAr = lang === 'ar';
-        const phone = "212600773716";
+        const phone = getActiveStorePhoneDigits();
         const itemsSummary = (order.items || [])
           .map(i => {
             const name = isAr ? (i.nameAr || i.nameFr) : i.nameFr;
@@ -1854,7 +2041,7 @@
           const text = lang === 'ar'
             ? `السلام عليكم دار مودانوفا،\nأرغب في تأكيد طلب هذه القطعة الفاخرة (الدفع عند الاستلام):\n\n*${title}*\n- السعر: ${product.price} درهم مغربي\n- المقاس / الخيار: ${selectedSize || 'قياسي'}\n- اللون: ${selectedColorName}\n- الكمية: ${qty}\n\nالرابط: ${currentUrl}\n\nيرجى التواصل معي لتأكيد موعد التوصيل والعنوان.`
             : `Bonjour Maison MODANOVA,\nJe souhaite commander cette pièce en paiement à la livraison (COD) :\n\n*${title}*\n- Prix : ${product.price} MAD\n- Taille / Pointure / Format : ${selectedSize || 'Standard'}\n- Couleur : ${selectedColorName}\n- Quantité : ${qty}\n\nLien : ${currentUrl}\n\nMerci de confirmer la disponibilité et le créneau de livraison.`;
-          window.open(`https://wa.me/212600773716?text=${encodeURIComponent(text)}`, '_blank');
+          window.open(`https://wa.me/${getActiveStorePhoneDigits()}?text=${encodeURIComponent(text)}`, '_blank');
         };
 
         // 3 Related products from catalog
@@ -2715,6 +2902,94 @@
           }
         ]);
 
+        const DEFAULT_PROFITABILITY_CITIES = {
+          'Casablanca': 25,
+          'Rabat': 30,
+          'Salé': 30,
+          'Kénitra': 25,
+          'Témara': 30,
+          'Mohammédia': 25,
+          'Tanger': 35,
+          'Tétouan': 35,
+          'Marrakech': 35,
+          'Fès': 35,
+          'Meknès': 35,
+          'Agadir': 40,
+          'Oujda': 45,
+          'Nador': 45,
+          'Beni Mellal': 40,
+          'El Jadida': 35,
+          'Safi': 40,
+          'Essaouira': 40,
+          'Khouribga': 35,
+          'Settat': 30,
+          'Laâyoune': 55,
+          'Dakhla': 65
+        };
+
+        const [storeConfig, setStoreConfig] = useState({
+          storePhone: '+212600773716',
+          storePhoneDigits: '212600773716',
+          storePhoneDisplay: '+212 600-773716'
+        });
+
+        const [profitabilitySettings, setProfitabilitySettings] = useState({
+          defaultShippingCost: 35,
+          cityShippingCosts: DEFAULT_PROFITABILITY_CITIES
+        });
+
+        useEffect(() => {
+          window.__MODANOVA_STORE_PHONE = {
+            digits: storeConfig.storePhoneDigits || '212600773716',
+            display: storeConfig.storePhoneDisplay || '+212 600-773716',
+            e164: storeConfig.storePhone || '+212600773716'
+          };
+        }, [storeConfig]);
+
+        const applyStorePhoneLocal = useCallback((rawPhone) => {
+          const parsed = normalizePhonePartsClient(rawPhone);
+          const next = {
+            storePhone: parsed.e164,
+            storePhoneDigits: parsed.digits,
+            storePhoneDisplay: parsed.display
+          };
+          setStoreConfig(next);
+          window.__MODANOVA_STORE_PHONE = {
+            digits: next.storePhoneDigits,
+            display: next.storePhoneDisplay,
+            e164: next.storePhone
+          };
+          setCms(prev => ({
+            ...prev,
+            whatsappNumber: parsed.e164,
+            supportPhone: parsed.display
+          }));
+          return next;
+        }, []);
+
+        const fetchPublicConfig = useCallback(async () => {
+          try {
+            const res = await fetch(`/api/public-config?_t=${Date.now()}`, { cache: 'no-store' });
+            if (res.ok) {
+              const data = await res.json();
+              if (data && (data.storePhoneDigits || data.storePhone)) {
+                const parsed = normalizePhonePartsClient(data.storePhone || data.storePhoneDigits);
+                const next = {
+                  storePhone: data.storePhone || parsed.e164,
+                  storePhoneDigits: data.storePhoneDigits || parsed.digits,
+                  storePhoneDisplay: data.storePhoneDisplay || parsed.display
+                };
+                setStoreConfig(next);
+                window.__MODANOVA_STORE_PHONE = {
+                  digits: next.storePhoneDigits,
+                  display: next.storePhoneDisplay,
+                  e164: next.storePhone
+                };
+              }
+            }
+          } catch {}
+        }, []);
+
         const fetchCms = useCallback(async () => {
           try {
             const res = await fetch('/api/cms');
@@ -2742,7 +3017,8 @@
         useEffect(() => {
           fetchCms();
           fetchTestimonials();
-        }, [fetchCms, fetchTestimonials]);
+          fetchPublicConfig();
+        }, [fetchCms, fetchTestimonials, fetchPublicConfig]);
 
         // --- Persistent User State (Bulletproof LocalStorage) ---
         const [cart, setCart] = useState(() => {
@@ -3139,11 +3415,15 @@
         const [adminLoginError, setAdminLoginError] = useState('');
         const [adminActiveTab, setAdminActiveTab] = useState('products');
 
-        // --- Load Products from API or Seed (Newest products first) ---
+        // --- Load Products from API or Seed (Admin token receives costPrice; public shoppers never do) ---
         const fetchProducts = useCallback(async () => {
           setLoadingProducts(true);
           try {
-            const res = await fetch(`/api/products?_t=${Date.now()}`, { cache: 'no-store' });
+            const reqHeaders = adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
+            const res = await fetch(`/api/products?_t=${Date.now()}`, {
+              cache: 'no-store',
+              headers: reqHeaders
+            });
             if (res.ok) {
               const data = await res.json();
               if (Array.isArray(data) && data.length > 0) {
@@ -3151,7 +3431,10 @@
               } else {
                 // Seed if empty
                 await fetch('/api/seed', { method: 'POST' });
-                const seedRes = await fetch(`/api/products?_t=${Date.now()}`, { cache: 'no-store' });
+                const seedRes = await fetch(`/api/products?_t=${Date.now()}`, {
+                  cache: 'no-store',
+                  headers: reqHeaders
+                });
                 if (seedRes.ok) {
                   const seedData = await seedRes.json();
                   if (Array.isArray(seedData) && seedData.length > 0) {
@@ -3165,7 +3448,7 @@
           } finally {
             setLoadingProducts(false);
           }
-        }, []);
+        }, [adminToken]);
 
         useEffect(() => {
           fetchProducts();
@@ -3537,27 +3820,110 @@
         const startCatalogIdx = (safeCatalogPage - 1) * CATALOG_PER_PAGE;
         const paginatedCatalogProducts = filteredProducts.slice(startCatalogIdx, startCatalogIdx + CATALOG_PER_PAGE);
 
-        // --- Admin KPI Stats ---
+        // --- Admin KPI Stats & Profitability Calculator ---
         const adminKPIs = useMemo(() => {
           const safeOrders = Array.isArray(orders) ? orders : [];
           const safeProducts = Array.isArray(products) ? products : [];
           const validOrders = safeOrders.filter(o => o && o.status !== 'Annulée');
           const revenue = validOrders.reduce((sum, o) => sum + Number(o?.total || 0), 0);
           const totalOrders = safeOrders.length;
-          const avgOrderValue = totalOrders > 0 ? Math.round(revenue / totalOrders) : 0;
+          const avgOrderValue = validOrders.length > 0 ? Math.round(revenue / validOrders.length) : 0;
           const activeProducts = safeProducts.filter(p => p && (p.stock || 0) > 0).length;
           const outOfStockCount = safeProducts.filter(p => !p || !p.inStock || p.stock === 0).length;
+
+          const productCostMap = new Map();
+          const productStatsMap = new Map();
+          safeProducts.forEach(p => {
+            if (!p) return;
+            const unitCost = Math.max(0, Number(p.costPrice || 0));
+            productCostMap.set(Number(p.id), unitCost);
+            productStatsMap.set(Number(p.id), {
+              id: p.id,
+              nameFr: p.nameFr,
+              price: Number(p.price || 0),
+              costPrice: unitCost,
+              qtySold: 0,
+              revenue: 0,
+              totalCost: 0,
+              grossProfit: 0
+            });
+          });
+
+          const normCityKey = (c) => String(c || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const normalizedCityMap = new Map();
+          Object.entries(profitabilitySettings?.cityShippingCosts || {}).forEach(([k, v]) => {
+            normalizedCityMap.set(normCityKey(k), Math.max(0, Number(v) || 0));
+          });
+          const fallbackShipCost = Math.max(0, Number(profitabilitySettings?.defaultShippingCost ?? 35) || 35);
+
+          const lookupCityCost = (city) => {
+            const nk = normCityKey(city);
+            if (nk && normalizedCityMap.has(nk)) return normalizedCityMap.get(nk);
+            return fallbackShipCost;
+          };
+
+          let totalProductCost = 0;
+          let totalShippingCost = 0;
+          const orderProfitMap = {};
+
+          safeOrders.forEach(o => {
+            if (!o) return;
+            const isCancelled = o.status === 'Annulée';
+            const ordRev = Number(o.total || 0);
+            let ordProdCost = 0;
+            (Array.isArray(o.items) ? o.items : []).forEach(it => {
+              const pid = Number(it.productId || it.id || 0);
+              const qty = Math.max(1, Number(it.quantity || it.qty || 1));
+              const unitCost = productCostMap.has(pid) ? productCostMap.get(pid) : 0;
+              ordProdCost += unitCost * qty;
+              if (!isCancelled && productStatsMap.has(pid)) {
+                const stat = productStatsMap.get(pid);
+                const lineRev = Number(it.price || stat.price || 0) * qty;
+                stat.qtySold += qty;
+                stat.revenue += lineRev;
+                stat.totalCost += unitCost * qty;
+                stat.grossProfit = stat.revenue - stat.totalCost;
+              }
+            });
+            const ordShipCost = o.realShippingCost !== undefined && o.realShippingCost !== null
+              ? Math.max(0, Number(o.realShippingCost) || 0)
+              : lookupCityCost(o.city);
+            const ordNet = isCancelled ? 0 : (ordRev - ordProdCost - ordShipCost);
+            const ordMargin = ordRev > 0 && !isCancelled ? Math.round((ordNet / ordRev) * 1000) / 10 : 0;
+            orderProfitMap[o.id] = {
+              revenue: ordRev,
+              productCost: ordProdCost,
+              shippingCost: isCancelled ? 0 : ordShipCost,
+              netProfit: ordNet,
+              marginPct: ordMargin
+            };
+            if (!isCancelled) {
+              totalProductCost += ordProdCost;
+              totalShippingCost += ordShipCost;
+            }
+          });
+
+          const netProfit = revenue - totalProductCost - totalShippingCost;
+          const marginPercent = revenue > 0 ? Math.round((netProfit / revenue) * 1000) / 10 : 0;
+
           return {
             revenue,
             totalSales: revenue,
             totalOrders,
             orderCount: totalOrders,
+            validOrderCount: validOrders.length,
             avgOrderValue,
             avgBasket: avgOrderValue,
             activeProducts,
-            outOfStockCount
+            outOfStockCount,
+            totalProductCost,
+            totalShippingCost,
+            netProfit,
+            marginPercent,
+            orderProfitMap,
+            productProfitList: Array.from(productStatsMap.values())
           };
-        }, [orders, products]);
+        }, [orders, products, profitabilitySettings]);
 
         // --- Admin Login Action ---
         const handleAdminLogin = async (e) => {
@@ -3603,7 +3969,7 @@
                 <span className="text-caramel/60">•</span>
                 <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>ESSAYEZ AVANT D'ACHETER</span></span>
                 <span className="text-caramel/60">•</span>
-                <span className="flex items-center gap-2"><WhatsAppIcon className="w-3.5 h-3.5 fill-[#25D366] shrink-0" /> <span className="text-white font-semibold">SUPPORT WHATSAPP : +212 600-773716</span></span>
+                <span className="flex items-center gap-2"><WhatsAppIcon className="w-3.5 h-3.5 fill-[#25D366] shrink-0" /> <span className="text-white font-semibold">SUPPORT WHATSAPP : {storeConfig.storePhoneDisplay}</span></span>
                 <span className="text-caramel/60">•</span>
                 <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>NOUVELLE COLLECTION HOMME 2026</span></span>
                 <span className="text-caramel/60">•</span>
@@ -3614,7 +3980,7 @@
                 <span className="text-caramel/60">•</span>
                 <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>ESSAYEZ AVANT D'ACHETER</span></span>
                 <span className="text-caramel/60">•</span>
-                <span className="flex items-center gap-2"><WhatsAppIcon className="w-3.5 h-3.5 fill-[#25D366] shrink-0" /> <span className="text-white font-semibold">SUPPORT WHATSAPP : +212 600-773716</span></span>
+                <span className="flex items-center gap-2"><WhatsAppIcon className="w-3.5 h-3.5 fill-[#25D366] shrink-0" /> <span className="text-white font-semibold">SUPPORT WHATSAPP : {storeConfig.storePhoneDisplay}</span></span>
                 <span className="text-caramel/60">•</span>
                 <span className="flex items-center gap-2"><span className="text-caramel">✦</span> <span>NOUVELLE COLLECTION HOMME 2026</span></span>
                 <span className="text-caramel/60">•</span>
@@ -4869,13 +5235,13 @@
                       Atelier & Support : Kenitra, Maroc
                     </p>
                     <a
-                      href="https://wa.me/212600773716"
+                      href={`https://wa.me/${storeConfig.storePhoneDigits}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 text-xs text-white/90 hover:text-whatsapp font-medium transition-colors"
                     >
                       <WhatsAppIcon className="w-4 h-4 fill-[#25D366] shrink-0" />
-                      <span>WhatsApp Support : +212 600-773716</span>
+                      <span>WhatsApp Support : {storeConfig.storePhoneDisplay}</span>
                     </a>
                   </div>
 
@@ -4910,7 +5276,7 @@
             <div className="fixed bottom-6 end-6 z-40 flex items-center gap-2.5">
               {/* Desktop Luxury Concierge Pill */}
               <a
-                href="https://wa.me/212600773716?text=Bonjour%20MODANOVA,%20j%27aimerais%20avoir%20des%20renseignements"
+                href={`https://wa.me/${storeConfig.storePhoneDigits}?text=${encodeURIComponent("Bonjour MODANOVA, j'aimerais avoir des renseignements")}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hidden sm:inline-flex items-center gap-2 bg-[#141210]/95 backdrop-blur-md text-white text-xs font-medium py-2.5 px-4 rounded-full border border-caramel/30 shadow-xl hover:border-whatsapp/60 transition-all duration-300 hover:scale-105 active:scale-95 group"
@@ -4921,11 +5287,11 @@
 
               {/* Official Floating WhatsApp Button */}
               <a
-                href="https://wa.me/212600773716?text=Bonjour%20MODANOVA,%20j%27aimerais%20avoir%20des%20renseignements"
+                href={`https://wa.me/${storeConfig.storePhoneDigits}?text=${encodeURIComponent("Bonjour MODANOVA, j'aimerais avoir des renseignements")}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Discuter directement sur WhatsApp"
-                title="Contacter le support MODANOVA sur WhatsApp"
+                title={`Contacter le support MODANOVA (${storeConfig.storePhoneDisplay}) sur WhatsApp`}
                 className="bg-[#25D366] hover:bg-[#20ba5a] text-white p-3.5 rounded-full shadow-[0_4px_24px_rgba(37,211,102,0.45)] hover:scale-110 active:scale-95 transition-all duration-200 flex items-center justify-center animate-beacon"
               >
                 <WhatsAppIcon className="w-7 h-7 fill-white shrink-0" />
@@ -5074,13 +5440,13 @@
                   {/* WhatsApp button bottom */}
                   <div className="mt-auto pt-6 border-t border-taupe/20">
                     <a
-                      href="https://wa.me/212600773716"
+                      href={`https://wa.me/${storeConfig.storePhoneDigits}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full py-3 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 rounded-xs shadow-xs transition-colors"
                     >
                       <WhatsAppIcon className="w-4 h-4 fill-white shrink-0" />
-                      <span>WhatsApp Support</span>
+                      <span>WhatsApp Support ({storeConfig.storePhoneDisplay})</span>
                     </a>
                   </div>
                 </div>
@@ -5714,6 +6080,7 @@
                   nameAr: '',
                   price: '',
                   oldPrice: '',
+                  costPrice: '',
                   category: 'Chaussures',
                   inStock: true,
                   stock: 10,
@@ -5750,9 +6117,26 @@
                   }
                 }}
                 cms={cms}
-                onSaveCms={(updatedCms) => setCms(updatedCms)}
+                onSaveCms={(updatedCms) => {
+                  setCms(updatedCms);
+                  if (updatedCms && (updatedCms.whatsappNumber || updatedCms.supportPhone)) {
+                    applyStorePhoneLocal(updatedCms.whatsappNumber || updatedCms.supportPhone);
+                  }
+                }}
                 testimonials={testimonials}
                 onRefreshTestimonials={fetchTestimonials}
+                storePhone={storeConfig.storePhone}
+                storePhoneDisplay={storeConfig.storePhoneDisplay}
+                onUpdateStorePhone={applyStorePhoneLocal}
+                profitabilitySettings={profitabilitySettings}
+                onUpdateProfitabilitySettings={setProfitabilitySettings}
+                onOrderUpdated={(updatedOrd) => {
+                  if (updatedOrd && updatedOrd.id) {
+                    setOrders(prev => (prev || []).map(o =>
+                      String(o?.id || '').trim().toUpperCase() === String(updatedOrd.id).trim().toUpperCase() ? updatedOrd : o
+                    ));
+                  }
+                }}
               />
             )}
 
@@ -6295,7 +6679,8 @@
         onLogin, onLogout, onUpdateAdminAuth, kpis, activeTab, setActiveTab, products, orders,
         lang, t, onClose, onRefreshOrders, onDeleteOrderLocal, onRefreshProducts, onReorderProductsLocal, onDeleteProductLocal, onEditProduct,
         onAddProduct, onViewInvoice, showToast, onViewProductPage, onCopyProductLink,
-        heroSlides, onSaveSlider, cms, onSaveCms, testimonials, onRefreshTestimonials
+        heroSlides, onSaveSlider, cms, onSaveCms, testimonials, onRefreshTestimonials,
+        storePhone, storePhoneDisplay, onUpdateStorePhone, profitabilitySettings, onUpdateProfitabilitySettings, onOrderUpdated
       }) {
         // Slider state
         const [sliderDraft, setSliderDraft] = useState(() => JSON.parse(JSON.stringify(heroSlides || [])));
@@ -6400,6 +6785,39 @@
         });
         const [couponSaving, setCouponSaving] = useState(false);
 
+        // Bulk Actions, Carrier Dispatch, Export, Profitability & Global Store Phone states
+        const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+        const [bulkStatusTarget, setBulkStatusTarget] = useState('Confirmée');
+        const [bulkUpdating, setBulkUpdating] = useState(false);
+        const [exportMonth, setExportMonth] = useState('');
+        const [rowCarrierChoice, setRowCarrierChoice] = useState({});
+        const [shipmentLoadingId, setShipmentLoadingId] = useState(null);
+        const [refreshingTrackId, setRefreshingTrackId] = useState(null);
+
+        const [globalPhoneInput, setGlobalPhoneInput] = useState(storePhone || '212600773716');
+        const [savingGlobalPhone, setSavingGlobalPhone] = useState(false);
+
+        const [carriersDraft, setCarriersDraft] = useState({
+          defaultCarrier: 'ozon',
+          pickupCity: 'Kénitra',
+          ozon: { enabled: true, customerId: '', apiKey: '', apiUrl: 'https://api.ozonexpress.ma/customers' },
+          cathedis: { enabled: true, apiKey: '', secretKey: '', apiUrl: 'https://api.cathedis.delivery/api' },
+          amana: { enabled: true, clientCode: '', apiKey: '', apiUrl: 'https://tracking.poste.ma/api' }
+        });
+        const [carriersSaving, setCarriersSaving] = useState(false);
+
+        const [profitDraft, setProfitDraft] = useState(() => ({
+          defaultShippingCost: profitabilitySettings?.defaultShippingCost ?? 35,
+          cityShippingCosts: { ...(profitabilitySettings?.cityShippingCosts || {}) }
+        }));
+        const [newCityName, setNewCityName] = useState('');
+        const [newCityCost, setNewCityCost] = useState(35);
+        const [profitSaving, setProfitSaving] = useState(false);
+
+        useEffect(() => {
+          if (storePhone) setGlobalPhoneInput(storePhone);
+        }, [storePhone]);
+
         const fetchAdminCoupons = useCallback(async () => {
           if (!token) return;
           setCouponsLoading(true);
@@ -6416,7 +6834,7 @@
           }
         }, [token]);
 
-        // Load Admin Security, WhatsApp Config & Coupons when authenticated
+        // Load Admin Security, WhatsApp, Carriers, Profitability & Coupons when authenticated
         useEffect(() => {
           if (!token) return;
           fetchAdminCoupons();
@@ -6435,6 +6853,27 @@
                   whatsappWebhookUrl: data.whatsappWebhookUrl || '',
                   ogImageUrl: data.ogImageUrl || ''
                 });
+                if (data.storePhone || data.adminWhatsappNumber) {
+                  setGlobalPhoneInput(data.storePhone || data.adminWhatsappNumber);
+                  if (onUpdateStorePhone) onUpdateStorePhone(data.storePhone || data.adminWhatsappNumber);
+                }
+                if (data.carriersConfig) {
+                  setCarriersDraft(prev => ({
+                    ...prev,
+                    ...data.carriersConfig,
+                    ozon: { ...prev.ozon, ...(data.carriersConfig.ozon || {}) },
+                    cathedis: { ...prev.cathedis, ...(data.carriersConfig.cathedis || {}) },
+                    amana: { ...prev.amana, ...(data.carriersConfig.amana || {}) }
+                  }));
+                }
+                if (data.cityShippingCosts || data.defaultShippingCost !== undefined) {
+                  const nextProfit = {
+                    defaultShippingCost: data.defaultShippingCost ?? 35,
+                    cityShippingCosts: data.cityShippingCosts || {}
+                  };
+                  setProfitDraft(nextProfit);
+                  if (onUpdateProfitabilitySettings) onUpdateProfitabilitySettings(nextProfit);
+                }
               }
             })
             .catch(() => {});
@@ -6555,7 +6994,11 @@
             });
             const data = await res.json();
             if (res.ok && data.ok) {
-              showToast('Configuration des notifications WhatsApp sauvegardée sur Firebase !', 'success');
+              if (waConfig.adminWhatsappNumber && onUpdateStorePhone) {
+                onUpdateStorePhone(waConfig.adminWhatsappNumber);
+                setGlobalPhoneInput(waConfig.adminWhatsappNumber);
+              }
+              showToast('Configuration WhatsApp & Téléphone sauvegardée sur Firebase !', 'success');
             } else {
               showToast(data.error || 'Erreur lors de la sauvegarde', 'error');
             }
@@ -6901,6 +7344,10 @@
             const data = await res.json();
             if (res.ok && data.cms) {
               if (onSaveCms) onSaveCms(data.cms);
+              if (cmsDraft.whatsappNumber) {
+                setGlobalPhoneInput(cmsDraft.whatsappNumber);
+                setWaConfig(prev => ({ ...prev, adminWhatsappNumber: cmsDraft.whatsappNumber }));
+              }
               showToast("Contenu du site mis à jour et synchronisé sur Firebase !", 'success');
             } else {
               showToast(data.error || "Erreur enregistrement CMS", 'error');
@@ -6910,6 +7357,289 @@
           } finally {
             setCmsSaving(false);
           }
+        };
+
+        // Unified Global Store Phone handler (Site, Support, WhatsApp, Factures, Étiquettes)
+        const handleSaveGlobalPhone = async (e) => {
+          if (e && e.preventDefault) e.preventDefault();
+          if (savingGlobalPhone) return;
+          setSavingGlobalPhone(true);
+          try {
+            const res = await fetch('/api/admin/phone', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ phone: globalPhoneInput })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+              setGlobalPhoneInput(data.storePhone || globalPhoneInput);
+              setWaConfig(prev => ({ ...prev, adminWhatsappNumber: data.storePhone || globalPhoneInput }));
+              setCmsDraft(prev => ({ ...prev, whatsappNumber: data.storePhone || globalPhoneInput }));
+              if (onUpdateStorePhone) onUpdateStorePhone(data.storePhone || globalPhoneInput);
+              if (onSaveCms && data.cms) onSaveCms(data.cms);
+              showToast(`📞 Numéro global mis à jour partout : ${data.storePhoneDisplay || data.storePhone} !`, 'success');
+            } else {
+              showToast(data.error || 'Numéro invalide', 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion au serveur', 'error');
+          } finally {
+            setSavingGlobalPhone(false);
+          }
+        };
+
+        // Carriers API Credentials Save handler
+        const handleSaveCarriers = async (e) => {
+          if (e && e.preventDefault) e.preventDefault();
+          if (carriersSaving) return;
+          setCarriersSaving(true);
+          try {
+            const res = await fetch('/api/admin/carriers', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(carriersDraft)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+              if (data.carriersConfig) setCarriersDraft(data.carriersConfig);
+              showToast('🚚 Configuration API des transporteurs sauvegardée sur Firebase !', 'success');
+            } else {
+              showToast(data.error || 'Erreur lors de la sauvegarde transporteurs', 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion', 'error');
+          } finally {
+            setCarriersSaving(false);
+          }
+        };
+
+        // City Shipping Costs & Profitability Settings Save handler
+        const handleSaveProfitabilitySettings = async (e) => {
+          if (e && e.preventDefault) e.preventDefault();
+          if (profitSaving) return;
+          setProfitSaving(true);
+          try {
+            const res = await fetch('/api/admin/profitability-settings', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(profitDraft)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+              const saved = {
+                defaultShippingCost: data.defaultShippingCost ?? profitDraft.defaultShippingCost,
+                cityShippingCosts: data.cityShippingCosts || profitDraft.cityShippingCosts
+              };
+              setProfitDraft(saved);
+              if (onUpdateProfitabilitySettings) onUpdateProfitabilitySettings(saved);
+              showToast('💰 Coûts de livraison & paramètres de rentabilité enregistrés !', 'success');
+            } else {
+              showToast(data.error || 'Erreur sauvegarde rentabilité', 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion', 'error');
+          } finally {
+            setProfitSaving(false);
+          }
+        };
+
+        const handleAddCityShippingCost = () => {
+          const cleanName = String(newCityName || '').trim();
+          if (!cleanName) return;
+          setProfitDraft(prev => ({
+            ...prev,
+            cityShippingCosts: {
+              ...(prev.cityShippingCosts || {}),
+              [cleanName]: Math.max(0, Number(newCityCost) || 0)
+            }
+          }));
+          setNewCityName('');
+        };
+
+        // Generate Dispatch / Bon d'expédition & Barcode via Carrier API (Ozon / Cathedis / Amana)
+        const handleGenerateShipment = async (order) => {
+          if (!order || !order.id || shipmentLoadingId) return;
+          const chosenCarrier = rowCarrierChoice[order.id] || carriersDraft.defaultCarrier || 'ozon';
+          setShipmentLoadingId(order.id);
+          try {
+            const res = await fetch(`/api/orders/${encodeURIComponent(order.id)}/shipment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ carrier: chosenCarrier })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.order) {
+              if (onOrderUpdated) onOrderUpdated(data.order);
+              if (onRefreshOrders) await onRefreshOrders();
+              const trNum = data.shipment?.trackingNumber || '';
+              const cLabel = data.shipment?.carrierLabel || chosenCarrier;
+              const isApi = data.shipment?.mode === 'api';
+              showToast(
+                isApi
+                  ? `🚚 Colis envoyé via API ${cLabel} ! Suivi : ${trNum}`
+                  : `🏷️ Bon d'expédition ${cLabel} généré : ${trNum}`,
+                'success'
+              );
+            } else {
+              showToast(data.error || 'Erreur génération bon expédition', 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion transporteur', 'error');
+          } finally {
+            setShipmentLoadingId(null);
+          }
+        };
+
+        // Real-time Carrier Tracking Refresh
+        const handleRefreshShipment = async (order, explicitNextStatus = '') => {
+          if (!order || !order.id || refreshingTrackId) return;
+          setRefreshingTrackId(order.id);
+          try {
+            const res = await fetch(`/api/orders/${encodeURIComponent(order.id)}/shipment/refresh`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(explicitNextStatus ? { nextStatus: explicitNextStatus } : {})
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.order) {
+              if (onOrderUpdated) onOrderUpdated(data.order);
+              if (onRefreshOrders) await onRefreshOrders();
+              showToast(
+                `📦 Suivi ${data.shipment?.trackingNumber || order.id} : ${data.shipment?.statusLabel || data.order.status}`,
+                'info'
+              );
+            } else {
+              showToast(data.error || 'Erreur actualisation suivi', 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion suivi', 'error');
+          } finally {
+            setRefreshingTrackId(null);
+          }
+        };
+
+        // Bulk Status Update for Selected Orders
+        const handleBulkStatusApply = async () => {
+          if (selectedOrderIds.length === 0 || bulkUpdating) return;
+          setBulkUpdating(true);
+          try {
+            const res = await fetch('/api/orders/bulk-status', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                orderIds: selectedOrderIds,
+                status: bulkStatusTarget
+              })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+              if (onRefreshOrders) await onRefreshOrders();
+              showToast(`✅ ${data.updatedCount || selectedOrderIds.length} commande(s) passée(s) en statut « ${bulkStatusTarget} »`, 'success');
+              setSelectedOrderIds([]);
+            } else {
+              showToast(data.error || 'Erreur mise à jour groupée', 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion', 'error');
+          } finally {
+            setBulkUpdating(false);
+          }
+        };
+
+        // Monthly / Selection Accounting Export (CSV / Excel UTF-8 BOM ;-delimited)
+        const handleExportAccountingCSV = (customOrders = null) => {
+          const sourceList = Array.isArray(customOrders)
+            ? customOrders
+            : filteredOrders;
+          if (!sourceList || sourceList.length === 0) {
+            showToast('Aucune commande à exporter pour cette sélection.', 'warning');
+            return;
+          }
+          const profitMap = kpis?.orderProfitMap || {};
+          const escCsv = (val) => {
+            const s = String(val ?? '').replace(/\r?\n/g, ' ').replace(/"/g, '""');
+            return `"${s}"`;
+          };
+          const headers = [
+            'N° Commande',
+            'Date',
+            'Client',
+            'Téléphone',
+            'Ville',
+            'Adresse',
+            'Statut',
+            'Transporteur',
+            'N° Suivi',
+            'Articles',
+            'Sous-total (MAD)',
+            'Remise (MAD)',
+            'Total Facturé COD (MAD)',
+            'Coût Achat Produits (MAD)',
+            'Coût Livraison Réel (MAD)',
+            'Bénéfice Net Réel (MAD)',
+            'Marge (%)'
+          ];
+          const rows = sourceList.map(o => {
+            const pStats = profitMap[o.id] || {
+              productCost: 0,
+              shippingCost: Number(o.realShippingCost || 0),
+              netProfit: Number(o.total || 0),
+              marginPct: 0
+            };
+            const dateStr = o.date ? new Date(o.date).toLocaleDateString('fr-FR') : '';
+            const itemsSummary = (Array.isArray(o.items) ? o.items : [])
+              .map(it => `${it.quantity || 1}x ${it.nameFr} (${it.size || 'Std'}${it.colorLabel ? '/' + it.colorLabel : ''})`)
+              .join(' | ');
+            return [
+              escCsv(o.id),
+              escCsv(dateStr),
+              escCsv(o.customerName),
+              escCsv(o.customerPhone),
+              escCsv(o.city),
+              escCsv(o.address),
+              escCsv(o.status),
+              escCsv(o.shipment?.carrierLabel || '—'),
+              escCsv(o.shipment?.trackingNumber || '—'),
+              escCsv(itemsSummary),
+              Number(o.subtotal ?? o.total ?? 0),
+              Number(o.discount ?? 0),
+              Number(o.total ?? 0),
+              Number(pStats.productCost || 0),
+              Number(pStats.shippingCost || 0),
+              Number(pStats.netProfit || 0),
+              `${pStats.marginPct || 0}%`
+            ].join(';');
+          });
+          const csvContent = '\uFEFF' + [headers.map(escCsv).join(';'), ...rows].join('\r\n');
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const suffix = Array.isArray(customOrders) ? 'Selection' : (exportMonth || 'Toutes');
+          a.href = url;
+          a.download = `MODANOVA-Comptabilite-${suffix}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1500);
+          showToast(`📊 Export comptable CSV généré (${sourceList.length} commandes) !`, 'success');
         };
 
         // Coupon Discount CRUD handlers
@@ -7485,16 +8215,30 @@
         const startProdIdx = (safeProdPage - 1) * PRODUCTS_PER_PAGE;
         const paginatedProducts = filteredProducts.slice(startProdIdx, startProdIdx + PRODUCTS_PER_PAGE);
 
+        const availableOrderMonths = useMemo(() => {
+          const set = new Set();
+          set.add(new Date().toISOString().slice(0, 7));
+          (orders || []).forEach(o => {
+            if (o && o.date) {
+              const ym = String(o.date).slice(0, 7);
+              if (/^\d{4}-\d{2}$/.test(ym)) set.add(ym);
+            }
+          });
+          return Array.from(set).sort((a, b) => b.localeCompare(a));
+        }, [orders]);
+
         const filteredOrders = (orders || []).filter(o => {
           if (!o) return false;
           const matchStatus = orderFilter === 'ALL' || o.status === orderFilter;
+          const matchMonth = !exportMonth || (o.date && String(o.date).slice(0, 7) === exportMonth);
           const q = (orderSearch || '').trim().toLowerCase();
           const matchSearch = !q ||
             String(o.id || '').toLowerCase().includes(q) ||
             String(o.customerName || '').toLowerCase().includes(q) ||
             String(o.customerPhone || '').toLowerCase().includes(q) ||
-            String(o.city || '').toLowerCase().includes(q);
-          return matchStatus && matchSearch;
+            String(o.city || '').toLowerCase().includes(q) ||
+            String(o.shipment?.trackingNumber || '').toLowerCase().includes(q);
+          return matchStatus && matchMonth && matchSearch;
         });
 
         const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
@@ -7725,6 +8469,40 @@
                 </button>
 
                 <button
+                  onClick={() => setActiveTab('profitability')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
+                    activeTab === 'profitability'
+                      ? 'bg-[#E6C687] text-[#141414] font-bold shadow-xs'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>💰</span>
+                    <span>Rentabilité & Marges</span>
+                  </span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-xs font-mono font-bold ${activeTab === 'profitability' ? 'bg-[#141414] text-[#E6C687]' : 'bg-emerald-600/30 text-emerald-300'}`}>
+                    NET
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('carriers')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
+                    activeTab === 'carriers'
+                      ? 'bg-[#E6C687] text-[#141414] font-bold shadow-xs'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>🚚</span>
+                    <span>Livraison & Tél</span>
+                  </span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-xs font-mono font-bold ${activeTab === 'carriers' ? 'bg-[#141414] text-[#E6C687]' : 'bg-amber-600/30 text-amber-300'}`}>
+                    API
+                  </span>
+                </button>
+
+                <button
                   onClick={() => setActiveTab('security')}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
                     activeTab === 'security'
@@ -7825,20 +8603,24 @@
                 <div>
                   <h2 className="font-serif text-xl font-bold text-noir flex items-center gap-2">
                     {activeTab === 'products' && 'Catalogue & Produits'}
-                    {activeTab === 'orders' && 'Gestion des Commandes'}
+                    {activeTab === 'orders' && 'Gestion des Commandes & Expéditions'}
                     {activeTab === 'coupons' && 'Coupons & Codes Promo Clients'}
                     {activeTab === 'slider' && "Slider de la Page d'Accueil"}
                     {activeTab === 'cms' && 'Gestion du Contenu Fixe (CMS)'}
                     {activeTab === 'testimonials' && 'Avis & Témoignages Clients'}
+                    {activeTab === 'profitability' && 'Calculateur de Rentabilité & Suivi des Marges'}
+                    {activeTab === 'carriers' && 'API Transporteurs & Téléphone Global du Site'}
                     {activeTab === 'security' && 'Sécurité Admin, Notifications WhatsApp & Logo de Partage'}
                   </h2>
                   <p className="text-xs text-taupe-dark">
-                    {activeTab === 'products' && 'Gérez vos créations, photos Firebase, prix et stocks.'}
-                    {activeTab === 'orders' && 'Suivez et confirmez les commandes COD des clients via WhatsApp.'}
+                    {activeTab === 'products' && 'Gérez vos créations, photos Firebase, prix, coûts d’achat et stocks.'}
+                    {activeTab === 'orders' && 'Confirmez sur WhatsApp, générez vos bons Ozon/Cathedis/Amana, imprimez étiquettes/factures en masse et exportez en CSV.'}
                     {activeTab === 'coupons' && 'Créez des codes de réduction (% ou MAD), conditions minimales et dates d’expiration pour vos clients.'}
                     {activeTab === 'slider' && 'Personnalisez vos 3 bannières et uploadez des fonds haute définition.'}
                     {activeTab === 'cms' && 'Modifiez les textes et photos du site sans toucher au code source.'}
                     {activeTab === 'testimonials' && 'Ajoutez, modifiez ou supprimez les retours d’expérience de vos clients.'}
+                    {activeTab === 'profitability' && 'Suivez votre bénéfice net réel après déduction du coût d’achat des produits et des frais de livraison réels par ville.'}
+                    {activeTab === 'carriers' && 'Configurez vos identifiants Ozon Express, Cathedis, Amana et modifiez le numéro de téléphone global du site en 1 clic.'}
                     {activeTab === 'security' && 'Changez votre mot de passe administrateur et configurez les alertes WhatsApp automatiques des commandes.'}
                   </p>
                 </div>
@@ -7851,6 +8633,17 @@
                     >
                       <span>+</span>
                       <span>Nouveau Produit</span>
+                    </button>
+                  )}
+
+                  {activeTab === 'orders' && (
+                    <button
+                      type="button"
+                      onClick={() => handleExportAccountingCSV()}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shadow-xs"
+                    >
+                      <span>📊</span>
+                      <span>Exporter CSV</span>
                     </button>
                   )}
 
@@ -7881,6 +8674,28 @@
                       className="px-4 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shadow-xs"
                     >
                       <span>{cmsSaving ? '⏳ Sauvegarde...' : '💾 Enregistrer Contenu'}</span>
+                    </button>
+                  )}
+
+                  {activeTab === 'profitability' && (
+                    <button
+                      type="button"
+                      onClick={handleSaveProfitabilitySettings}
+                      disabled={profitSaving}
+                      className="px-4 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shadow-xs"
+                    >
+                      <span>{profitSaving ? '⏳ Sauvegarde...' : '💾 Enregistrer Coûts Villes'}</span>
+                    </button>
+                  )}
+
+                  {activeTab === 'carriers' && (
+                    <button
+                      type="button"
+                      onClick={handleSaveCarriers}
+                      disabled={carriersSaving}
+                      className="px-4 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shadow-xs"
+                    >
+                      <span>{carriersSaving ? '⏳ Sauvegarde...' : '💾 Enregistrer API Transporteurs'}</span>
                     </button>
                   )}
 
@@ -7918,16 +8733,37 @@
               {/* Workspace Body (Scrollable) */}
               <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
                 
-                {/* 4 KPI Summary Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                {/* 5 KPI Summary Cards (Gross Revenue + Real Net Profit + Orders + Basket + Stock) */}
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
                   <div className="bg-white p-4 border border-taupe/20 shadow-2xs rounded-xs">
                     <div className="text-[10px] uppercase font-bold tracking-wider text-taupe-dark">
-                      Chiffre d'Affaires
+                      Chiffre d'Affaires Brut
                     </div>
                     <div className="font-serif text-2xl font-bold text-caramel mt-1 tabular-nums">
                       {((kpis && (kpis.revenue != null ? kpis.revenue : kpis.totalSales)) || 0).toLocaleString()} MAD
                     </div>
                     <div className="text-[11px] text-taupe mt-0.5">Commandes validées & en cours</div>
+                  </div>
+
+                  <div
+                    onClick={() => setActiveTab('profitability')}
+                    className="bg-white p-4 border border-emerald-300/70 hover:border-emerald-600 shadow-2xs rounded-xs cursor-pointer transition-colors group"
+                    title="Cliquez pour ouvrir le calculateur de rentabilité et les coûts par ville"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-800">
+                        Bénéfice Net Réel
+                      </div>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-2xs bg-emerald-100 text-emerald-800">
+                        {(kpis && kpis.marginPercent) || 0}%
+                      </span>
+                    </div>
+                    <div className={`font-serif text-2xl font-bold mt-1 tabular-nums ${(kpis?.netProfit || 0) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {((kpis && kpis.netProfit) || 0).toLocaleString()} MAD
+                    </div>
+                    <div className="text-[10px] text-taupe-dark mt-0.5 truncate">
+                      Coûts : {((kpis?.totalProductCost || 0) + (kpis?.totalShippingCost || 0)).toLocaleString()} MAD
+                    </div>
                   </div>
 
                   <div
@@ -7961,7 +8797,7 @@
 
                   <div
                     onClick={() => setActiveTab('products')}
-                    className="bg-white p-4 border border-taupe/20 hover:border-caramel shadow-2xs rounded-xs cursor-pointer transition-colors group"
+                    className="bg-white p-4 border border-taupe/20 hover:border-caramel shadow-2xs rounded-xs cursor-pointer transition-colors group col-span-2 lg:col-span-1"
                     title="Cliquez pour afficher tous les produits"
                   >
                     <div className="flex items-center justify-between">
@@ -8406,13 +9242,29 @@
                 )}
 
                 {/* ======================================================= */}
-                {/* TAB 2: ORDERS TABLE (WhatsApp Direct to Customer Phone) */}
+                {/* TAB 2: ORDERS TABLE (WhatsApp, Carriers, Bulk & CSV)    */}
                 {/* ======================================================= */}
-                {activeTab === 'orders' && (
+                {activeTab === 'orders' && (() => {
+                  const selectedOrdersList = (orders || []).filter(o => o && selectedOrderIds.includes(o.id));
+                  const allVisibleSelected = paginatedOrders.length > 0 && paginatedOrders.every(o => selectedOrderIds.includes(o.id));
+                  const toggleSelectAllVisible = () => {
+                    if (allVisibleSelected) {
+                      const visIds = new Set(paginatedOrders.map(o => o.id));
+                      setSelectedOrderIds(prev => prev.filter(id => !visIds.has(id)));
+                    } else {
+                      const merged = new Set([...selectedOrderIds, ...paginatedOrders.map(o => o.id)]);
+                      setSelectedOrderIds(Array.from(merged));
+                    }
+                  };
+                  const toggleSelectOrder = (id) => {
+                    setSelectedOrderIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+                  };
+
+                  return (
                   <div className="bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden">
-                    {/* Status Filter & Search Toolbar */}
-                    <div className="p-4 border-b border-taupe/15 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between bg-canvas/40">
-                      <div className="flex flex-wrap items-center gap-2">
+                    {/* Status Filter, Month Accounting Export & Search Toolbar */}
+                    <div className="p-4 border-b border-taupe/15 flex flex-col xl:flex-row gap-3 items-stretch xl:items-center justify-between bg-canvas/40">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {['ALL', 'En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(s => (
                           <button
                             key={s}
@@ -8420,7 +9272,7 @@
                               setOrderFilter(s);
                               setOrderPage(1);
                             }}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-xs transition-colors whitespace-nowrap ${
+                            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xs transition-colors whitespace-nowrap ${
                               orderFilter === s
                                 ? 'bg-noir text-white'
                                 : 'bg-white border border-taupe/25 text-taupe-dark hover:text-noir'
@@ -8430,7 +9282,7 @@
                           </button>
                         ))}
                       </div>
-                      <div className="flex items-center gap-3 justify-between lg:justify-end">
+                      <div className="flex flex-wrap items-center gap-2 justify-between xl:justify-end">
                         <input
                           type="text"
                           value={orderSearch}
@@ -8438,36 +9290,150 @@
                             setOrderSearch(e.target.value);
                             setOrderPage(1);
                           }}
-                          placeholder="Rechercher N°, client, tél, ville..."
-                          className="w-full sm:w-60 bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel rounded-xs"
+                          placeholder="Rechercher N°, suivi, client, tél..."
+                          className="w-full sm:w-52 bg-white border border-taupe/30 px-3 py-1.5 text-xs text-noir focus:border-caramel rounded-xs"
                         />
+                        <select
+                          value={exportMonth}
+                          onChange={(e) => {
+                            setExportMonth(e.target.value);
+                            setOrderPage(1);
+                          }}
+                          className="bg-white border border-taupe/30 px-2.5 py-1.5 text-xs font-semibold text-noir rounded-xs"
+                          title="Filtrer & Exporter par mois"
+                        >
+                          <option value="">📅 Tous les mois</option>
+                          {availableOrderMonths.map(ym => (
+                            <option key={ym} value={ym}>{ym}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleExportAccountingCSV()}
+                          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xs transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-2xs"
+                          title="Exporter les ventes et marges du mois en CSV/Excel"
+                        >
+                          <span>📊</span>
+                          <span>Exporter Ventes CSV/Excel</span>
+                        </button>
                         <div className="text-xs font-semibold text-taupe-dark whitespace-nowrap">
                           {filteredOrders.length === 0
-                            ? '0 commande'
-                            : `Commandes ${startOrderIdx + 1}–${Math.min(startOrderIdx + ORDERS_PER_PAGE, filteredOrders.length)} sur ${filteredOrders.length}`}
+                            ? '0 cmd'
+                            : `${startOrderIdx + 1}–${Math.min(startOrderIdx + ORDERS_PER_PAGE, filteredOrders.length)} / ${filteredOrders.length}`}
                         </div>
                       </div>
                     </div>
+
+                    {/* Bulk Actions Floating Bar (visible when >= 1 checkbox checked) */}
+                    {selectedOrderIds.length > 0 && (
+                      <div className="px-4 py-3 bg-[#141414] text-white border-b border-caramel/40 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 text-xs">
+                          <span className="px-2 py-0.5 bg-[#E6C687] text-[#141414] font-bold rounded-xs font-mono">
+                            {selectedOrderIds.length} sélectionnée(s)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allFilteredIds = filteredOrders.map(o => o.id);
+                              setSelectedOrderIds(allFilteredIds);
+                            }}
+                            className="text-[11px] text-[#E6C687] hover:underline font-semibold"
+                          >
+                            Tout sélectionner ({filteredOrders.length})
+                          </button>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xs">
+                            <select
+                              value={bulkStatusTarget}
+                              onChange={(e) => setBulkStatusTarget(e.target.value)}
+                              className="bg-[#1C1C1C] border border-white/20 text-white text-xs px-2 py-1 rounded-xs font-semibold"
+                            >
+                              {['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(st => (
+                                <option key={st} value={st}>{st}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              disabled={bulkUpdating}
+                              onClick={handleBulkStatusApply}
+                              className="px-2.5 py-1 bg-[#E6C687] hover:bg-[#d4b373] text-[#141414] text-[11px] font-bold rounded-xs transition-colors"
+                            >
+                              {bulkUpdating ? '...' : '✓ Appliquer Statut'}
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => printInvoicesBulk(selectedOrdersList, lang)}
+                            className="px-3 py-1.5 bg-white text-noir hover:bg-[#FAF9F6] text-[11px] font-bold rounded-xs transition-colors flex items-center gap-1"
+                            title="Imprimer ou sauvegarder toutes les factures sélectionnées en 1 seul PDF A4"
+                          >
+                            <span>🖨️</span>
+                            <span>Factures A4 Groupées (PDF)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => printThermalLabels(selectedOrdersList, cms)}
+                            className="px-3 py-1.5 bg-caramel hover:bg-caramel/90 text-white text-[11px] font-bold rounded-xs transition-colors flex items-center gap-1"
+                            title="Imprimer toutes les étiquettes thermiques 100×150mm"
+                          >
+                            <span>🏷️</span>
+                            <span>Étiquettes Thermiques</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleExportAccountingCSV(selectedOrdersList)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-xs transition-colors flex items-center gap-1"
+                          >
+                            <span>📊</span>
+                            <span>CSV Sélection</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOrderIds([])}
+                            className="px-2 py-1.5 text-white/70 hover:text-white text-[11px]"
+                            title="Désélectionner"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Orders Table */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
                           <tr className="bg-canvas border-b border-taupe/20 text-taupe-dark uppercase text-[10px] tracking-wider">
-                            <th className="p-3 text-center w-12">#</th>
-                            <th className="p-3">N° Commande</th>
-                            <th className="p-3">Date</th>
-                            <th className="p-3">Client & Téléphone</th>
-                            <th className="p-3">Ville & Adresse</th>
-                            <th className="p-3">Montant (COD)</th>
-                            <th className="p-3">Statut</th>
-                            <th className="p-3 text-right">Actions Rapides</th>
+                            <th className="p-3 text-center w-9">
+                              <input
+                                type="checkbox"
+                                checked={allVisibleSelected}
+                                onChange={toggleSelectAllVisible}
+                                className="w-4 h-4 accent-noir cursor-pointer"
+                                title="Sélectionner toutes les commandes de cette page"
+                              />
+                            </th>
+                            <th className="p-2.5 text-center w-10">#</th>
+                            <th className="p-2.5">N° Commande</th>
+                            <th className="p-2.5">Date</th>
+                            <th className="p-2.5">Client & Tél</th>
+                            <th className="p-2.5">Ville & Adresse</th>
+                            <th className="p-2.5">Montant & Net</th>
+                            <th className="p-2.5 min-w-[230px]">Expédition & Suivi</th>
+                            <th className="p-2.5">Statut</th>
+                            <th className="p-2.5 text-right">Actions Rapides</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-taupe/15">
                           {paginatedOrders.length === 0 ? (
                             <tr>
-                              <td colSpan="8" className="p-8 text-center text-taupe-dark">
+                              <td colSpan="10" className="p-8 text-center text-taupe-dark">
                                 Aucune commande trouvée.
                               </td>
                             </tr>
@@ -8480,32 +9446,128 @@
                                 : '—';
                               const isConfirmingDelete = confirmDeleteOrderId === o.id;
                               const isDeleting = deletingOrderId === o.id;
+                              const isSelected = selectedOrderIds.includes(o.id);
+                              const ordProfit = kpis?.orderProfitMap?.[o.id];
+                              const ship = o.shipment;
+                              const chosenCarrier = rowCarrierChoice[o.id] || carriersDraft.defaultCarrier || 'ozon';
+                              const isGeneratingShip = shipmentLoadingId === o.id;
+                              const isRefreshingShip = refreshingTrackId === o.id;
 
                               return (
-                                <tr key={o.id || orderNum} className="hover:bg-canvas/50 transition-colors">
+                                <tr key={o.id || orderNum} className={`transition-colors ${isSelected ? 'bg-[#FAF6EE]' : 'hover:bg-canvas/50'}`}>
                                   <td className="p-3 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => toggleSelectOrder(o.id)}
+                                      className="w-4 h-4 accent-noir cursor-pointer"
+                                    />
+                                  </td>
+                                  <td className="p-2.5 text-center">
                                     <span className="inline-flex items-center justify-center w-6 h-6 rounded-xs bg-noir/5 border border-taupe/25 font-mono text-[11px] font-bold text-noir tabular-nums">
                                       {orderNum}
                                     </span>
                                   </td>
-                                  <td className="p-3 font-mono font-bold text-noir whitespace-nowrap">{o.id}</td>
-                                  <td className="p-3 text-taupe-dark whitespace-nowrap">
+                                  <td className="p-2.5 font-mono font-bold text-noir whitespace-nowrap">{o.id}</td>
+                                  <td className="p-2.5 text-taupe-dark whitespace-nowrap">
                                     {formattedDate}
                                   </td>
-                                  <td className="p-3">
+                                  <td className="p-2.5">
                                     <div className="font-semibold text-noir">{o.customerName || '—'}</div>
                                     <div className="text-[11px] font-mono text-caramel">{o.customerPhone || '—'}</div>
                                   </td>
-                                  <td className="p-3">
+                                  <td className="p-2.5">
                                     <div className="font-medium text-noir">{o.city || '—'}</div>
-                                    <div className="text-[10px] text-taupe truncate max-w-[200px]" title={o.address}>
+                                    <div className="text-[10px] text-taupe truncate max-w-[160px]" title={o.address}>
                                       {o.address || '—'}
                                     </div>
                                   </td>
-                                  <td className="p-3 font-bold text-noir tabular-nums whitespace-nowrap">
-                                    {o.total != null ? `${o.total} MAD` : '—'}
+                                  <td className="p-2.5 whitespace-nowrap">
+                                    <div className="font-bold text-noir tabular-nums">
+                                      {o.total != null ? `${o.total} MAD` : '—'}
+                                    </div>
+                                    {ordProfit && o.status !== 'Annulée' && (
+                                      <div className={`text-[10px] font-bold tabular-nums ${ordProfit.netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                                        Net : {ordProfit.netProfit >= 0 ? `+${ordProfit.netProfit}` : ordProfit.netProfit} MAD
+                                      </div>
+                                    )}
                                   </td>
-                                  <td className="p-3">
+                                  <td className="p-2.5">
+                                    {!ship ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <select
+                                          value={chosenCarrier}
+                                          onChange={(e) => setRowCarrierChoice(prev => ({ ...prev, [o.id]: e.target.value }))}
+                                          className="bg-white border border-taupe/30 px-1.5 py-1 text-[11px] font-semibold text-noir rounded-xs"
+                                        >
+                                          <option value="ozon">Ozon Express</option>
+                                          <option value="cathedis">Cathedis</option>
+                                          <option value="amana">Amana</option>
+                                        </select>
+                                        <button
+                                          type="button"
+                                          disabled={isGeneratingShip}
+                                          onClick={() => handleGenerateShipment(o)}
+                                          className="px-2 py-1 bg-noir hover:bg-caramel text-[#E6C687] hover:text-white text-[10px] font-bold rounded-xs transition-colors whitespace-nowrap shadow-2xs"
+                                          title="Envoyer les infos du colis au transporteur et générer le code-barres"
+                                        >
+                                          {isGeneratingShip ? '⏳...' : "🚚 Générer le bon d'expédition"}
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="px-1.5 py-0.5 bg-noir text-[#E6C687] text-[9px] font-bold uppercase rounded-2xs">
+                                            {ship.carrierLabel || ship.carrier}
+                                          </span>
+                                          <span className="font-mono text-[11px] font-bold text-noir">
+                                            {ship.trackingNumber}
+                                          </span>
+                                          <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded-2xs ${
+                                            ship.status === 'DELIVERED'
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : ship.status === 'RETURNED'
+                                              ? 'bg-red-100 text-red-800'
+                                              : 'bg-amber-100 text-amber-800'
+                                          }`}>
+                                            {ship.statusLabel || ship.status}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-1 flex-wrap">
+                                          <button
+                                            type="button"
+                                            onClick={() => printThermalLabels(o, cms)}
+                                            className="px-2 py-0.5 bg-caramel hover:bg-noir text-white text-[10px] font-bold rounded-2xs transition-colors"
+                                            title="Imprimer l'étiquette thermique 100×150mm avec code-barres Code-128"
+                                          >
+                                            🏷️ Étiquette Thermique
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={isRefreshingShip}
+                                            onClick={() => handleRefreshShipment(o)}
+                                            className="px-2 py-0.5 bg-white border border-taupe/30 hover:border-noir text-noir text-[10px] font-semibold rounded-2xs transition-colors"
+                                            title="Actualiser le suivi en temps réel"
+                                          >
+                                            {isRefreshingShip ? '...' : '🔄 Actualiser Suivi'}
+                                          </button>
+                                          <select
+                                            value={ship.status || 'PICKUP_PENDING'}
+                                            onChange={(e) => handleRefreshShipment(o, e.target.value)}
+                                            className="bg-white border border-taupe/25 px-1 py-0.5 text-[9px] text-taupe-dark rounded-2xs"
+                                            title="Statut transporteur"
+                                          >
+                                            <option value="PICKUP_PENDING">Ramassage</option>
+                                            <option value="IN_TRANSIT">En transit</option>
+                                            <option value="OUT_FOR_DELIVERY">En livraison</option>
+                                            <option value="DELIVERED">Livré</option>
+                                            <option value="RETURNED">Retour</option>
+                                          </select>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="p-2.5">
                                     <select
                                       value={o.status || 'En attente'}
                                       onChange={(e) => handleStatusChange(o.id, e.target.value)}
@@ -8516,33 +9578,33 @@
                                       ))}
                                     </select>
                                   </td>
-                                  <td className="p-3 text-right">
-                                    <div className="flex items-center justify-end gap-1.5">
+                                  <td className="p-2.5 text-right">
+                                    <div className="flex items-center justify-end gap-1">
                                       {/* WhatsApp Direct Confirmation targeting Customer Phone */}
                                       <a
                                         href={buildAdminCustomerWhatsAppLink(o, lang)}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="px-2.5 py-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold text-[11px] rounded-xs shadow-2xs flex items-center gap-1 transition-colors whitespace-nowrap"
+                                        className="px-2 py-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold text-[11px] rounded-xs shadow-2xs flex items-center gap-1 transition-colors whitespace-nowrap"
                                         title={`Envoyer message de confirmation à ${o.customerPhone}`}
                                       >
                                         <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
-                                        <span>Confirmer WhatsApp</span>
+                                        <span className="hidden 2xl:inline">WhatsApp</span>
                                       </a>
                                       <button
                                         type="button"
                                         onClick={() => openEditOrder(o)}
-                                        className="px-2.5 py-1.5 bg-noir hover:bg-caramel text-white text-[11px] font-semibold rounded-xs transition-colors whitespace-nowrap"
+                                        className="px-2 py-1.5 bg-noir hover:bg-caramel text-white text-[11px] font-semibold rounded-xs transition-colors whitespace-nowrap"
                                         title="Modifier les informations de la commande"
                                       >
-                                        ✏️ Modifier
+                                        ✏️
                                       </button>
                                       <button
                                         onClick={() => onViewInvoice(o)}
                                         className="px-2 py-1.5 border border-taupe/30 hover:border-noir text-noir text-[11px] rounded-xs bg-white shadow-2xs whitespace-nowrap"
-                                        title="Imprimer la Facture"
+                                        title="Imprimer la Facture A4"
                                       >
-                                        🖨️ Facture
+                                        🖨️
                                       </button>
                                       {isConfirmingDelete ? (
                                         <div className="flex items-center gap-1 bg-red-50 border border-red-200 px-1.5 py-1 rounded-xs">
@@ -8559,14 +9621,14 @@
                                             className="px-1.5 py-1 text-taupe-dark hover:text-noir text-[10px] font-semibold"
                                             title="Annuler"
                                           >
-                                            Annuler
+                                            ✕
                                           </button>
                                         </div>
                                       ) : (
                                         <button
                                           onClick={() => setConfirmDeleteOrderId(o.id)}
                                           disabled={isDeleting}
-                                          className="px-2.5 py-1.5 border border-red-200 hover:border-red-600 bg-red-50/50 hover:bg-red-600 text-red-600 hover:text-white text-xs font-bold rounded-xs transition-colors"
+                                          className="px-2 py-1.5 border border-red-200 hover:border-red-600 bg-red-50/50 hover:bg-red-600 text-red-600 hover:text-white text-xs font-bold rounded-xs transition-colors"
                                           title="Supprimer cette commande"
                                         >
                                           ✕
@@ -8633,7 +9695,8 @@
                       </div>
                     )}
                   </div>
-                )}
+                  );
+                })()}
 
                 {/* ======================================================= */}
                 {/* TAB 3: DYNAMIC SLIDER MANAGEMENT (3 Slides)             */}
@@ -9253,6 +10316,477 @@
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* ======================================================= */}
+                {/* TAB: PROFITABILITY & MARGINS CALCULATOR                 */}
+                {/* ======================================================= */}
+                {activeTab === 'profitability' && (
+                  <div className="space-y-6">
+                    {/* 5 Financial Breakdown Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                      <div className="bg-white border border-taupe/20 p-4 rounded-xs shadow-2xs">
+                        <div className="text-[10px] font-bold uppercase text-taupe-dark">Chiffre d'Affaires Brut</div>
+                        <div className="font-serif text-2xl font-bold text-noir mt-1 tabular-nums">
+                          {(kpis?.revenue || 0).toLocaleString()} MAD
+                        </div>
+                        <div className="text-[11px] text-taupe mt-0.5">{kpis?.validOrderCount || 0} commandes non annulées</div>
+                      </div>
+                      <div className="bg-white border border-taupe/20 p-4 rounded-xs shadow-2xs">
+                        <div className="text-[10px] font-bold uppercase text-taupe-dark">Coût Achat Produits</div>
+                        <div className="font-serif text-2xl font-bold text-amber-700 mt-1 tabular-nums">
+                          -{(kpis?.totalProductCost || 0).toLocaleString()} MAD
+                        </div>
+                        <div className="text-[11px] text-taupe mt-0.5">Prix d'achat / importation</div>
+                      </div>
+                      <div className="bg-white border border-taupe/20 p-4 rounded-xs shadow-2xs">
+                        <div className="text-[10px] font-bold uppercase text-taupe-dark">Coût Livraison Réel</div>
+                        <div className="font-serif text-2xl font-bold text-amber-700 mt-1 tabular-nums">
+                          -{(kpis?.totalShippingCost || 0).toLocaleString()} MAD
+                        </div>
+                        <div className="text-[11px] text-taupe mt-0.5">Selon ville du client</div>
+                      </div>
+                      <div className="bg-emerald-50 border border-emerald-300 p-4 rounded-xs shadow-2xs">
+                        <div className="text-[10px] font-bold uppercase text-emerald-900">Bénéfice Net Réel</div>
+                        <div className={`font-serif text-2xl font-bold mt-1 tabular-nums ${(kpis?.netProfit || 0) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                          {(kpis?.netProfit || 0).toLocaleString()} MAD
+                        </div>
+                        <div className="text-[11px] text-emerald-800 mt-0.5">Profit net après tous coûts</div>
+                      </div>
+                      <div className="bg-white border border-taupe/20 p-4 rounded-xs shadow-2xs col-span-2 lg:col-span-1">
+                        <div className="text-[10px] font-bold uppercase text-taupe-dark">Taux de Marge Nette</div>
+                        <div className="font-serif text-2xl font-bold text-caramel mt-1 tabular-nums">
+                          {kpis?.marginPercent || 0}%
+                        </div>
+                        <div className="text-[11px] text-taupe mt-0.5">Rentabilité globale</div>
+                      </div>
+                    </div>
+
+                    {/* City Real Shipping Costs Configuration */}
+                    <form onSubmit={handleSaveProfitabilitySettings} className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs space-y-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-taupe/15 pb-4">
+                        <div>
+                          <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
+                            <span>🚚</span>
+                            <span>Coût de Livraison Réel par Ville (MAD)</span>
+                          </h3>
+                          <p className="text-xs text-taupe-dark mt-0.5">
+                            Définissez le tarif transporteur réel par ville (calculé automatiquement sur chaque commande, sans être affiché au client).
+                          </p>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={profitSaving}
+                          className="px-5 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shrink-0 shadow-xs"
+                        >
+                          {profitSaving ? '⏳ Sauvegarde...' : '💾 Enregistrer les Tarifs'}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-[#FAF9F6] p-4 border border-taupe/20 rounded-xs items-end">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">
+                            Tarif par défaut (Autres villes) — MAD
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={profitDraft.defaultShippingCost}
+                            onChange={(e) => setProfitDraft(prev => ({ ...prev, defaultShippingCost: Math.max(0, Number(e.target.value) || 0) }))}
+                            className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs font-mono font-bold text-noir"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">
+                            Ajouter une ville personnalisée
+                          </label>
+                          <input
+                            type="text"
+                            value={newCityName}
+                            onChange={(e) => setNewCityName(e.target.value)}
+                            placeholder="Ex: Taza, Berrechid, Mohammédia..."
+                            className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            value={newCityCost}
+                            onChange={(e) => setNewCityCost(e.target.value)}
+                            placeholder="MAD"
+                            className="w-24 bg-white border border-taupe/30 px-3 py-2 text-xs font-mono font-bold text-noir"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddCityShippingCost}
+                            className="flex-1 px-3 py-2 bg-caramel hover:bg-noir text-white text-xs font-bold rounded-xs transition-colors"
+                          >
+                            + Ajouter Ville
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                        {Object.entries(profitDraft.cityShippingCosts || {}).sort(([a], [b]) => a.localeCompare(b)).map(([cityKey, costVal]) => (
+                          <div key={cityKey} className="bg-canvas/70 border border-taupe/20 p-2.5 rounded-xs">
+                            <div className="text-[11px] font-bold text-noir truncate mb-1" title={cityKey}>{cityKey}</div>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                value={costVal}
+                                onChange={(e) => {
+                                  const nextVal = Math.max(0, Number(e.target.value) || 0);
+                                  setProfitDraft(prev => ({
+                                    ...prev,
+                                    cityShippingCosts: {
+                                      ...(prev.cityShippingCosts || {}),
+                                      [cityKey]: nextVal
+                                    }
+                                  }));
+                                }}
+                                className="w-full bg-white border border-taupe/30 px-2 py-1 text-xs font-mono font-bold text-noir"
+                              />
+                              <span className="text-[10px] text-taupe-dark font-semibold">MAD</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </form>
+
+                    {/* Profitability Per Product & Per Order */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                      {/* Per Product */}
+                      <div className="bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden">
+                        <div className="p-4 border-b border-taupe/15 bg-canvas/40 flex items-center justify-between">
+                          <div>
+                            <h4 className="font-serif text-base font-bold text-noir">Marge par Produit (Prix d'achat Admin)</h4>
+                            <p className="text-[11px] text-taupe-dark">Modifiez le « Prix d'achat / Coût d'importation » dans chaque fiche produit.</p>
+                          </div>
+                        </div>
+                        <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-canvas border-b border-taupe/20 text-[10px] uppercase text-taupe-dark">
+                                <th className="p-3">Produit</th>
+                                <th className="p-3 text-right">Vente</th>
+                                <th className="p-3 text-right">Coût Achat</th>
+                                <th className="p-3 text-right">Marge Unit.</th>
+                                <th className="p-3 text-center">Vendus</th>
+                                <th className="p-3 text-right">Bénéfice Brut</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-taupe/15">
+                              {(kpis?.productProfitList || []).map(pr => {
+                                const unitMargin = pr.price - pr.costPrice;
+                                const unitMarginPct = pr.price > 0 ? Math.round((unitMargin / pr.price) * 100) : 0;
+                                return (
+                                  <tr key={pr.id} className="hover:bg-canvas/40">
+                                    <td className="p-3 font-semibold text-noir max-w-[180px] truncate">{pr.nameFr}</td>
+                                    <td className="p-3 text-right font-mono">{pr.price} MAD</td>
+                                    <td className="p-3 text-right font-mono text-amber-800">{pr.costPrice} MAD</td>
+                                    <td className="p-3 text-right font-mono font-bold text-emerald-700">
+                                      +{unitMargin} MAD <span className="text-[10px] text-taupe-dark">({unitMarginPct}%)</span>
+                                    </td>
+                                    <td className="p-3 text-center font-mono font-bold">{pr.qtySold}</td>
+                                    <td className="p-3 text-right font-mono font-bold text-noir">{pr.grossProfit} MAD</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Per Order */}
+                      <div className="bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden">
+                        <div className="p-4 border-b border-taupe/15 bg-canvas/40 flex items-center justify-between">
+                          <div>
+                            <h4 className="font-serif text-base font-bold text-noir">Bénéfice Net Réel par Commande</h4>
+                            <p className="text-[11px] text-taupe-dark">CA Facturé - Coût Marchandises - Coût Livraison Ville.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleExportAccountingCSV()}
+                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold rounded-xs"
+                          >
+                            📊 Exporter CSV
+                          </button>
+                        </div>
+                        <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-canvas border-b border-taupe/20 text-[10px] uppercase text-taupe-dark">
+                                <th className="p-3">Commande</th>
+                                <th className="p-3">Ville</th>
+                                <th className="p-3 text-right">CA COD</th>
+                                <th className="p-3 text-right">Coût Prod.</th>
+                                <th className="p-3 text-right">Livraison</th>
+                                <th className="p-3 text-right">Bénéfice Net</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-taupe/15">
+                              {(orders || []).filter(o => o && o.status !== 'Annulée').slice(0, 50).map(o => {
+                                const st = kpis?.orderProfitMap?.[o.id] || { revenue: o.total, productCost: 0, shippingCost: 0, netProfit: o.total, marginPct: 100 };
+                                return (
+                                  <tr key={o.id} className="hover:bg-canvas/40">
+                                    <td className="p-3 font-mono font-bold text-noir">{o.id}</td>
+                                    <td className="p-3 text-taupe-dark">{o.city}</td>
+                                    <td className="p-3 text-right font-mono">{st.revenue} MAD</td>
+                                    <td className="p-3 text-right font-mono text-amber-800">-{st.productCost}</td>
+                                    <td className="p-3 text-right font-mono text-amber-800">-{st.shippingCost}</td>
+                                    <td className={`p-3 text-right font-mono font-bold ${st.netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                                      {st.netProfit >= 0 ? `+${st.netProfit}` : st.netProfit} MAD ({st.marginPct}%)
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ======================================================= */}
+                {/* TAB: CARRIER APIs (OZON/CATHEDIS/AMANA) & GLOBAL PHONE  */}
+                {/* ======================================================= */}
+                {activeTab === 'carriers' && (
+                  <div className="space-y-6 max-w-5xl">
+                    {/* 1. UNIFIED GLOBAL STORE PHONE CARD */}
+                    <form onSubmit={handleSaveGlobalPhone} className="bg-white border border-caramel/40 p-6 rounded-xs shadow-2xs space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-taupe/15 pb-4">
+                        <div>
+                          <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
+                            <span>📞</span>
+                            <span>Numéro de Téléphone Global MODANOVA (Partout sur le Site)</span>
+                          </h3>
+                          <p className="text-xs text-taupe-dark mt-0.5">
+                            Modifiez un seul numéro ici pour le changer automatiquement sur tout le site : <strong>Bandeau Haut</strong>, <strong>Footer</strong>, <strong>Bouton WhatsApp Support</strong>, <strong>Menu Mobile</strong>, <strong>Commandes WhatsApp Clients</strong>, <strong>Factures A4</strong>, <strong>Étiquettes Thermiques</strong> et <strong>Alertes Admin</strong>.
+                          </p>
+                        </div>
+                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 text-[10px] font-bold uppercase rounded-xs shrink-0">
+                          Actif : {storePhoneDisplay || '+212 600-773716'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div className="md:col-span-2">
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                            Nouveau Numéro de Téléphone / WhatsApp (Maroc ou International) *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={globalPhoneInput}
+                            onChange={(e) => setGlobalPhoneInput(e.target.value)}
+                            placeholder="Ex: 0600773716 ou +212600773716"
+                            className="w-full bg-[#FAF9F6] border border-taupe/30 px-3.5 py-2.5 text-sm font-mono font-bold text-noir focus:border-caramel"
+                          />
+                          <p className="text-[11px] text-taupe-dark mt-1">
+                            Vous pouvez saisir <code>06XXXXXXXX</code>, <code>07XXXXXXXX</code> ou <code>+2126XXXXXXXX</code> — il est automatiquement formaté partout.
+                          </p>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={savingGlobalPhone}
+                          className="w-full py-2.5 px-5 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shadow-sm"
+                        >
+                          {savingGlobalPhone ? '⏳ Application...' : '✅ Appliquer Partout sur le Site'}
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* 2. CARRIER API INTEGRATIONS (OZON EXPRESS, CATHEDIS, AMANA) */}
+                    <form onSubmit={handleSaveCarriers} className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-taupe/15 pb-4">
+                        <div>
+                          <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
+                            <span>🚚</span>
+                            <span>Intégration API Transporteurs Maroc (Ozon Express, Cathedis, Amana)</span>
+                          </h3>
+                          <p className="text-xs text-taupe-dark mt-0.5">
+                            Connectez vos clés API transporteurs pour expédier directement en 1 clic depuis chaque commande. Sans clé API, un bordereau code-barres local prêt à imprimer reste disponible.
+                          </p>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={carriersSaving}
+                          className="px-5 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shrink-0 shadow-xs"
+                        >
+                          {carriersSaving ? '⏳ Sauvegarde...' : '💾 Enregistrer APIs'}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#FAF9F6] p-4 border border-taupe/20 rounded-xs">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">
+                            Transporteur par Défaut
+                          </label>
+                          <select
+                            value={carriersDraft.defaultCarrier}
+                            onChange={(e) => setCarriersDraft(p => ({ ...p, defaultCarrier: e.target.value }))}
+                            className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs font-bold text-noir"
+                          >
+                            <option value="ozon">Ozon Express</option>
+                            <option value="cathedis">Cathedis</option>
+                            <option value="amana">Amana Express</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">
+                            Ville de Ramassage / Expéditeur (sur Étiquette Thermique)
+                          </label>
+                          <input
+                            type="text"
+                            value={carriersDraft.pickupCity}
+                            onChange={(e) => setCarriersDraft(p => ({ ...p, pickupCity: e.target.value }))}
+                            placeholder="Kénitra"
+                            className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs font-semibold text-noir"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        {/* Ozon Express */}
+                        <div className="border border-taupe/25 p-4 rounded-xs space-y-3 bg-canvas/30">
+                          <div className="flex items-center justify-between border-b border-taupe/15 pb-2">
+                            <span className="font-bold text-sm text-noir">📦 Ozon Express</span>
+                            <label className="flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={carriersDraft.ozon?.enabled !== false}
+                                onChange={(e) => setCarriersDraft(p => ({ ...p, ozon: { ...p.ozon, enabled: e.target.checked } }))}
+                                className="accent-noir"
+                              />
+                              <span>Actif</span>
+                            </label>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">Customer ID</label>
+                            <input
+                              type="text"
+                              value={carriersDraft.ozon?.customerId || ''}
+                              onChange={(e) => setCarriersDraft(p => ({ ...p, ozon: { ...p.ozon, customerId: e.target.value } }))}
+                              placeholder="Ex: 14892"
+                              className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">API Key (Secret)</label>
+                            <input
+                              type="password"
+                              value={carriersDraft.ozon?.apiKey || ''}
+                              onChange={(e) => setCarriersDraft(p => ({ ...p, ozon: { ...p.ozon, apiKey: e.target.value } }))}
+                              placeholder="Clé API Ozon Express"
+                              className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">Endpoint URL</label>
+                            <input
+                              type="text"
+                              value={carriersDraft.ozon?.apiUrl || ''}
+                              onChange={(e) => setCarriersDraft(p => ({ ...p, ozon: { ...p.ozon, apiUrl: e.target.value } }))}
+                              className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-[11px] font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Cathedis */}
+                        <div className="border border-taupe/25 p-4 rounded-xs space-y-3 bg-canvas/30">
+                          <div className="flex items-center justify-between border-b border-taupe/15 pb-2">
+                            <span className="font-bold text-sm text-noir">🚚 Cathedis</span>
+                            <label className="flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={carriersDraft.cathedis?.enabled !== false}
+                                onChange={(e) => setCarriersDraft(p => ({ ...p, cathedis: { ...p.cathedis, enabled: e.target.checked } }))}
+                                className="accent-noir"
+                              />
+                              <span>Actif</span>
+                            </label>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">API Token / Key</label>
+                            <input
+                              type="password"
+                              value={carriersDraft.cathedis?.apiKey || ''}
+                              onChange={(e) => setCarriersDraft(p => ({ ...p, cathedis: { ...p.cathedis, apiKey: e.target.value } }))}
+                              placeholder="Bearer Token Cathedis"
+                              className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">Secret Key (Optionnel)</label>
+                            <input
+                              type="password"
+                              value={carriersDraft.cathedis?.secretKey || ''}
+                              onChange={(e) => setCarriersDraft(p => ({ ...p, cathedis: { ...p.cathedis, secretKey: e.target.value } }))}
+                              placeholder="X-Secret-Key"
+                              className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">Endpoint URL</label>
+                            <input
+                              type="text"
+                              value={carriersDraft.cathedis?.apiUrl || ''}
+                              onChange={(e) => setCarriersDraft(p => ({ ...p, cathedis: { ...p.cathedis, apiUrl: e.target.value } }))}
+                              className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-[11px] font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Amana Express */}
+                        <div className="border border-taupe/25 p-4 rounded-xs space-y-3 bg-canvas/30">
+                          <div className="flex items-center justify-between border-b border-taupe/15 pb-2">
+                            <span className="font-bold text-sm text-noir">✉️ Amana Express</span>
+                            <label className="flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={carriersDraft.amana?.enabled !== false}
+                                onChange={(e) => setCarriersDraft(p => ({ ...p, amana: { ...p.amana, enabled: e.target.checked } }))}
+                                className="accent-noir"
+                              />
+                              <span>Actif</span>
+                            </label>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">Code Client Amana</label>
+                            <input
+                              type="text"
+                              value={carriersDraft.amana?.clientCode || ''}
+                              onChange={(e) => setCarriersDraft(p => ({ ...p, amana: { ...p.amana, clientCode: e.target.value } }))}
+                              placeholder="Code contrat Poste Maroc"
+                              className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">Clé API Amana</label>
+                            <input
+                              type="password"
+                              value={carriersDraft.amana?.apiKey || ''}
+                              onChange={(e) => setCarriersDraft(p => ({ ...p, amana: { ...p.amana, apiKey: e.target.value } }))}
+                              placeholder="Clé API Amana"
+                              className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-xs font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">Endpoint URL</label>
+                            <input
+                              type="text"
+                              value={carriersDraft.amana?.apiUrl || ''}
+                              onChange={(e) => setCarriersDraft(p => ({ ...p, amana: { ...p.amana, apiUrl: e.target.value } }))}
+                              className="w-full bg-white border border-taupe/30 px-2.5 py-1.5 text-[11px] font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </form>
                   </div>
                 )}
 
@@ -10340,6 +11874,9 @@
         const [nameAr, setNameAr] = useState(initialData.nameAr || '');
         const [price, setPrice] = useState(initialData.price || '');
         const [oldPrice, setOldPrice] = useState(initialData.oldPrice || '');
+        const [costPrice, setCostPrice] = useState(
+          initialData.costPrice !== undefined && initialData.costPrice !== null ? initialData.costPrice : ''
+        );
         const [stock, setStock] = useState(initialData.stock ?? 10);
         const [category, setCategory] = useState(initialData.category || PRODUCT_CATEGORIES[0]);
         const [badge, setBadge] = useState(initialData.badge || 'new');
@@ -10566,6 +12103,7 @@
               nameAr,
               price: Number(price),
               oldPrice: oldPrice ? Number(oldPrice) : null,
+              costPrice: costPrice !== '' ? Math.max(0, Number(costPrice) || 0) : 0,
               stock: sumStock,
               inStock: sumStock > 0,
               variantStock: cleanVariantStock,
@@ -10637,15 +12175,15 @@
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="block font-bold uppercase mb-1">Prix (MAD) *</label>
+                    <label className="block font-bold uppercase mb-1">Prix Vente (MAD) *</label>
                     <input
                       type="number"
                       required
                       value={price}
                       onChange={(e) => setPrice(e.target.value)}
-                      className="w-full bg-card border border-taupe/30 p-2"
+                      className="w-full bg-card border border-taupe/30 p-2 font-bold"
                     />
                   </div>
                   <div>
@@ -10655,6 +12193,19 @@
                       value={oldPrice}
                       onChange={(e) => setOldPrice(e.target.value)}
                       className="w-full bg-card border border-taupe/30 p-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase mb-1 text-emerald-800" title="Visible uniquement par vous dans le Panel Admin">
+                      Prix d'achat / Coût (Admin seul)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={costPrice}
+                      onChange={(e) => setCostPrice(e.target.value)}
+                      placeholder="Coût import MAD"
+                      className="w-full bg-emerald-50/70 border border-emerald-400/60 p-2 font-mono font-bold text-emerald-950"
                     />
                   </div>
                   <div>
@@ -10668,6 +12219,16 @@
                     />
                   </div>
                 </div>
+                {Number(price) > 0 && costPrice !== '' && (
+                  <div className="bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xs flex items-center justify-between text-[11px] text-emerald-900">
+                    <span>
+                      💰 <strong>Marge brute unitaire estimée (Admin seul) :</strong>{' '}
+                      <strong>{(Number(price) - (Number(costPrice) || 0)).toLocaleString()} MAD</strong>{' '}
+                      ({Math.round(((Number(price) - (Number(costPrice) || 0)) / Number(price)) * 100)}%)
+                    </span>
+                    <span className="text-[10px] text-emerald-700 font-semibold">Jamais visible aux clients</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>

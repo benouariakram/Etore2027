@@ -1,0 +1,188 @@
+rules_version = '2';
+
+// =============================================================================
+// MODANOVA — STRICT PRODUCTION FIRESTORE SECURITY RULES (Zero-Trust)
+// Use this ruleset as `firestore.rules` once `FIREBASE_SERVICE_ACCOUNT` is set
+// on the backend server (server.ts runs via firebase-admin Service Account,
+// which securely bypasses client rules).
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net — default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Global Helpers
+    // =========================================================================
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email == "startime.iptv@gmail.com" &&
+        request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isBootstrappedAdmin() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // =========================================================================
+    // Entity Validation Blueprints
+    // =========================================================================
+    function isValidProduct(data) {
+      return data.keys().hasAll(['id', 'nameFr', 'price', 'stock', 'category']) &&
+        data.keys().hasOnly([
+          'id', 'nameFr', 'nameAr', 'price', 'oldPrice', 'costPrice', 'category',
+          'inStock', 'stock', 'variantStock', 'badge', 'isNew', 'rating',
+          'images', 'descFr', 'descAr', 'sizes', 'colors',
+          'position', 'showOnHome', 'videoUrl', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id is number && data.id >= 0 &&
+        data.nameFr is string && data.nameFr.size() >= 1 && data.nameFr.size() <= 300 &&
+        (!('nameAr' in data) || data.nameAr == null || (data.nameAr is string && data.nameAr.size() <= 300)) &&
+        data.price is number && data.price >= 0 &&
+        (!('oldPrice' in data) || data.oldPrice == null || (data.oldPrice is number && data.oldPrice >= 0)) &&
+        (!('costPrice' in data) || data.costPrice == null || (data.costPrice is number && data.costPrice >= 0)) &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 100 &&
+        (!('inStock' in data) || data.inStock is bool) &&
+        data.stock is number && data.stock >= 0 &&
+        (!('variantStock' in data) || (data.variantStock is map && data.variantStock.size() <= 200)) &&
+        (!('badge' in data) || data.badge == null || (data.badge is string && data.badge in ['new', 'exclusive', 'luxury', 'out', ''])) &&
+        (!('isNew' in data) || data.isNew is bool) &&
+        (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
+        (!('images' in data) || (data.images is list && data.images.size() <= 30 && (data.images.size() == 0 || data.images[0] is string))) &&
+        (!('descFr' in data) || data.descFr == null || (data.descFr is string && data.descFr.size() <= 3000)) &&
+        (!('descAr' in data) || data.descAr == null || (data.descAr is string && data.descAr.size() <= 3000)) &&
+        (!('sizes' in data) || (data.sizes is list && data.sizes.size() <= 30 && (data.sizes.size() == 0 || data.sizes[0] is string))) &&
+        (!('colors' in data) || (data.colors is list && data.colors.size() <= 30 && (data.colors.size() == 0 || data.colors[0] is string))) &&
+        (!('position' in data) || (data.position is number && data.position >= 1 && data.position <= 10000)) &&
+        (!('showOnHome' in data) || data.showOnHome is bool) &&
+        (!('videoUrl' in data) || data.videoUrl == null || (data.videoUrl is string && data.videoUrl.size() <= 500)) &&
+        (!('createdAt' in data) || data.createdAt == null || (data.createdAt is string && data.createdAt.size() <= 50)) &&
+        (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is string && data.updatedAt.size() <= 50));
+    }
+
+    function isValidShipment(s) {
+      return s is map &&
+        s.keys().hasAll(['carrier', 'trackingNumber', 'status']) &&
+        s.keys().hasOnly([
+          'carrier', 'carrierLabel', 'trackingNumber', 'barcodeValue',
+          'status', 'statusLabel', 'mode', 'pickupCity',
+          'externalId', 'lastError', 'createdAt', 'updatedAt'
+        ]) &&
+        s.carrier is string && s.carrier in ['ozon', 'cathedis', 'amana'] &&
+        s.trackingNumber is string && s.trackingNumber.size() >= 1 && s.trackingNumber.size() <= 100 &&
+        s.status is string && s.status in ['PICKUP_PENDING', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RETURNED'] &&
+        (!('carrierLabel' in s) || (s.carrierLabel is string && s.carrierLabel.size() <= 80)) &&
+        (!('barcodeValue' in s) || (s.barcodeValue is string && s.barcodeValue.size() <= 100)) &&
+        (!('statusLabel' in s) || (s.statusLabel is string && s.statusLabel.size() <= 120)) &&
+        (!('mode' in s) || (s.mode is string && s.mode in ['api', 'bordereau'])) &&
+        (!('pickupCity' in s) || (s.pickupCity is string && s.pickupCity.size() <= 100)) &&
+        (!('externalId' in s) || s.externalId == null || (s.externalId is string && s.externalId.size() <= 120)) &&
+        (!('lastError' in s) || s.lastError == null || (s.lastError is string && s.lastError.size() <= 500)) &&
+        (!('createdAt' in s) || (s.createdAt is string && s.createdAt.size() <= 50)) &&
+        (!('updatedAt' in s) || (s.updatedAt is string && s.updatedAt.size() <= 50));
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['id', 'customerName', 'customerPhone', 'city', 'address', 'items', 'total', 'status']) &&
+        data.keys().hasOnly([
+          'id', 'date', 'status', 'customerName', 'customerPhone',
+          'city', 'address', 'notes', 'items', 'subtotal',
+          'discount', 'promoCode', 'shippingFee', 'realShippingCost',
+          'shipment', 'total', 'paymentMethod', 'updatedAt'
+        ]) &&
+        data.id is string && data.id.size() <= 16 && data.id.matches('^CMD-[A-Z0-9]{6}$') &&
+        data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 200 &&
+        data.customerPhone is string && data.customerPhone.size() <= 15 && data.customerPhone.matches('^(06|07)[0-9]{8}$') &&
+        data.city is string && data.city.size() >= 1 && data.city.size() <= 100 &&
+        data.address is string && data.address.size() >= 1 && data.address.size() <= 500 &&
+        (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 500)) &&
+        data.items is list && data.items.size() > 0 && data.items.size() <= 100 && data.items[0] is map &&
+        (!('subtotal' in data) || (data.subtotal is number && data.subtotal >= 0)) &&
+        (!('discount' in data) || (data.discount is number && data.discount >= 0)) &&
+        (!('promoCode' in data) || data.promoCode == null || (data.promoCode is string && data.promoCode.size() <= 40)) &&
+        (!('shippingFee' in data) || (data.shippingFee is number && data.shippingFee >= 0)) &&
+        (!('realShippingCost' in data) || data.realShippingCost == null || (data.realShippingCost is number && data.realShippingCost >= 0)) &&
+        (!('shipment' in data) || data.shipment == null || isValidShipment(data.shipment)) &&
+        data.total is number && data.total >= 0 &&
+        (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() <= 100)) &&
+        (!('date' in data) || (data.date is string && data.date.size() <= 50)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50)) &&
+        data.status in ['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'];
+    }
+
+    function isValidMedia(data) {
+      return data.keys().hasAll(['id', 'dataUrl']) &&
+        data.keys().hasOnly(['id', 'dataUrl', 'mimeType', 'createdAt']) &&
+        data.id is string && data.id.size() > 0 && data.id.size() <= 200 &&
+        data.dataUrl is string && data.dataUrl.size() > 0 && data.dataUrl.size() <= 1040000 &&
+        (!('mimeType' in data) || (data.mimeType is string && data.mimeType.size() <= 100)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50));
+    }
+
+    // =========================================================================
+    // Strict Zero-Trust Collection Rules (Server uses firebase-admin SDK)
+    // =========================================================================
+
+    // Products: read/write strictly through backend API / verified Admin (protects costPrice)
+    match /products/{productId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isAdmin() && isValidId(productId) && isValidProduct(incoming()) && incoming().id == existing().id;
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    // Settings: strictly Admin-only (protects adminConfig secrets, carrier API keys & coupons)
+    match /settings/{settingId} {
+      allow get: if isAdmin();
+      allow list: if false;
+      allow create, update: if isAdmin() && isValidId(settingId);
+      allow delete: if false;
+    }
+
+    // Media: served via Express /api/media/*; direct client write/delete restricted to Admin
+    match /media/{mediaId} {
+      allow get: if isAdmin();
+      allow list: if false;
+      allow create, update: if isAdmin() && isValidId(mediaId) && isValidMedia(incoming());
+      allow delete: if isAdmin() && isValidId(mediaId);
+    }
+
+    // Orders: PII strictly isolated — zero unauthenticated client reads, updates, or deletes
+    match /orders/{orderId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() && isValidId(orderId) && incoming().id == orderId && isValidOrder(incoming());
+      allow update: if isAdmin() && isValidId(orderId) && isValidOrder(incoming()) && incoming().id == existing().id;
+      allow delete: if isAdmin() && isValidId(orderId);
+    }
+
+    // Admins registry
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && request.auth.uid == adminId;
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+  }
+}

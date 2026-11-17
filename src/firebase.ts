@@ -1,6 +1,6 @@
 // ==============================================================================
-// ETTORE — Men's Essentials
-// Firebase Firestore & Auth Integration Module
+// ETTORE / MODANOVA — Men's Essentials
+// Firebase Firestore & Auth Integration Module (Dual Admin SDK + Web SDK)
 // ==============================================================================
 
 import { initializeApp } from 'firebase/app';
@@ -15,8 +15,6 @@ import {
   updateDoc,
   deleteDoc,
   collection,
-  query,
-  orderBy,
   writeBatch
 } from 'firebase/firestore';
 import {
@@ -25,20 +23,144 @@ import {
   uploadString,
   getDownloadURL
 } from 'firebase/storage';
+import {
+  initializeApp as initializeAdminApp,
+  getApps as getAdminApps,
+  cert as adminCert,
+  applicationDefault as adminApplicationDefault,
+  type App as AdminApp
+} from 'firebase-admin/app';
+import {
+  getFirestore as getAdminFirestore,
+  type Firestore as AdminFirestore
+} from 'firebase-admin/firestore';
 import firebaseConfig from '../firebase-applet-config.json' with { type: 'json' };
 
-// 1. Initialize Firebase App and Services
+// 1. Initialize Firebase Web Client App & Services (Fallback when no Service Account is configured)
 export const app = initializeApp(firebaseConfig);
 
 // CRITICAL: Must pass firebaseConfig.firestoreDatabaseId to getFirestore
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
+export const auth = getAuth();
 export const storage = getStorage(app, firebaseConfig.storageBucket ? `gs://${firebaseConfig.storageBucket}` : undefined);
+
+// 1b. Initialize Privileged Firebase Admin SDK when Service Account is provided
+let adminApp: AdminApp | null = null;
+let adminDb: AdminFirestore | null = null;
+
+function parseServiceAccountFromEnv(): Record<string, any> | null {
+  const raw = String(process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
+  if (!raw || raw === '""') return null;
+  try {
+    if (raw.startsWith('{')) {
+      return JSON.parse(raw);
+    }
+    const decoded = Buffer.from(raw, 'base64').toString('utf8');
+    if (decoded.trim().startsWith('{')) {
+      return JSON.parse(decoded);
+    }
+  } catch (err) {
+    console.warn('[Firebase Admin] Invalid FIREBASE_SERVICE_ACCOUNT format:', err instanceof Error ? err.message : String(err));
+  }
+  return null;
+}
+
+try {
+  const serviceAccountObj = parseServiceAccountFromEnv();
+  const hasGacPath = Boolean(String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim());
+
+  if (serviceAccountObj) {
+    adminApp = getAdminApps().length > 0
+      ? getAdminApps()[0]
+      : initializeAdminApp({
+          credential: adminCert(serviceAccountObj as any),
+          projectId: serviceAccountObj.project_id || firebaseConfig.projectId
+        });
+    adminDb = getAdminFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
+  } else if (hasGacPath) {
+    adminApp = getAdminApps().length > 0
+      ? getAdminApps()[0]
+      : initializeAdminApp({
+          credential: adminApplicationDefault(),
+          projectId: firebaseConfig.projectId
+        });
+    adminDb = getAdminFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
+  }
+} catch (err) {
+  console.warn('[Firebase Admin] Initialization skipped, using standard Firestore SDK:', err instanceof Error ? err.message : String(err));
+  adminApp = null;
+  adminDb = null;
+}
+
+export function isFirebaseAdminActive(): boolean {
+  return Boolean(adminDb);
+}
+
+export function getFirestoreDriverMode(): 'firebase-admin' | 'firebase-client' {
+  return adminDb ? 'firebase-admin' : 'firebase-client';
+}
+
+// Unified internal Firestore operations (routes through firebase-admin when active)
+async function fsGetDoc(colName: string, docId: string): Promise<{ exists: boolean; data: () => any }> {
+  if (adminDb) {
+    const snap = await adminDb.collection(colName).doc(docId).get();
+    return {
+      exists: snap.exists,
+      data: () => snap.data()
+    };
+  }
+  const snap = await getDoc(doc(db, colName, docId));
+  return {
+    exists: snap.exists(),
+    data: () => snap.data()
+  };
+}
+
+async function fsGetCollection(colName: string): Promise<Array<{ id: string; data: () => any }>> {
+  if (adminDb) {
+    const snap = await adminDb.collection(colName).get();
+    return snap.docs.map((d) => ({ id: d.id, data: () => d.data() }));
+  }
+  const snap = await getDocs(collection(db, colName));
+  const out: Array<{ id: string; data: () => any }> = [];
+  snap.forEach((d) => {
+    out.push({ id: d.id, data: () => d.data() });
+  });
+  return out;
+}
+
+async function fsSetDoc(colName: string, docId: string, data: Record<string, any>): Promise<void> {
+  if (adminDb) {
+    await adminDb.collection(colName).doc(docId).set(data);
+    return;
+  }
+  await setDoc(doc(db, colName, docId), data);
+}
+
+async function fsUpdateDoc(colName: string, docId: string, data: Record<string, any>): Promise<void> {
+  if (adminDb) {
+    await adminDb.collection(colName).doc(docId).update(data);
+    return;
+  }
+  await updateDoc(doc(db, colName, docId), data);
+}
+
+async function fsDeleteDoc(colName: string, docId: string): Promise<void> {
+  if (adminDb) {
+    await adminDb.collection(colName).doc(docId).delete();
+    return;
+  }
+  await deleteDoc(doc(db, colName, docId));
+}
 
 // 2. Validate Connection to Firestore on Boot
 export async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    if (adminDb) {
+      await adminDb.collection('test').doc('connection').get();
+    } else {
+      await getDocFromServer(doc(db, 'test', 'connection'));
+    }
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.error("Please check your Firebase configuration.");
@@ -128,14 +250,13 @@ export function sortProductsNewestFirst(items: any[]) {
 export async function fetchFirestoreProducts() {
   const path = 'products';
   try {
-    const snap = await getDocs(collection(db, path));
-    const items: any[] = [];
-    snap.forEach(docSnap => {
+    const docs = await fsGetCollection(path);
+    const items: any[] = docs.map(docSnap => {
       const data = docSnap.data();
-      items.push({
+      return {
         ...data,
         id: data.id !== undefined ? Number(data.id) : Number(docSnap.id)
-      });
+      };
     });
     return sortProductsNewestFirst(items);
   } catch (err) {
@@ -146,7 +267,7 @@ export async function fetchFirestoreProducts() {
 export async function saveFirestoreProduct(product: any) {
   const path = `products/${product.id}`;
   try {
-    await setDoc(doc(db, 'products', String(product.id)), product);
+    await fsSetDoc('products', String(product.id), product);
     return product;
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
@@ -156,6 +277,20 @@ export async function saveFirestoreProduct(product: any) {
 export async function saveFirestoreProductsOrder(products: any[]) {
   const path = 'products';
   try {
+    if (adminDb) {
+      const batch = adminDb.batch();
+      for (let i = 0; i < products.length; i++) {
+        const prod = products[i];
+        if (!prod || prod.id === undefined) continue;
+        batch.set(adminDb.collection('products').doc(String(prod.id)), {
+          ...prod,
+          position: i + 1
+        });
+      }
+      await batch.commit();
+      return true;
+    }
+
     const batch = writeBatch(db);
     for (let i = 0; i < products.length; i++) {
       const prod = products[i];
@@ -177,15 +312,15 @@ export async function deleteFirestoreProduct(productId: number | string) {
   const targetIdNum = Number(productId);
   const path = `products/${targetIdStr}`;
   try {
-    await deleteDoc(doc(db, 'products', targetIdStr));
-    const snap = await getDocs(collection(db, 'products'));
+    await fsDeleteDoc('products', targetIdStr);
+    const docs = await fsGetCollection('products');
     const deletions: Promise<void>[] = [];
-    snap.forEach(docSnap => {
+    for (const docSnap of docs) {
       const data = docSnap.data();
       if (docSnap.id === targetIdStr || Number(data?.id) === targetIdNum) {
-        deletions.push(deleteDoc(doc(db, 'products', docSnap.id)));
+        deletions.push(fsDeleteDoc('products', docSnap.id));
       }
-    });
+    }
     if (deletions.length > 0) {
       await Promise.all(deletions);
     }
@@ -199,10 +334,7 @@ export async function deleteFirestoreProduct(productId: number | string) {
 export async function createFirestoreOrder(orderData: any) {
   const path = `orders/${orderData.id}`;
   try {
-    const batch = writeBatch(db);
-    // Write the order
-    batch.set(doc(db, 'orders', orderData.id), orderData);
-    await batch.commit();
+    await fsSetDoc('orders', orderData.id, orderData);
     return orderData;
   } catch (err) {
     handleFirestoreError(err, OperationType.CREATE, path);
@@ -212,8 +344,8 @@ export async function createFirestoreOrder(orderData: any) {
 export async function getFirestoreOrder(orderId: string) {
   const path = `orders/${orderId}`;
   try {
-    const snap = await getDoc(doc(db, 'orders', orderId));
-    if (!snap.exists()) return null;
+    const snap = await fsGetDoc('orders', orderId);
+    if (!snap.exists) return null;
     return snap.data();
   } catch (err) {
     handleFirestoreError(err, OperationType.GET, path);
@@ -223,15 +355,14 @@ export async function getFirestoreOrder(orderId: string) {
 export async function fetchFirestoreOrders() {
   const path = 'orders';
   try {
-    const snap = await getDocs(collection(db, path));
-    const list: any[] = [];
-    snap.forEach(docSnap => {
+    const docs = await fsGetCollection(path);
+    const list: any[] = docs.map(docSnap => {
       const data = docSnap.data();
-      list.push({
+      return {
         ...data,
         id: data.id || docSnap.id,
         _docId: docSnap.id
-      });
+      };
     });
     return list.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   } catch (err) {
@@ -242,7 +373,7 @@ export async function fetchFirestoreOrders() {
 export async function updateFirestoreOrderStatus(orderId: string, status: string) {
   const path = `orders/${orderId}`;
   try {
-    await updateDoc(doc(db, 'orders', orderId), {
+    await fsUpdateDoc('orders', orderId, {
       status,
       updatedAt: new Date().toISOString()
     });
@@ -269,13 +400,51 @@ export async function updateFirestoreOrder(orderId: string, orderData: any) {
     discount: Number(orderData.discount || 0),
     promoCode: orderData.promoCode ? String(orderData.promoCode).trim() : null,
     shippingFee: Number(orderData.shippingFee || 0),
+    realShippingCost: orderData.realShippingCost !== undefined && orderData.realShippingCost !== null
+      ? Math.max(0, Number(orderData.realShippingCost) || 0)
+      : null,
+    shipment: orderData.shipment && typeof orderData.shipment === 'object' ? orderData.shipment : null,
     total: Number(orderData.total || 0),
     paymentMethod: String(orderData.paymentMethod || 'COD (Paiement à la livraison)'),
     updatedAt: new Date().toISOString()
   };
   try {
-    await setDoc(doc(db, 'orders', normalizedId), cleanOrder);
+    await fsSetDoc('orders', normalizedId, cleanOrder);
     return cleanOrder;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, path);
+  }
+}
+
+export async function updateFirestoreBulkOrderStatuses(orderIds: string[], status: string) {
+  const path = 'orders';
+  try {
+    const nowIso = new Date().toISOString();
+    if (adminDb) {
+      const batch = adminDb.batch();
+      for (const rawId of orderIds) {
+        const cleanId = String(rawId || '').trim().toUpperCase();
+        if (!cleanId) continue;
+        batch.update(adminDb.collection('orders').doc(cleanId), {
+          status,
+          updatedAt: nowIso
+        });
+      }
+      await batch.commit();
+      return true;
+    }
+
+    const batch = writeBatch(db);
+    for (const rawId of orderIds) {
+      const cleanId = String(rawId || '').trim().toUpperCase();
+      if (!cleanId) continue;
+      batch.update(doc(db, 'orders', cleanId), {
+        status,
+        updatedAt: nowIso
+      });
+    }
+    await batch.commit();
+    return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, path);
   }
@@ -285,18 +454,16 @@ export async function deleteFirestoreOrder(orderId: string) {
   const normalizedId = String(orderId || '').trim().toUpperCase();
   const path = `orders/${normalizedId}`;
   try {
-    // 1. Direct delete by canonical order ID
-    await deleteDoc(doc(db, 'orders', normalizedId));
-    // 2. Also scan collection for any document whose doc.id or data.id matches case-insensitively
-    const snap = await getDocs(collection(db, 'orders'));
+    await fsDeleteDoc('orders', normalizedId);
+    const docs = await fsGetCollection('orders');
     const deletions: Promise<void>[] = [];
-    snap.forEach(docSnap => {
+    for (const docSnap of docs) {
       const docKey = String(docSnap.id || '').trim().toUpperCase();
       const fieldId = String(docSnap.data()?.id || '').trim().toUpperCase();
       if (docKey === normalizedId || fieldId === normalizedId) {
-        deletions.push(deleteDoc(doc(db, 'orders', docSnap.id)));
+        deletions.push(fsDeleteDoc('orders', docSnap.id));
       }
-    });
+    }
     if (deletions.length > 0) {
       await Promise.all(deletions);
     }
@@ -311,7 +478,7 @@ export async function saveFirestoreMedia(mediaId: string, dataUrl: string, mimeT
   const safeId = mediaId.replace(/[^a-zA-Z0-9_-]/g, '_');
   const path = `media/${safeId}`;
   try {
-    await setDoc(doc(db, 'media', safeId), {
+    await fsSetDoc('media', safeId, {
       id: safeId,
       dataUrl,
       mimeType,
@@ -325,10 +492,9 @@ export async function saveFirestoreMedia(mediaId: string, dataUrl: string, mimeT
 
 export async function getFirestoreMedia(mediaId: string) {
   const safeId = mediaId.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const path = `media/${safeId}`;
   try {
-    const snap = await getDoc(doc(db, 'media', safeId));
-    if (!snap.exists()) return null;
+    const snap = await fsGetDoc('media', safeId);
+    if (!snap.exists) return null;
     return snap.data();
   } catch (err) {
     console.warn('Failed to load media from Firestore:', err);
@@ -339,8 +505,8 @@ export async function getFirestoreMedia(mediaId: string) {
 // Catalog Initialization State in Firestore
 export async function isCatalogInitialized(): Promise<boolean> {
   try {
-    const snap = await getDoc(doc(db, 'settings', 'catalogMeta'));
-    return snap.exists() && Boolean(snap.data()?.initialized);
+    const snap = await fsGetDoc('settings', 'catalogMeta');
+    return snap.exists && Boolean(snap.data()?.initialized);
   } catch {
     return false;
   }
@@ -349,7 +515,7 @@ export async function isCatalogInitialized(): Promise<boolean> {
 export async function markCatalogInitialized() {
   const path = 'settings/catalogMeta';
   try {
-    await setDoc(doc(db, 'settings', 'catalogMeta'), {
+    await fsSetDoc('settings', 'catalogMeta', {
       initialized: true,
       updatedAt: new Date().toISOString()
     });
@@ -370,10 +536,9 @@ export async function uploadImageToFirebase(dataUrl: string, folder: string = 'p
 
 // 7. Hero Slider Settings in Firestore
 export async function fetchSliderSettings() {
-  const path = 'settings/heroSlider';
   try {
-    const snap = await getDoc(doc(db, 'settings', 'heroSlider'));
-    if (!snap.exists()) return null;
+    const snap = await fsGetDoc('settings', 'heroSlider');
+    if (!snap.exists) return null;
     return snap.data()?.slides || null;
   } catch (err) {
     console.warn('Failed to load slider from Firestore:', err);
@@ -384,7 +549,7 @@ export async function fetchSliderSettings() {
 export async function saveSliderSettings(slides: any[]) {
   const path = 'settings/heroSlider';
   try {
-    await setDoc(doc(db, 'settings', 'heroSlider'), {
+    await fsSetDoc('settings', 'heroSlider', {
       slides,
       updatedAt: new Date().toISOString()
     });
@@ -396,10 +561,9 @@ export async function saveSliderSettings(slides: any[]) {
 
 // 8. CMS Settings in Firestore
 export async function fetchCmsSettings() {
-  const path = 'settings/cms';
   try {
-    const snap = await getDoc(doc(db, 'settings', 'cms'));
-    if (!snap.exists()) return null;
+    const snap = await fsGetDoc('settings', 'cms');
+    if (!snap.exists) return null;
     return snap.data() || null;
   } catch (err) {
     console.warn('Failed to load CMS from Firestore:', err);
@@ -410,7 +574,7 @@ export async function fetchCmsSettings() {
 export async function saveCmsSettings(cmsData: any) {
   const path = 'settings/cms';
   try {
-    await setDoc(doc(db, 'settings', 'cms'), {
+    await fsSetDoc('settings', 'cms', {
       ...cmsData,
       updatedAt: new Date().toISOString()
     });
@@ -422,10 +586,9 @@ export async function saveCmsSettings(cmsData: any) {
 
 // 9. Testimonials in Firestore
 export async function fetchTestimonialsSettings() {
-  const path = 'settings/testimonials';
   try {
-    const snap = await getDoc(doc(db, 'settings', 'testimonials'));
-    if (!snap.exists()) return null;
+    const snap = await fsGetDoc('settings', 'testimonials');
+    if (!snap.exists) return null;
     return snap.data()?.items || null;
   } catch (err) {
     console.warn('Failed to load testimonials from Firestore:', err);
@@ -436,7 +599,7 @@ export async function fetchTestimonialsSettings() {
 export async function saveTestimonialsSettings(items: any[]) {
   const path = 'settings/testimonials';
   try {
-    await setDoc(doc(db, 'settings', 'testimonials'), {
+    await fsSetDoc('settings', 'testimonials', {
       items,
       updatedAt: new Date().toISOString()
     });
@@ -448,10 +611,9 @@ export async function saveTestimonialsSettings(items: any[]) {
 
 // 10. Admin Security & Automatic WhatsApp Notification Config in Firestore
 export async function fetchAdminConfig() {
-  const path = 'settings/adminConfig';
   try {
-    const snap = await getDoc(doc(db, 'settings', 'adminConfig'));
-    if (!snap.exists()) return null;
+    const snap = await fsGetDoc('settings', 'adminConfig');
+    if (!snap.exists) return null;
     return snap.data() || null;
   } catch (err) {
     console.warn('Failed to load adminConfig from Firestore:', err);
@@ -462,7 +624,7 @@ export async function fetchAdminConfig() {
 export async function saveAdminConfig(configData: any) {
   const path = 'settings/adminConfig';
   try {
-    await setDoc(doc(db, 'settings', 'adminConfig'), {
+    await fsSetDoc('settings', 'adminConfig', {
       ...configData,
       updatedAt: new Date().toISOString()
     });
@@ -474,10 +636,9 @@ export async function saveAdminConfig(configData: any) {
 
 // 11. Discount Coupons Settings in Firestore
 export async function fetchCouponsSettings() {
-  const path = 'settings/coupons';
   try {
-    const snap = await getDoc(doc(db, 'settings', 'coupons'));
-    if (!snap.exists()) return null;
+    const snap = await fsGetDoc('settings', 'coupons');
+    if (!snap.exists) return null;
     return snap.data()?.items || null;
   } catch (err) {
     console.warn('Failed to load coupons from Firestore:', err);
@@ -488,7 +649,7 @@ export async function fetchCouponsSettings() {
 export async function saveCouponsSettings(items: any[]) {
   const path = 'settings/coupons';
   try {
-    await setDoc(doc(db, 'settings', 'coupons'), {
+    await fsSetDoc('settings', 'coupons', {
       items,
       updatedAt: new Date().toISOString()
     });
@@ -497,4 +658,3 @@ export async function saveCouponsSettings(items: any[]) {
     handleFirestoreError(err, OperationType.WRITE, path);
   }
 }
-

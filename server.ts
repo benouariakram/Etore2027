@@ -83,6 +83,48 @@ function hashPassword(rawPass: string): string {
     .digest("hex");
 }
 
+const DEFAULT_CITY_SHIPPING_COSTS: Record<string, number> = {
+  "Casablanca": 25,
+  "Rabat": 30,
+  "Salé": 30,
+  "Kénitra": 25,
+  "Témara": 30,
+  "Mohammédia": 25,
+  "Tanger": 35,
+  "Tétouan": 35,
+  "Marrakech": 35,
+  "Fès": 35,
+  "Meknès": 35,
+  "Agadir": 40,
+  "Oujda": 45,
+  "Nador": 45,
+  "Beni Mellal": 40,
+  "El Jadida": 35,
+  "Safi": 40,
+  "Essaouira": 40,
+  "Khouribga": 35,
+  "Settat": 30,
+  "Laâyoune": 55,
+  "Dakhla": 65
+};
+
+interface CarrierCredentialConfig {
+  enabled: boolean;
+  customerId?: string;
+  clientCode?: string;
+  apiKey: string;
+  secretKey?: string;
+  apiUrl: string;
+}
+
+interface CarriersConfig {
+  defaultCarrier: 'ozon' | 'cathedis' | 'amana';
+  pickupCity: string;
+  ozon: CarrierCredentialConfig;
+  cathedis: CarrierCredentialConfig;
+  amana: CarrierCredentialConfig;
+}
+
 interface AdminConfig {
   adminUser: string;
   passwordHash: string;
@@ -93,6 +135,9 @@ interface AdminConfig {
   callmebotApiKey: string;
   whatsappWebhookUrl: string;
   ogImageUrl: string;
+  defaultShippingCost: number;
+  cityShippingCosts: Record<string, number>;
+  carriersConfig: CarriersConfig;
 }
 
 let adminConfigStore: AdminConfig = {
@@ -104,8 +149,58 @@ let adminConfigStore: AdminConfig = {
   autoRedirectCustomerToWhatsapp: true,
   callmebotApiKey: process.env.CALLMEBOT_API_KEY || "",
   whatsappWebhookUrl: process.env.WHATSAPP_WEBHOOK_URL || "",
-  ogImageUrl: ""
+  ogImageUrl: "",
+  defaultShippingCost: 35,
+  cityShippingCosts: { ...DEFAULT_CITY_SHIPPING_COSTS },
+  carriersConfig: {
+    defaultCarrier: 'ozon',
+    pickupCity: 'Kénitra',
+    ozon: { enabled: true, customerId: '', apiKey: '', apiUrl: 'https://api.ozonexpress.ma/customers' },
+    cathedis: { enabled: true, apiKey: '', secretKey: '', apiUrl: 'https://api.cathedis.delivery/api' },
+    amana: { enabled: true, clientCode: '', apiKey: '', apiUrl: 'https://tracking.poste.ma/api' }
+  }
 };
+
+function normalizePhoneParts(rawPhone: string) {
+  let digits = String(rawPhone || "+212600773716").replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.startsWith("0") && digits.length === 10) {
+    digits = "212" + digits.slice(1);
+  }
+  if (!digits) digits = "212600773716";
+  const e164 = `+${digits}`;
+  let display = e164;
+  if (digits.startsWith("212") && digits.length === 12) {
+    display = `+212 ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return { digits, e164, display };
+}
+
+function getCityRealShippingCost(cityName: string): number {
+  const cleanCity = String(cityName || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const costs = adminConfigStore.cityShippingCosts || DEFAULT_CITY_SHIPPING_COSTS;
+  if (cleanCity) {
+    for (const [k, v] of Object.entries(costs)) {
+      const kNorm = String(k).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (kNorm === cleanCity) {
+        return Math.max(0, Number(v) || 0);
+      }
+    }
+  }
+  return Math.max(0, Number(adminConfigStore.defaultShippingCost ?? 35) || 35);
+}
+
+function sanitizeProductForClient(product: any, isAdmin: boolean) {
+  if (!product || typeof product !== 'object') return product;
+  if (isAdmin) {
+    return {
+      ...product,
+      costPrice: product.costPrice !== undefined && product.costPrice !== null ? Math.max(0, Number(product.costPrice) || 0) : 0
+    };
+  }
+  const { costPrice, ...publicFields } = product;
+  return publicFields;
+}
 
 // Timing-safe string comparison to protect against side-channel timing attacks
 function timingSafeCompare(a: string, b: string): boolean {
@@ -161,12 +256,7 @@ function verifyAdmin(req: Request): boolean {
 }
 
 function formatAdminWhatsappDigits(phone: string): string {
-  let digits = String(phone || "+212600773716").replace(/\D/g, "");
-  if (digits.startsWith("00")) digits = digits.slice(2);
-  if (digits.startsWith("0") && digits.length === 10) {
-    digits = "212" + digits.slice(1);
-  }
-  return digits || "212600773716";
+  return normalizePhoneParts(phone).digits;
 }
 
 function buildOrderWhatsAppAlertText(order: any): string {
@@ -488,8 +578,8 @@ const defaultCms = {
   storyImage: "/images/hero-1-leather.jpg",
   conciergeCity: "Kenitra, Maroc",
   conciergeAddress: "Atelier & Support : Kenitra, Maroc",
-  supportPhone: "+212 6 00 00 00 00",
-  whatsappNumber: "+212 6 00 00 00 00",
+  supportPhone: "+212 600-773716",
+  whatsappNumber: "+212600773716",
   guaranteeShipping: "Livraison Express 24/48h partout au Maroc avec suivi personnalisé.",
   guaranteeCod: "Paiement à la livraison après vérification de votre commande.",
   guaranteeQuality: "Garantie satisfaction et confection d'exception."
@@ -696,8 +786,11 @@ async function syncWithFirestoreOnBoot() {
       saveFirestoreMedia,
       getFirestoreMedia,
       isCatalogInitialized,
-      markCatalogInitialized
+      markCatalogInitialized,
+      getFirestoreDriverMode
     } = await import('./src/firebase.ts');
+
+    console.log(`[Firestore] Active backend driver: ${getFirestoreDriverMode()}`);
 
     // 0. Admin Security & WhatsApp Config sync
     const remoteAdminConfig = await fetchAdminConfig();
@@ -831,16 +924,143 @@ app.post('/api/login', async (req: Request, res: Response) => {
   return res.status(401).json({ error: "Identifiants incorrects" });
 });
 
-// Public Config (for WhatsApp order auto-notification settings)
+// Public Config (for Store Phone & WhatsApp order auto-notification settings)
 app.get('/api/public-config', (req: Request, res: Response) => {
+  const rawPhone = adminConfigStore.adminWhatsappPhone || cmsStore?.whatsappNumber || "+212600773716";
+  const { digits, e164, display } = normalizePhoneParts(rawPhone);
   return res.json({
-    adminWhatsappPhone: adminConfigStore.adminWhatsappPhone || cmsStore?.whatsappNumber || "+212600773716",
+    storePhone: e164,
+    storePhoneDigits: digits,
+    storePhoneDisplay: display,
+    adminWhatsappPhone: e164,
     whatsappAutoNotifyEnabled: adminConfigStore.whatsappAutoNotifyEnabled !== false,
     autoRedirectCustomerToWhatsapp: adminConfigStore.autoRedirectCustomerToWhatsapp !== false
   });
 });
 
-// Admin Config GET (Admin — WhatsApp Notification & Security Settings)
+// Unified Store Phone PUT (Updates site header, footer, floating buttons, invoices, WhatsApp checkout & admin alerts everywhere)
+app.put('/api/admin/phone', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const rawInput = req.body?.phone ?? req.body?.storePhone ?? req.body?.whatsappNumber ?? '';
+  if (!String(rawInput).replace(/\D/g, '')) {
+    return res.status(400).json({ error: "Veuillez saisir un numéro de téléphone valide." });
+  }
+  const { digits, e164, display } = normalizePhoneParts(String(rawInput));
+
+  adminConfigStore = {
+    ...adminConfigStore,
+    adminWhatsappPhone: e164
+  };
+  cmsStore = {
+    ...cmsStore,
+    whatsappNumber: e164,
+    supportPhone: display
+  };
+  savePersistedStore();
+
+  try {
+    const { saveAdminConfig, saveCmsSettings } = await import('./src/firebase.ts');
+    await Promise.all([
+      saveAdminConfig(adminConfigStore),
+      saveCmsSettings(cmsStore)
+    ]);
+  } catch (err) {
+    console.warn('Error syncing unified store phone to Firestore:', err);
+  }
+
+  return res.json({
+    ok: true,
+    storePhone: e164,
+    storePhoneDigits: digits,
+    storePhoneDisplay: display,
+    cms: cmsStore
+  });
+});
+
+// Carrier Credentials GET / PUT (Ozon Express, Cathedis, Amana)
+app.get('/api/admin/carriers', (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  return res.json(adminConfigStore.carriersConfig || {
+    defaultCarrier: 'ozon',
+    pickupCity: 'Kénitra',
+    ozon: { enabled: true, customerId: '', apiKey: '', apiUrl: 'https://api.ozonexpress.ma/customers' },
+    cathedis: { enabled: true, apiKey: '', secretKey: '', apiUrl: 'https://api.cathedis.delivery/api' },
+    amana: { enabled: true, clientCode: '', apiKey: '', apiUrl: 'https://tracking.poste.ma/api' }
+  });
+});
+
+app.put('/api/admin/carriers', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const body = req.body || {};
+  const prev = adminConfigStore.carriersConfig || {
+    defaultCarrier: 'ozon',
+    pickupCity: 'Kénitra',
+    ozon: { enabled: true, customerId: '', apiKey: '', apiUrl: 'https://api.ozonexpress.ma/customers' },
+    cathedis: { enabled: true, apiKey: '', secretKey: '', apiUrl: 'https://api.cathedis.delivery/api' },
+    amana: { enabled: true, clientCode: '', apiKey: '', apiUrl: 'https://tracking.poste.ma/api' }
+  };
+  const nextCarriers: CarriersConfig = {
+    defaultCarrier: ['ozon', 'cathedis', 'amana'].includes(body.defaultCarrier) ? body.defaultCarrier : prev.defaultCarrier,
+    pickupCity: String(body.pickupCity ?? prev.pickupCity ?? 'Kénitra').trim() || 'Kénitra',
+    ozon: { ...prev.ozon, ...(body.ozon || {}) },
+    cathedis: { ...prev.cathedis, ...(body.cathedis || {}) },
+    amana: { ...prev.amana, ...(body.amana || {}) }
+  };
+  adminConfigStore = {
+    ...adminConfigStore,
+    carriersConfig: nextCarriers
+  };
+  savePersistedStore();
+  try {
+    const { saveAdminConfig } = await import('./src/firebase.ts');
+    await saveAdminConfig(adminConfigStore);
+  } catch (err) {
+    console.warn('Error saving carriersConfig to Firestore:', err);
+  }
+  return res.json({ ok: true, carriersConfig: nextCarriers });
+});
+
+// Profitability Settings PUT (Real Shipping Cost per City & Default Cost)
+app.put('/api/admin/profitability-settings', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const { defaultShippingCost, cityShippingCosts } = req.body || {};
+  const cleanCosts: Record<string, number> = { ...(adminConfigStore.cityShippingCosts || DEFAULT_CITY_SHIPPING_COSTS) };
+  if (cityShippingCosts && typeof cityShippingCosts === 'object') {
+    for (const [cityKey, val] of Object.entries(cityShippingCosts)) {
+      const name = String(cityKey || '').trim();
+      if (name) {
+        cleanCosts[name] = Math.max(0, Number(val) || 0);
+      }
+    }
+  }
+  adminConfigStore = {
+    ...adminConfigStore,
+    defaultShippingCost: defaultShippingCost !== undefined ? Math.max(0, Number(defaultShippingCost) || 0) : (adminConfigStore.defaultShippingCost ?? 35),
+    cityShippingCosts: cleanCosts
+  };
+  savePersistedStore();
+  try {
+    const { saveAdminConfig } = await import('./src/firebase.ts');
+    await saveAdminConfig(adminConfigStore);
+  } catch (err) {
+    console.warn('Error saving profitability settings to Firestore:', err);
+  }
+  return res.json({
+    ok: true,
+    defaultShippingCost: adminConfigStore.defaultShippingCost,
+    cityShippingCosts: adminConfigStore.cityShippingCosts
+  });
+});
+
+// Admin Config GET (Admin — WhatsApp Notification, Phone, Carriers, Profitability & Security Settings)
 app.get('/api/admin/config', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
     return res.status(401).json({ error: "Non autorisé" });
@@ -849,25 +1069,43 @@ app.get('/api/admin/config', async (req: Request, res: Response) => {
     const { fetchAdminConfig } = await import('./src/firebase.ts');
     const remote = await fetchAdminConfig();
     if (remote && typeof remote === 'object') {
-      adminConfigStore = { ...adminConfigStore, ...remote };
+      adminConfigStore = {
+        ...adminConfigStore,
+        ...remote,
+        cityShippingCosts: { ...DEFAULT_CITY_SHIPPING_COSTS, ...(remote.cityShippingCosts || {}) },
+        carriersConfig: {
+          ...adminConfigStore.carriersConfig,
+          ...(remote.carriersConfig || {}),
+          ozon: { ...adminConfigStore.carriersConfig.ozon, ...(remote.carriersConfig?.ozon || {}) },
+          cathedis: { ...adminConfigStore.carriersConfig.cathedis, ...(remote.carriersConfig?.cathedis || {}) },
+          amana: { ...adminConfigStore.carriersConfig.amana, ...(remote.carriersConfig?.amana || {}) }
+        }
+      };
       savePersistedStore();
     }
   } catch {}
   const phoneVal = adminConfigStore.adminWhatsappPhone || "+212600773716";
+  const { digits, e164, display } = normalizePhoneParts(phoneVal);
   return res.json({
     adminUser: adminConfigStore.adminUser || ADMIN_USER,
     customPasswordSet: Boolean(adminConfigStore.customPasswordSet),
-    adminWhatsappPhone: phoneVal,
-    adminWhatsappNumber: phoneVal,
+    adminWhatsappPhone: e164,
+    adminWhatsappNumber: e164,
+    storePhone: e164,
+    storePhoneDigits: digits,
+    storePhoneDisplay: display,
     whatsappAutoNotifyEnabled: adminConfigStore.whatsappAutoNotifyEnabled !== false,
     autoRedirectCustomerToWhatsapp: adminConfigStore.autoRedirectCustomerToWhatsapp !== false,
     callmebotApiKey: adminConfigStore.callmebotApiKey || "",
     whatsappWebhookUrl: adminConfigStore.whatsappWebhookUrl || "",
-    ogImageUrl: adminConfigStore.ogImageUrl || ""
+    ogImageUrl: adminConfigStore.ogImageUrl || "",
+    defaultShippingCost: adminConfigStore.defaultShippingCost ?? 35,
+    cityShippingCosts: adminConfigStore.cityShippingCosts || DEFAULT_CITY_SHIPPING_COSTS,
+    carriersConfig: adminConfigStore.carriersConfig
   });
 });
 
-// Admin Config PUT (Admin — Save WhatsApp Auto-Notification & Social Preview Settings to Firebase)
+// Admin Config PUT (Admin — Save WhatsApp Auto-Notification, Unified Phone & Social Preview Settings to Firebase)
 app.put('/api/admin/config', async (req: Request, res: Response) => {
   if (!verifyAdmin(req)) {
     return res.status(401).json({ error: "Non autorisé" });
@@ -879,25 +1117,45 @@ app.put('/api/admin/config', async (req: Request, res: Response) => {
     autoRedirectCustomerToWhatsapp,
     callmebotApiKey,
     whatsappWebhookUrl,
-    ogImageUrl
+    ogImageUrl,
+    defaultShippingCost,
+    cityShippingCosts,
+    carriersConfig
   } = req.body || {};
 
   const incomingPhone = adminWhatsappPhone !== undefined ? adminWhatsappPhone : adminWhatsappNumber;
+  const normalizedPhone = incomingPhone !== undefined && String(incomingPhone).replace(/\D/g, '')
+    ? normalizePhoneParts(String(incomingPhone))
+    : normalizePhoneParts(adminConfigStore.adminWhatsappPhone);
 
   adminConfigStore = {
     ...adminConfigStore,
-    adminWhatsappPhone: incomingPhone !== undefined ? String(incomingPhone).trim() : adminConfigStore.adminWhatsappPhone,
+    adminWhatsappPhone: incomingPhone !== undefined ? normalizedPhone.e164 : adminConfigStore.adminWhatsappPhone,
     whatsappAutoNotifyEnabled: whatsappAutoNotifyEnabled !== undefined ? Boolean(whatsappAutoNotifyEnabled) : adminConfigStore.whatsappAutoNotifyEnabled,
     autoRedirectCustomerToWhatsapp: autoRedirectCustomerToWhatsapp !== undefined ? Boolean(autoRedirectCustomerToWhatsapp) : adminConfigStore.autoRedirectCustomerToWhatsapp,
     callmebotApiKey: callmebotApiKey !== undefined ? String(callmebotApiKey).trim() : adminConfigStore.callmebotApiKey,
     whatsappWebhookUrl: whatsappWebhookUrl !== undefined ? String(whatsappWebhookUrl).trim() : adminConfigStore.whatsappWebhookUrl,
-    ogImageUrl: ogImageUrl !== undefined ? String(ogImageUrl).trim().slice(0, 1000) : (adminConfigStore.ogImageUrl || "")
+    ogImageUrl: ogImageUrl !== undefined ? String(ogImageUrl).trim().slice(0, 1000) : (adminConfigStore.ogImageUrl || ""),
+    defaultShippingCost: defaultShippingCost !== undefined ? Math.max(0, Number(defaultShippingCost) || 0) : adminConfigStore.defaultShippingCost,
+    cityShippingCosts: cityShippingCosts && typeof cityShippingCosts === 'object' ? { ...adminConfigStore.cityShippingCosts, ...cityShippingCosts } : adminConfigStore.cityShippingCosts,
+    carriersConfig: carriersConfig && typeof carriersConfig === 'object' ? { ...adminConfigStore.carriersConfig, ...carriersConfig } : adminConfigStore.carriersConfig
   };
+
+  if (incomingPhone !== undefined) {
+    cmsStore = {
+      ...cmsStore,
+      whatsappNumber: normalizedPhone.e164,
+      supportPhone: normalizedPhone.display
+    };
+  }
   savePersistedStore();
 
   try {
-    const { saveAdminConfig } = await import('./src/firebase.ts');
+    const { saveAdminConfig, saveCmsSettings } = await import('./src/firebase.ts');
     await saveAdminConfig(adminConfigStore);
+    if (incomingPhone !== undefined) {
+      await saveCmsSettings(cmsStore);
+    }
   } catch (err) {
     console.warn('Error saving adminConfig to Firestore:', err);
   }
@@ -909,11 +1167,17 @@ app.put('/api/admin/config', async (req: Request, res: Response) => {
       customPasswordSet: adminConfigStore.customPasswordSet,
       adminWhatsappPhone: adminConfigStore.adminWhatsappPhone,
       adminWhatsappNumber: adminConfigStore.adminWhatsappPhone,
+      storePhone: normalizedPhone.e164,
+      storePhoneDigits: normalizedPhone.digits,
+      storePhoneDisplay: normalizedPhone.display,
       whatsappAutoNotifyEnabled: adminConfigStore.whatsappAutoNotifyEnabled,
       autoRedirectCustomerToWhatsapp: adminConfigStore.autoRedirectCustomerToWhatsapp,
       callmebotApiKey: adminConfigStore.callmebotApiKey,
       whatsappWebhookUrl: adminConfigStore.whatsappWebhookUrl,
-      ogImageUrl: adminConfigStore.ogImageUrl || ""
+      ogImageUrl: adminConfigStore.ogImageUrl || "",
+      defaultShippingCost: adminConfigStore.defaultShippingCost,
+      cityShippingCosts: adminConfigStore.cityShippingCosts,
+      carriersConfig: adminConfigStore.carriersConfig
     }
   });
 });
@@ -1058,7 +1322,7 @@ app.post('/api/seed', async (req: Request, res: Response) => {
   }
 });
 
-// Get products (Always synced with Firebase Firestore, newest products first)
+// Get products (Always synced with Firebase Firestore, newest products first; costPrice stripped for non-admin callers)
 app.get('/api/products', async (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   try {
@@ -1071,10 +1335,11 @@ app.get('/api/products', async (req: Request, res: Response) => {
   } catch (err) {
     console.warn('Note: Using cached productsStore:', err);
   }
-  return res.json(productsStore);
+  const isAdminCaller = verifyAdmin(req);
+  return res.json(productsStore.map(p => sanitizeProductForClient(p, isAdminCaller)));
 });
 
-// Get single product by id
+// Get single product by id (costPrice stripped for non-admin callers)
 app.get('/api/products/:id', async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   let product = productsStore.find((p: any) => p.id === id);
@@ -1091,7 +1356,8 @@ app.get('/api/products/:id', async (req: Request, res: Response) => {
   if (!product) {
     return res.status(404).json({ error: "Produit introuvable" });
   }
-  return res.json(product);
+  const isAdminCaller = verifyAdmin(req);
+  return res.json(sanitizeProductForClient(product, isAdminCaller));
 });
 
 // Reorder products (Admin — Persisted to Firebase Firestore: 1st, 2nd, 3rd, ..., 12th, etc.)
@@ -1250,16 +1516,36 @@ app.put('/api/products', async (req: Request, res: Response) => {
     ? String(product.videoUrl || '').trim()
     : (idx >= 0 ? String(productsStore[idx].videoUrl || '').trim() : '');
 
-  const payload = {
-    ...product,
+  const costPrice = product.costPrice !== undefined && product.costPrice !== null && product.costPrice !== ''
+    ? Math.max(0, Number(product.costPrice) || 0)
+    : (idx >= 0 && productsStore[idx].costPrice !== undefined ? Math.max(0, Number(productsStore[idx].costPrice) || 0) : 0);
+
+  const payload: Record<string, any> = {
     id,
-    price: Number(product.price) || 0,
-    stock: computedTotalStock,
+    nameFr: String(product.nameFr || '').trim().slice(0, 300),
+    nameAr: String(product.nameAr || '').trim().slice(0, 300),
+    price: Math.max(0, Number(product.price) || 0),
+    oldPrice: product.oldPrice !== undefined && product.oldPrice !== null && product.oldPrice !== ''
+      ? Math.max(0, Number(product.oldPrice) || 0)
+      : null,
+    costPrice,
+    category: String(product.category || (idx >= 0 ? productsStore[idx].category : 'chaussures')).trim().slice(0, 100) || 'chaussures',
     inStock: computedTotalStock > 0,
+    stock: computedTotalStock,
     variantStock: sanitizedVariantStock || (idx >= 0 ? productsStore[idx].variantStock : undefined) || {},
+    badge: ['new', 'exclusive', 'luxury', 'out', ''].includes(String(product.badge ?? ''))
+      ? String(product.badge ?? '')
+      : (idx >= 0 ? String(productsStore[idx].badge || '') : ''),
+    isNew: product.isNew !== undefined ? Boolean(product.isNew) : (idx >= 0 ? Boolean(productsStore[idx].isNew) : false),
+    rating: Math.min(5, Math.max(0, Number(product.rating ?? (idx >= 0 ? productsStore[idx].rating : 4.8)) || 4.8)),
+    images: Array.isArray(product.images) ? product.images.slice(0, 30).map((u: any) => String(u || '')) : (idx >= 0 && Array.isArray(productsStore[idx].images) ? productsStore[idx].images.slice(0, 30) : []),
+    descFr: String(product.descFr ?? (idx >= 0 ? productsStore[idx].descFr : '') ?? '').slice(0, 3000),
+    descAr: String(product.descAr ?? (idx >= 0 ? productsStore[idx].descAr : '') ?? '').slice(0, 3000),
+    sizes: Array.isArray(product.sizes) ? product.sizes.slice(0, 30).map((s: any) => String(s || '')) : (idx >= 0 && Array.isArray(productsStore[idx].sizes) ? productsStore[idx].sizes.slice(0, 30) : []),
+    colors: Array.isArray(product.colors) ? product.colors.slice(0, 30).map((c: any) => String(c || '')) : (idx >= 0 && Array.isArray(productsStore[idx].colors) ? productsStore[idx].colors.slice(0, 30) : []),
+    position: isNewProduct ? 1 : (typeof product.position === 'number' ? Math.max(1, Math.min(10000, product.position)) : (existingPosition ?? idx + 1)),
     showOnHome,
-    videoUrl,
-    position: isNewProduct ? 1 : (typeof product.position === 'number' ? product.position : (existingPosition ?? idx + 1)),
+    videoUrl: videoUrl.slice(0, 500),
     createdAt: isNewProduct ? nowIso : (existingCreatedAt || product.createdAt || nowIso),
     updatedAt: nowIso
   };
@@ -1413,10 +1699,22 @@ app.put('/api/cms', async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Données CMS invalides" });
   }
   cmsStore = { ...cmsStore, ...data };
+  const incomingWa = data.whatsappNumber || data.supportPhone;
+  let phoneSynced = false;
+  if (incomingWa && String(incomingWa).replace(/\D/g, '')) {
+    const { e164, display } = normalizePhoneParts(String(incomingWa));
+    cmsStore.whatsappNumber = e164;
+    cmsStore.supportPhone = display;
+    adminConfigStore = { ...adminConfigStore, adminWhatsappPhone: e164 };
+    phoneSynced = true;
+  }
   savePersistedStore();
   try {
-    const { saveCmsSettings } = await import('./src/firebase.ts');
+    const { saveCmsSettings, saveAdminConfig } = await import('./src/firebase.ts');
     await saveCmsSettings(cmsStore);
+    if (phoneSynced) {
+      await saveAdminConfig(adminConfigStore);
+    }
   } catch (err) {
     console.warn('Note: CMS sync to Firestore notice:', err);
   }
@@ -1866,6 +2164,8 @@ app.post('/api/orders', async (req: Request, res: Response) => {
   const orderId = generateOrderId();
   const orderDate = new Date().toISOString();
 
+  const realShippingCost = getCityRealShippingCost(String(city));
+
   const newOrder = {
     id: orderId,
     date: orderDate,
@@ -1880,6 +2180,8 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     discount,
     promoCode: appliedPromoCode,
     shippingFee: 0,
+    realShippingCost,
+    shipment: null,
     total,
     paymentMethod: "COD (Paiement à la livraison)"
   };
@@ -2077,6 +2379,12 @@ app.put('/api/orders/:id', async (req: Request, res: Response) => {
     : null;
   const total = Math.max(0, subtotal - discount + shippingFee);
 
+  const realShippingCost = body.realShippingCost !== undefined && body.realShippingCost !== null && body.realShippingCost !== ''
+    ? Math.max(0, Number(body.realShippingCost) || 0)
+    : (existingOrder.realShippingCost !== undefined && existingOrder.realShippingCost !== null && String(existingOrder.city || '').trim() === city
+      ? Math.max(0, Number(existingOrder.realShippingCost) || 0)
+      : getCityRealShippingCost(city));
+
   const updatedOrder = {
     id: orderId,
     date: String(existingOrder.date || new Date().toISOString()),
@@ -2091,6 +2399,8 @@ app.put('/api/orders/:id', async (req: Request, res: Response) => {
     discount,
     promoCode,
     shippingFee,
+    realShippingCost,
+    shipment: existingOrder.shipment || null,
     total,
     paymentMethod,
     updatedAt: new Date().toISOString()
@@ -2112,6 +2422,296 @@ app.put('/api/orders/:id', async (req: Request, res: Response) => {
   }
 
   return res.json({ ok: true, order: updatedOrder });
+});
+
+// Bulk Order Status Update (Admin — Update multiple orders in one batch & sync Firestore)
+app.post('/api/orders/bulk-status', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const { orderIds, status } = req.body || {};
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    return res.status(400).json({ error: "Veuillez sélectionner au moins une commande." });
+  }
+  if (!ALLOWED_STATUSES.includes(status)) {
+    return res.status(400).json({ error: "Statut invalide." });
+  }
+
+  const normalizedIds = Array.from(new Set(orderIds.map((id: any) => String(id || '').trim().toUpperCase()).filter(Boolean)));
+  const nowIso = new Date().toISOString();
+  let updatedCount = 0;
+
+  ordersStore = ordersStore.map((o: any) => {
+    const oid = String(o?.id || '').trim().toUpperCase();
+    if (normalizedIds.includes(oid)) {
+      updatedCount += 1;
+      return { ...o, status, updatedAt: nowIso };
+    }
+    return o;
+  });
+  savePersistedStore();
+
+  try {
+    const { updateFirestoreBulkOrderStatuses } = await import('./src/firebase.ts');
+    await updateFirestoreBulkOrderStatuses(normalizedIds, status);
+  } catch (err) {
+    console.error('Error in bulk status update Firestore:', err);
+  }
+
+  return res.json({ ok: true, updatedCount, status, orderIds: normalizedIds });
+});
+
+// ==========================================
+// CARRIER API INTEGRATION (Ozon Express, Cathedis, Amana)
+// ==========================================
+const CARRIER_META: Record<string, { label: string; prefix: string }> = {
+  ozon: { label: 'Ozon Express', prefix: 'OZ' },
+  cathedis: { label: 'Cathedis', prefix: 'CT' },
+  amana: { label: 'Amana Express', prefix: 'AM' }
+};
+
+const CARRIER_STATUS_LABELS: Record<string, string> = {
+  PICKUP_PENDING: 'En attente de ramassage',
+  IN_TRANSIT: 'En transit / Acheminement',
+  OUT_FOR_DELIVERY: 'En cours de livraison',
+  DELIVERED: 'Livré au client',
+  RETURNED: 'Retour expéditeur'
+};
+
+function mapCarrierStatusToOrderStatus(carrierStatus: string, currentOrderStatus: string): string {
+  if (carrierStatus === 'DELIVERED') return 'Livrée';
+  if (carrierStatus === 'IN_TRANSIT' || carrierStatus === 'OUT_FOR_DELIVERY') return 'En cours';
+  if (carrierStatus === 'RETURNED') return 'Annulée';
+  if (currentOrderStatus === 'En attente') return 'Confirmée';
+  return currentOrderStatus || 'Confirmée';
+}
+
+// Generate Shipping Dispatch / Bon d'expédition & Barcode
+app.post('/api/orders/:id/shipment', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const orderId = String(req.params.id).trim().toUpperCase();
+  const idx = ordersStore.findIndex(o => String(o.id || '').trim().toUpperCase() === orderId);
+  let order = idx >= 0 ? ordersStore[idx] : null;
+  if (!order) {
+    try {
+      const { getFirestoreOrder } = await import('./src/firebase.ts');
+      order = await getFirestoreOrder(orderId);
+      if (order) ordersStore.unshift(order);
+    } catch {}
+  }
+  if (!order) {
+    return res.status(404).json({ error: "Commande introuvable" });
+  }
+
+  const rawCarrier = String(req.body?.carrier || adminConfigStore.carriersConfig?.defaultCarrier || 'ozon').toLowerCase();
+  const carrierKey: 'ozon' | 'cathedis' | 'amana' = ['ozon', 'cathedis', 'amana'].includes(rawCarrier) ? (rawCarrier as any) : 'ozon';
+  const meta = CARRIER_META[carrierKey];
+  const cfg = adminConfigStore.carriersConfig?.[carrierKey] || { enabled: true, apiKey: '', apiUrl: '' };
+
+  const parcelSuffix = orderId.replace(/^CMD-/, '');
+  let trackingNumber = `${meta.prefix}-${parcelSuffix}-${String(Date.now()).slice(-4)}`;
+  let externalId = '';
+  let mode: 'api' | 'bordereau' = 'bordereau';
+  let lastError = '';
+
+  const itemsSummary = (order.items || []).map((it: any) => `${it.nameFr} x${it.quantity || 1}`).join(', ');
+  const apiKey = String(cfg.apiKey || '').trim();
+  const apiUrl = String(cfg.apiUrl || '').trim();
+
+  // Attempt live Carrier API call if API key & endpoint are configured
+  if (apiKey && apiUrl) {
+    try {
+      let targetEndpoint = apiUrl;
+      let fetchHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      let payloadBody: any = {
+        receiver: order.customerName,
+        phone: order.customerPhone,
+        city: order.city,
+        address: order.address,
+        price: Number(order.total || 0),
+        nature: itemsSummary || 'Vêtements & Essentiels',
+        reference: order.id,
+        note: order.notes || ''
+      };
+
+      if (carrierKey === 'ozon' && cfg.customerId) {
+        targetEndpoint = apiUrl.endsWith('/add-parcel')
+          ? apiUrl
+          : `${apiUrl.replace(/\/+$/, '')}/${encodeURIComponent(cfg.customerId)}/${encodeURIComponent(apiKey)}/add-parcel`;
+        payloadBody = {
+          'tracking-number': '',
+          'parcel-receiver': order.customerName,
+          'parcel-phone': order.customerPhone,
+          'parcel-city': order.city,
+          'parcel-address': order.address,
+          'parcel-note': order.notes || itemsSummary,
+          'parcel-price': Number(order.total || 0),
+          'parcel-nature': itemsSummary || 'Essentiels MODANOVA',
+          'parcel-stock': 0,
+          'parcel-open': 1,
+          'parcel-fragile': 0,
+          'parcel-replace': 0
+        };
+      } else if (carrierKey === 'cathedis') {
+        targetEndpoint = apiUrl.endsWith('/deliveries') ? apiUrl : `${apiUrl.replace(/\/+$/, '')}/v1/deliveries`;
+        fetchHeaders['Authorization'] = `Bearer ${apiKey}`;
+        if (cfg.secretKey) fetchHeaders['X-Secret-Key'] = cfg.secretKey;
+      } else if (carrierKey === 'amana') {
+        fetchHeaders['Authorization'] = `Bearer ${apiKey}`;
+        if (cfg.clientCode) payloadBody.clientCode = cfg.clientCode;
+      }
+
+      const apiResp = await fetch(targetEndpoint, {
+        method: 'POST',
+        headers: fetchHeaders,
+        body: JSON.stringify(payloadBody),
+        signal: AbortSignal.timeout(7000)
+      });
+      const json: any = await apiResp.json().catch(() => null);
+      if (apiResp.ok && json) {
+        const remoteTrack = json['TRACKING-NUMBER'] || json.trackingNumber || json.tracking_number || json.code || json.data?.tracking;
+        if (remoteTrack) {
+          trackingNumber = String(remoteTrack).trim();
+          externalId = String(json.id || json.parcel_id || remoteTrack);
+          mode = 'api';
+        } else {
+          lastError = json.message || json.error || 'Réponse API sans code de suivi — bordereau local généré.';
+        }
+      } else {
+        lastError = `API ${meta.label} (${apiResp.status}) — bordereau local généré.`;
+      }
+    } catch (apiErr: any) {
+      lastError = `Connexion ${meta.label} indisponible (${apiErr?.message || 'timeout'}) — bordereau local généré.`;
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const shipment = {
+    carrier: carrierKey,
+    carrierLabel: meta.label,
+    trackingNumber,
+    barcodeValue: trackingNumber,
+    status: 'PICKUP_PENDING',
+    statusLabel: CARRIER_STATUS_LABELS['PICKUP_PENDING'],
+    mode,
+    pickupCity: adminConfigStore.carriersConfig?.pickupCity || 'Kénitra',
+    externalId,
+    lastError,
+    createdAt: order.shipment?.createdAt || nowIso,
+    updatedAt: nowIso
+  };
+
+  const nextStatus = order.status === 'En attente' ? 'Confirmée' : order.status;
+  const updatedOrder = {
+    ...order,
+    status: nextStatus,
+    realShippingCost: order.realShippingCost ?? getCityRealShippingCost(order.city),
+    shipment,
+    updatedAt: nowIso
+  };
+
+  const targetIdx = ordersStore.findIndex(o => String(o.id || '').trim().toUpperCase() === orderId);
+  if (targetIdx >= 0) ordersStore[targetIdx] = updatedOrder;
+  savePersistedStore();
+
+  try {
+    const { updateFirestoreOrder } = await import('./src/firebase.ts');
+    await updateFirestoreOrder(orderId, updatedOrder);
+  } catch (err) {
+    console.error('Error saving shipment to Firestore:', err);
+  }
+
+  return res.json({ ok: true, order: updatedOrder, shipment });
+});
+
+// Refresh / Update Real-Time Carrier Tracking Status
+app.post('/api/orders/:id/shipment/refresh', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const orderId = String(req.params.id).trim().toUpperCase();
+  const idx = ordersStore.findIndex(o => String(o.id || '').trim().toUpperCase() === orderId);
+  let order = idx >= 0 ? ordersStore[idx] : null;
+  if (!order) {
+    try {
+      const { getFirestoreOrder } = await import('./src/firebase.ts');
+      order = await getFirestoreOrder(orderId);
+      if (order) ordersStore.unshift(order);
+    } catch {}
+  }
+  if (!order || !order.shipment) {
+    return res.status(404).json({ error: "Aucun bon d'expédition généré pour cette commande." });
+  }
+
+  const prevShipment = order.shipment;
+  const carrierKey = prevShipment.carrier || 'ozon';
+  const cfg = adminConfigStore.carriersConfig?.[carrierKey as 'ozon' | 'cathedis' | 'amana'];
+  let nextCarrierStatus = String(req.body?.nextStatus || '').trim();
+  let lastError = '';
+
+  // If mode === 'api' and no explicit override passed, poll live tracking endpoint
+  if (!nextCarrierStatus && prevShipment.mode === 'api' && cfg?.apiKey && cfg?.apiUrl) {
+    try {
+      let trackUrl = '';
+      const headers: Record<string, string> = {};
+      if (carrierKey === 'ozon' && cfg.customerId) {
+        trackUrl = `${cfg.apiUrl.replace(/\/+$/, '')}/${encodeURIComponent(cfg.customerId)}/${encodeURIComponent(cfg.apiKey)}/tracking/${encodeURIComponent(prevShipment.trackingNumber)}`;
+      } else {
+        trackUrl = `${cfg.apiUrl.replace(/\/+$/, '')}/tracking/${encodeURIComponent(prevShipment.trackingNumber)}`;
+        headers['Authorization'] = `Bearer ${cfg.apiKey}`;
+      }
+      const trResp = await fetch(trackUrl, { headers, signal: AbortSignal.timeout(7000) });
+      const trJson: any = await trResp.json().catch(() => null);
+      if (trResp.ok && trJson) {
+        const rawSt = String(trJson.status || trJson.state || trJson.TRACKING?.STATUT || '').toUpperCase();
+        if (rawSt.includes('LIVR') || rawSt.includes('DELIVER')) nextCarrierStatus = 'DELIVERED';
+        else if (rawSt.includes('DIST') || rawSt.includes('OUT')) nextCarrierStatus = 'OUT_FOR_DELIVERY';
+        else if (rawSt.includes('TRANS') || rawSt.includes('EXP') || rawSt.includes('SHIP')) nextCarrierStatus = 'IN_TRANSIT';
+        else if (rawSt.includes('RET') || rawSt.includes('ANNUL')) nextCarrierStatus = 'RETURNED';
+      }
+    } catch (err: any) {
+      lastError = `Suivi API temporairement indisponible (${err?.message || 'timeout'})`;
+    }
+  }
+
+  // If no explicit nextStatus from API/request, advance local tracking pipeline smoothly or allow reset
+  if (!nextCarrierStatus) {
+    const pipeline = ['PICKUP_PENDING', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+    const curPos = pipeline.indexOf(prevShipment.status);
+    nextCarrierStatus = curPos >= 0 && curPos < pipeline.length - 1 ? pipeline[curPos + 1] : prevShipment.status;
+  }
+
+  const validCarrierStatus = CARRIER_STATUS_LABELS[nextCarrierStatus] ? nextCarrierStatus : prevShipment.status;
+  const nowIso = new Date().toISOString();
+  const updatedShipment = {
+    ...prevShipment,
+    status: validCarrierStatus,
+    statusLabel: CARRIER_STATUS_LABELS[validCarrierStatus] || prevShipment.statusLabel,
+    lastError,
+    updatedAt: nowIso
+  };
+  const syncedOrderStatus = mapCarrierStatusToOrderStatus(validCarrierStatus, order.status);
+  const updatedOrder = {
+    ...order,
+    status: syncedOrderStatus,
+    shipment: updatedShipment,
+    updatedAt: nowIso
+  };
+
+  const targetIdx = ordersStore.findIndex(o => String(o.id || '').trim().toUpperCase() === orderId);
+  if (targetIdx >= 0) ordersStore[targetIdx] = updatedOrder;
+  savePersistedStore();
+
+  try {
+    const { updateFirestoreOrder } = await import('./src/firebase.ts');
+    await updateFirestoreOrder(orderId, updatedOrder);
+  } catch (err) {
+    console.error('Error refreshing shipment in Firestore:', err);
+  }
+
+  return res.json({ ok: true, order: updatedOrder, shipment: updatedShipment });
 });
 
 // Delete order (Admin — Deleted from Firebase Firestore)

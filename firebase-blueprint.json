@@ -12,12 +12,12 @@
         "nameFr": {
           "type": "string",
           "description": "Product name in French",
-          "maxLength": 150
+          "maxLength": 300
         },
         "nameAr": {
           "type": "string",
           "description": "Product name in Arabic",
-          "maxLength": 150
+          "maxLength": 300
         },
         "price": {
           "type": "number",
@@ -30,7 +30,8 @@
         "category": {
           "type": "string",
           "description": "Product category",
-          "enum": ["chaussures", "soins", "maison"]
+          "enum": ["chaussures", "soins", "maison"],
+          "maxLength": 100
         },
         "inStock": {
           "type": "boolean",
@@ -43,7 +44,7 @@
         "badge": {
           "type": "string",
           "description": "Marketing badge indicator",
-          "enum": ["new", "exclusive", "luxury", "out"]
+          "enum": ["new", "exclusive", "luxury", "out", ""]
         },
         "isNew": {
           "type": "boolean",
@@ -60,12 +61,12 @@
         "descFr": {
           "type": "string",
           "description": "Editorial description in French",
-          "maxLength": 1000
+          "maxLength": 3000
         },
         "descAr": {
           "type": "string",
           "description": "Editorial description in Arabic",
-          "maxLength": 1000
+          "maxLength": 3000
         },
         "sizes": {
           "type": "array",
@@ -91,6 +92,20 @@
           "type": "string",
           "description": "Optional video URL (YouTube, TikTok, Vimeo, Drive, Reel, or MP4)",
           "maxLength": 500
+        },
+        "costPrice": {
+          "type": "number",
+          "description": "Admin-only purchase or import cost in MAD for net profit calculation"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO creation timestamp",
+          "maxLength": 50
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO last update timestamp",
+          "maxLength": 50
         }
       },
       "required": ["id", "nameFr", "price", "stock", "category"]
@@ -108,7 +123,8 @@
         },
         "date": {
           "type": "string",
-          "description": "ISO timestamp of order placement"
+          "description": "ISO timestamp of order placement",
+          "maxLength": 50
         },
         "status": {
           "type": "string",
@@ -118,8 +134,8 @@
         "customerName": {
           "type": "string",
           "description": "Customer full name",
-          "minLength": 2,
-          "maxLength": 100
+          "minLength": 1,
+          "maxLength": 200
         },
         "customerPhone": {
           "type": "string",
@@ -130,13 +146,13 @@
         "city": {
           "type": "string",
           "description": "Delivery city in Morocco",
-          "maxLength": 50
+          "maxLength": 100
         },
         "address": {
           "type": "string",
           "description": "Complete shipping street address",
-          "minLength": 5,
-          "maxLength": 300
+          "minLength": 1,
+          "maxLength": 500
         },
         "notes": {
           "type": "string",
@@ -158,11 +174,19 @@
         "promoCode": {
           "type": "string",
           "description": "Coupon code used",
-          "maxLength": 30
+          "maxLength": 40
         },
         "shippingFee": {
           "type": "number",
-          "description": "Shipping cost in MAD"
+          "description": "Shipping fee billed to customer in MAD"
+        },
+        "realShippingCost": {
+          "type": "number",
+          "description": "Actual carrier delivery cost paid by the store for this city in MAD"
+        },
+        "shipment": {
+          "type": "object",
+          "description": "Carrier dispatch & live tracking metadata (Ozon Express, Cathedis, Amana)"
         },
         "total": {
           "type": "number",
@@ -171,10 +195,15 @@
         "paymentMethod": {
           "type": "string",
           "description": "Payment terms (e.g. COD)",
+          "maxLength": 100
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last order modification",
           "maxLength": 50
         }
       },
-      "required": ["id", "customerName", "customerPhone", "city", "address", "items", "total"]
+      "required": ["id", "customerName", "customerPhone", "city", "address", "items", "total", "status"]
     },
     "Admin": {
       "title": "Admin",
