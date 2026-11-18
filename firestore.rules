@@ -98,13 +98,23 @@ service cloud.firestore {
         (!('updatedAt' in s) || (s.updatedAt is string && s.updatedAt.size() <= 50));
     }
 
+    function isValidExchangeInfo(ex) {
+      return ex is map &&
+        ex.size() <= 15 &&
+        ex.keys().hasOnly([
+          'active', 'itemIndex', 'productId', 'productName',
+          'originalSize', 'originalColor', 'newSize', 'newColor',
+          'quantity', 'reason', 'requestedAt', 'resolvedAt'
+        ]);
+    }
+
     function isValidOrder(data) {
       return data.keys().hasAll(['id', 'customerName', 'customerPhone', 'city', 'address', 'items', 'total', 'status']) &&
         data.keys().hasOnly([
           'id', 'date', 'status', 'customerName', 'customerPhone',
           'city', 'address', 'notes', 'items', 'subtotal',
           'discount', 'promoCode', 'shippingFee', 'realShippingCost',
-          'shipment', 'total', 'paymentMethod', 'updatedAt'
+          'shipment', 'exchangeInfo', 'source', 'total', 'paymentMethod', 'updatedAt'
         ]) &&
         data.id is string && data.id.size() <= 16 && data.id.matches('^CMD-[A-Z0-9]{6}$') &&
         data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 200 &&
@@ -119,11 +129,37 @@ service cloud.firestore {
         (!('shippingFee' in data) || (data.shippingFee is number && data.shippingFee >= 0)) &&
         (!('realShippingCost' in data) || data.realShippingCost == null || (data.realShippingCost is number && data.realShippingCost >= 0)) &&
         (!('shipment' in data) || data.shipment == null || isValidShipment(data.shipment)) &&
+        (!('exchangeInfo' in data) || data.exchangeInfo == null || isValidExchangeInfo(data.exchangeInfo)) &&
+        (!('source' in data) || data.source == null || (data.source is string && data.source.size() <= 40)) &&
         data.total is number && data.total >= 0 &&
         (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() <= 100)) &&
         (!('date' in data) || (data.date is string && data.date.size() <= 50)) &&
         (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50)) &&
-        data.status in ['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'];
+        data.status in ['En attente', 'Confirmée', 'En cours', 'Échange en cours', 'Livrée', 'Annulée'];
+    }
+
+    function isValidDraftOrder(data) {
+      return data.keys().hasAll(['id', 'customerName', 'customerPhone', 'items', 'status']) &&
+        data.keys().hasOnly([
+          'id', 'customerName', 'customerPhone', 'city', 'address', 'notes',
+          'items', 'subtotal', 'discount', 'promoCode', 'total', 'status',
+          'source', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id is string && data.id.size() <= 30 && data.id.matches('^DRF-[A-Z0-9]{4,12}$') &&
+        data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 200 &&
+        data.customerPhone is string && data.customerPhone.size() <= 15 && data.customerPhone.matches('^(06|07)[0-9]{8}$') &&
+        (!('city' in data) || data.city == null || (data.city is string && data.city.size() <= 100)) &&
+        (!('address' in data) || data.address == null || (data.address is string && data.address.size() <= 500)) &&
+        (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 500)) &&
+        data.items is list && data.items.size() > 0 && data.items.size() <= 100 && data.items[0] is map &&
+        (!('subtotal' in data) || (data.subtotal is number && data.subtotal >= 0)) &&
+        (!('discount' in data) || (data.discount is number && data.discount >= 0)) &&
+        (!('promoCode' in data) || data.promoCode == null || (data.promoCode is string && data.promoCode.size() <= 40)) &&
+        (!('total' in data) || (data.total is number && data.total >= 0)) &&
+        data.status is string && data.status in ['Abandonné', 'Relancé', 'Converti'] &&
+        (!('source' in data) || data.source == null || (data.source is string && data.source.size() <= 50)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50));
     }
 
     function isValidMedia(data) {
@@ -188,13 +224,22 @@ service cloud.firestore {
       allow get, list: if true;
       allow create: if isValidId(orderId) &&
         incoming().id == orderId &&
-        incoming().status == 'En attente' &&
+        incoming().status in ['En attente', 'Confirmée'] &&
         isValidOrder(incoming());
       allow update: if isValidId(orderId) &&
         isValidOrder(incoming()) &&
         incoming().id == existing().id &&
         (!('date' in existing()) || incoming().date == existing().date);
       allow delete: if isValidId(orderId);
+    }
+
+    // Abandoned Cart Draft Orders
+    match /draftOrders/{draftId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(draftId) &&
+        incoming().id == draftId &&
+        isValidDraftOrder(incoming());
+      allow delete: if isValidId(draftId);
     }
 
     // Admins registry

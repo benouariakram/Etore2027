@@ -69,6 +69,7 @@ const ALLOWED_STATUSES = [
   "En attente",
   "Confirmée",
   "En cours",
+  "Échange en cours",
   "Livrée",
   "Annulée"
 ];
@@ -636,6 +637,7 @@ const STORE_FILE = path.join(DATA_DIR, 'store.json');
 
 let productsStore: any[] = JSON.parse(JSON.stringify(defaultProducts));
 let ordersStore: any[] = [];
+let draftOrdersStore: any[] = [];
 let deletedOrderIds = new Set<string>();
 let sliderStore: any[] = JSON.parse(JSON.stringify(defaultSliderSlides));
 let cmsStore: any = JSON.parse(JSON.stringify(defaultCms));
@@ -657,6 +659,9 @@ function loadPersistedStore() {
         ordersStore = parsed.orders.filter(
           (o: any) => o && o.id && !deletedOrderIds.has(String(o.id).trim().toUpperCase())
         );
+      }
+      if (Array.isArray(parsed.draftOrders)) {
+        draftOrdersStore = parsed.draftOrders;
       }
       if (Array.isArray(parsed.slider) && parsed.slider.length > 0) {
         sliderStore = parsed.slider;
@@ -690,6 +695,7 @@ function savePersistedStore() {
         {
           products: productsStore,
           orders: ordersStore,
+          draftOrders: draftOrdersStore,
           deletedOrderIds: Array.from(deletedOrderIds),
           slider: sliderStore,
           cms: cmsStore,
@@ -773,6 +779,7 @@ async function syncWithFirestoreOnBoot() {
       fetchFirestoreProducts,
       saveFirestoreProduct,
       fetchFirestoreOrders,
+      fetchFirestoreDraftOrders,
       fetchSliderSettings,
       saveSliderSettings,
       fetchCmsSettings,
@@ -881,6 +888,14 @@ async function syncWithFirestoreOnBoot() {
       couponsStore = remoteCoupons;
     } else {
       await saveCouponsSettings(couponsStore);
+    }
+
+    // 7. Draft Orders (Abandoned Carts) sync
+    const remoteDrafts = await fetchFirestoreDraftOrders();
+    if (Array.isArray(remoteDrafts)) {
+      draftOrdersStore = remoteDrafts.sort((a: any, b: any) =>
+        String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''))
+      );
     }
 
     savePersistedStore();
@@ -2182,22 +2197,39 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     shippingFee: 0,
     realShippingCost,
     shipment: null,
+    exchangeInfo: null,
+    source: "Web",
     total,
     paymentMethod: "COD (Paiement à la livraison)"
   };
 
   ordersStore.unshift(newOrder);
+
+  // If this checkout came from a captured abandoned draft, remove it automatically so it isn't double-counted
+  const reqDraftId = String(req.body?.draftId || '').trim().toUpperCase();
+  const matchedDraftIds = draftOrdersStore
+    .filter((d: any) =>
+      (reqDraftId && String(d?.id || '').trim().toUpperCase() === reqDraftId) ||
+      (String(d?.customerPhone || '').trim() === cleanPhone)
+    )
+    .map((d: any) => String(d.id).trim().toUpperCase());
+  if (matchedDraftIds.length > 0) {
+    draftOrdersStore = draftOrdersStore.filter((d: any) => !matchedDraftIds.includes(String(d?.id || '').trim().toUpperCase()));
+  }
   savePersistedStore();
 
-  // Sync Order, Coupon usage count, and updated Product Stock to Firestore database
+  // Sync Order, Coupon usage count, updated Product Stock, and cleanup converted Drafts in Firestore
   try {
-    const { createFirestoreOrder, saveFirestoreProduct, saveCouponsSettings } = await import('./src/firebase.ts');
+    const { createFirestoreOrder, saveFirestoreProduct, saveCouponsSettings, deleteFirestoreDraftOrder } = await import('./src/firebase.ts');
     await createFirestoreOrder(newOrder);
     for (const { prod } of stockChanges) {
       await saveFirestoreProduct(prod);
     }
     if (appliedPromoCode) {
       await saveCouponsSettings(couponsStore);
+    }
+    for (const did of matchedDraftIds) {
+      await deleteFirestoreDraftOrder(did).catch(() => {});
     }
   } catch (err) {
     console.warn('Firestore order sync note:', err);
@@ -2401,6 +2433,8 @@ app.put('/api/orders/:id', async (req: Request, res: Response) => {
     shippingFee,
     realShippingCost,
     shipment: existingOrder.shipment || null,
+    exchangeInfo: existingOrder.exchangeInfo || null,
+    source: String(body.source ?? existingOrder.source ?? 'Web').trim().slice(0, 40),
     total,
     paymentMethod,
     updatedAt: new Date().toISOString()
@@ -2732,6 +2766,433 @@ app.delete('/api/orders/:id', async (req: Request, res: Response) => {
   }
 
   return res.json({ ok: true, id: orderId, remaining: ordersStore.length });
+});
+
+// ==========================================
+// ABANDONED CART RECOVERY (DRAFT ORDERS)
+// ==========================================
+const draftCaptureAttempts = new Map<string, { count: number; resetTime: number }>();
+
+app.post('/api/draft-orders', async (req: Request, res: Response) => {
+  const ip = getClientIp(req);
+  if (!checkRateLimit(draftCaptureAttempts, ip, 120, 10 * 60 * 1000)) {
+    return res.status(429).json({ error: "Trop de requêtes." });
+  }
+
+  const body = req.body || {};
+  const customerName = String(body.customerName || '').trim().slice(0, 200);
+  const cleanPhone = String(body.customerPhone || '').trim().replace(/\s+/g, '');
+  if (customerName.length < 2 || !/^(06|07)\d{8}$/.test(cleanPhone)) {
+    return res.status(400).json({ error: "Nom ou téléphone (06/07) incomplet pour brouillon." });
+  }
+
+  const rawItems = Array.isArray(body.items) ? body.items : [];
+  if (rawItems.length === 0) {
+    return res.status(400).json({ error: "Panier vide." });
+  }
+
+  const verifiedItems: any[] = [];
+  let subtotal = 0;
+  for (const it of rawItems.slice(0, 100)) {
+    const prod = productsStore.find((p: any) => Number(p.id) === Number(it.productId || it.id));
+    const unitPrice = prod ? Number(prod.price) : Math.max(0, Number(it.price || 0) || 0);
+    const qty = Math.max(1, parseInt(it.quantity || it.qty, 10) || 1);
+    const chosenSize = String(it.size || (prod?.sizes?.[0]) || 'Unique').trim();
+    const chosenColor = String(it.color || (prod?.colors?.[0]) || 'Standard').trim();
+    subtotal += unitPrice * qty;
+    verifiedItems.push({
+      productId: prod ? Number(prod.id) : Number(it.productId || 0),
+      nameFr: prod ? prod.nameFr : String(it.nameFr || it.name || 'Article').trim(),
+      price: unitPrice,
+      quantity: qty,
+      size: chosenSize,
+      color: chosenColor,
+      colorLabel: formatColorLabelFr(chosenColor),
+      image: prod?.images?.[0] || String(it.image || '')
+    });
+  }
+
+  let draftId = String(body.draftId || body.id || '').trim().toUpperCase();
+  if (!/^DRF-[A-Z0-9]{4,12}$/.test(draftId)) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let suffix = '';
+    for (let i = 0; i < 6; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
+    draftId = `DRF-${suffix}`;
+  }
+
+  const existingIdx = draftOrdersStore.findIndex((d: any) => String(d?.id || '').trim().toUpperCase() === draftId);
+  const existingDraft = existingIdx >= 0 ? draftOrdersStore[existingIdx] : null;
+  const nowIso = new Date().toISOString();
+
+  let discount = 0;
+  const cleanPromo = String(body.promoCode || '').trim().toUpperCase();
+  if (cleanPromo) {
+    const cCheck = validateAndComputeCoupon(cleanPromo, subtotal);
+    if (cCheck.valid) discount = cCheck.discount;
+  }
+
+  const draftObj = {
+    id: draftId,
+    customerName,
+    customerPhone: cleanPhone,
+    city: String(body.city || '').trim().slice(0, 100),
+    address: String(body.address || '').trim().slice(0, 500),
+    notes: String(body.notes || '').trim().slice(0, 500),
+    items: verifiedItems,
+    subtotal,
+    discount,
+    promoCode: cleanPromo || null,
+    total: Math.max(0, subtotal - discount),
+    status: existingDraft?.status === 'Relancé' ? 'Relancé' : 'Abandonné',
+    source: 'checkout_modal',
+    createdAt: existingDraft?.createdAt || nowIso,
+    updatedAt: nowIso
+  };
+
+  if (existingIdx >= 0) {
+    draftOrdersStore[existingIdx] = draftObj;
+  } else {
+    draftOrdersStore.unshift(draftObj);
+  }
+  savePersistedStore();
+
+  try {
+    const { saveFirestoreDraftOrder } = await import('./src/firebase.ts');
+    await saveFirestoreDraftOrder(draftObj);
+  } catch (err) {
+    console.warn('Firestore draft save notice:', err);
+  }
+
+  return res.json({ ok: true, draft: draftObj });
+});
+
+app.get('/api/admin/draft-orders', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  try {
+    const { fetchFirestoreDraftOrders } = await import('./src/firebase.ts');
+    const remoteDrafts = await fetchFirestoreDraftOrders();
+    if (Array.isArray(remoteDrafts)) {
+      draftOrdersStore = remoteDrafts.sort((a: any, b: any) =>
+        String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''))
+      );
+      savePersistedStore();
+    }
+  } catch (err) {
+    console.warn('Error loading drafts from Firestore:', err);
+  }
+  return res.json(draftOrdersStore);
+});
+
+app.patch('/api/admin/draft-orders/:id', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const draftId = String(req.params.id).trim().toUpperCase();
+  const status = String(req.body?.status || '').trim();
+  if (!['Abandonné', 'Relancé', 'Converti'].includes(status)) {
+    return res.status(400).json({ error: "Statut de brouillon invalide." });
+  }
+  const idx = draftOrdersStore.findIndex((d: any) => String(d?.id || '').trim().toUpperCase() === draftId);
+  if (idx < 0) {
+    return res.status(404).json({ error: "Panier abandonné introuvable." });
+  }
+  draftOrdersStore[idx] = {
+    ...draftOrdersStore[idx],
+    status,
+    updatedAt: new Date().toISOString()
+  };
+  savePersistedStore();
+  try {
+    const { saveFirestoreDraftOrder } = await import('./src/firebase.ts');
+    await saveFirestoreDraftOrder(draftOrdersStore[idx]);
+  } catch {}
+  return res.json({ ok: true, draft: draftOrdersStore[idx] });
+});
+
+app.delete('/api/admin/draft-orders/:id', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const draftId = String(req.params.id).trim().toUpperCase();
+  draftOrdersStore = draftOrdersStore.filter((d: any) => String(d?.id || '').trim().toUpperCase() !== draftId);
+  savePersistedStore();
+  try {
+    const { deleteFirestoreDraftOrder } = await import('./src/firebase.ts');
+    await deleteFirestoreDraftOrder(draftId);
+  } catch {}
+  return res.json({ ok: true, id: draftId });
+});
+
+// ==========================================
+// MANUAL POS ORDER CREATION (WhatsApp / IG / Phone)
+// ==========================================
+app.post('/api/admin/orders/manual', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const body = req.body || {};
+  const customerName = String(body.customerName || '').trim().slice(0, 200);
+  const cleanPhone = String(body.customerPhone || '').trim().replace(/\s+/g, '');
+  const city = String(body.city || 'Casablanca').trim().slice(0, 100);
+  const address = String(body.address || 'Adresse confirmée par téléphone').trim().slice(0, 500);
+  const notes = String(body.notes || '').trim().slice(0, 500);
+  const source = String(body.source || 'WhatsApp').trim().slice(0, 40);
+  const requestedStatus = ['En attente', 'Confirmée'].includes(String(body.status)) ? String(body.status) : 'Confirmée';
+  const rawItems = Array.isArray(body.items) ? body.items : [];
+
+  if (!customerName) {
+    return res.status(400).json({ error: "Veuillez saisir le nom du client." });
+  }
+  if (!/^(06|07)\d{8}$/.test(cleanPhone)) {
+    return res.status(400).json({ error: "Le numéro de téléphone doit comporter 10 chiffres et commencer par 06 ou 07." });
+  }
+  if (rawItems.length === 0) {
+    return res.status(400).json({ error: "Ajoutez au moins un article à la commande." });
+  }
+
+  let subtotal = 0;
+  const verifiedItems: any[] = [];
+  const stockChanges: { prod: any; qty: number; size: string; color: string }[] = [];
+
+  for (const item of rawItems) {
+    const prod = productsStore.find((p: any) => Number(p.id) === Number(item.productId || item.id));
+    if (!prod) {
+      return res.status(400).json({ error: `Produit introuvable : ${item.nameFr || 'ID ' + item.productId}` });
+    }
+    const qty = Math.max(1, parseInt(item.quantity || item.qty, 10) || 1);
+    const chosenSize = String(item.size || (prod.sizes && prod.sizes[0]) || 'Unique').trim();
+    const chosenColor = String(item.color || (prod.colors && prod.colors[0]) || 'Default').trim();
+    const colorLabel = formatColorLabelFr(chosenColor);
+
+    const hasVariants = prod.variantStock && typeof prod.variantStock === 'object' && Object.keys(prod.variantStock).length > 0;
+    const availableStock = hasVariants
+      ? getVariantStockValue(prod, chosenSize, chosenColor)
+      : Math.max(0, Number(prod.stock) || 0);
+
+    if (availableStock < qty) {
+      return res.status(409).json({
+        error: `Stock insuffisant pour "${prod.nameFr}" (${chosenSize} / ${colorLabel}). Disponible : ${availableStock}.`
+      });
+    }
+
+    const linePrice = item.price !== undefined && item.price !== '' ? Math.max(0, Number(item.price) || 0) : Number(prod.price);
+    subtotal += linePrice * qty;
+    verifiedItems.push({
+      productId: prod.id,
+      nameFr: prod.nameFr,
+      nameAr: prod.nameAr || prod.nameFr,
+      price: linePrice,
+      quantity: qty,
+      size: chosenSize,
+      color: chosenColor,
+      colorLabel,
+      image: (prod.images && prod.images[0]) || ''
+    });
+    stockChanges.push({ prod, qty, size: chosenSize, color: chosenColor });
+  }
+
+  for (const { prod, qty, size, color } of stockChanges) {
+    if (prod.variantStock && typeof prod.variantStock === 'object' && Object.keys(prod.variantStock).length > 0) {
+      const exactKey = makeVariantKey(size, color);
+      let matchedKey = exactKey;
+      if (prod.variantStock[matchedKey] === undefined) {
+        const sLower = size.toLowerCase();
+        const cLower = color.toLowerCase();
+        for (const k of Object.keys(prod.variantStock)) {
+          const [ks, kc] = String(k).split('__');
+          if (ks && kc && ks.trim().toLowerCase() === sLower && (kc.trim().toLowerCase() === cLower || formatColorLabelFr(kc).toLowerCase() === formatColorLabelFr(color).toLowerCase())) {
+            matchedKey = k;
+            break;
+          }
+        }
+      }
+      const curVal = Math.max(0, Number(prod.variantStock[matchedKey]) || 0);
+      prod.variantStock[matchedKey] = Math.max(0, curVal - qty);
+      prod.stock = Object.values(prod.variantStock).reduce((sum: number, v: any) => sum + Math.max(0, Number(v) || 0), 0);
+      prod.inStock = prod.stock > 0;
+    } else {
+      prod.stock = Math.max(0, (Number(prod.stock) || 0) - qty);
+      prod.inStock = prod.stock > 0;
+    }
+  }
+
+  const discount = Math.max(0, Number(body.discount || 0) || 0);
+  const shippingFee = Math.max(0, Number(body.shippingFee || 0) || 0);
+  const total = Math.max(0, subtotal - discount + shippingFee);
+  const orderId = generateOrderId();
+  const nowIso = new Date().toISOString();
+
+  const newOrder = {
+    id: orderId,
+    date: nowIso,
+    status: requestedStatus,
+    customerName,
+    customerPhone: cleanPhone,
+    city,
+    address,
+    notes: notes || `Commande directe (${source})`,
+    items: verifiedItems,
+    subtotal,
+    discount,
+    promoCode: body.promoCode ? String(body.promoCode).trim().toUpperCase().slice(0, 40) : null,
+    shippingFee,
+    realShippingCost: getCityRealShippingCost(city),
+    shipment: null,
+    exchangeInfo: null,
+    source,
+    total,
+    paymentMethod: String(body.paymentMethod || 'COD (Paiement à la livraison)').trim().slice(0, 100)
+  };
+
+  ordersStore.unshift(newOrder);
+
+  // If converted from an abandoned draft order, remove that draft
+  const fromDraftId = String(body.fromDraftId || '').trim().toUpperCase();
+  if (fromDraftId) {
+    draftOrdersStore = draftOrdersStore.filter((d: any) => String(d?.id || '').trim().toUpperCase() !== fromDraftId);
+  }
+  savePersistedStore();
+
+  try {
+    const { createFirestoreOrder, saveFirestoreProduct, deleteFirestoreDraftOrder } = await import('./src/firebase.ts');
+    await createFirestoreOrder(newOrder);
+    for (const { prod } of stockChanges) {
+      await saveFirestoreProduct(prod);
+    }
+    if (fromDraftId) {
+      await deleteFirestoreDraftOrder(fromDraftId).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('Firestore manual POS order sync note:', err);
+  }
+
+  return res.status(201).json({ ok: true, order: newOrder, products: productsStore });
+});
+
+// ==========================================
+// SAV EXCHANGE / RETURN HANDLER (Échange en cours)
+// Restores old variant stock (+qty) & reserves new variant stock (-qty)
+// without distorting order revenue (total stays intact).
+// ==========================================
+app.post('/api/orders/:id/exchange', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const orderId = String(req.params.id).trim().toUpperCase();
+  const idx = ordersStore.findIndex(o => String(o.id || '').trim().toUpperCase() === orderId);
+  let order = idx >= 0 ? ordersStore[idx] : null;
+  if (!order) {
+    try {
+      const { getFirestoreOrder } = await import('./src/firebase.ts');
+      order = await getFirestoreOrder(orderId);
+      if (order) ordersStore.unshift(order);
+    } catch {}
+  }
+  if (!order) {
+    return res.status(404).json({ error: "Commande introuvable." });
+  }
+
+  const body = req.body || {};
+  const itemIndex = Math.max(0, Math.floor(Number(body.itemIndex ?? 0) || 0));
+  const items = Array.isArray(order.items) ? [...order.items] : [];
+  if (itemIndex >= items.length) {
+    return res.status(400).json({ error: "Article cible introuvable dans la commande." });
+  }
+
+  const targetItem = { ...items[itemIndex] };
+  const qty = Math.max(1, Number(targetItem.quantity || targetItem.qty || 1) || 1);
+  const oldSize = String(targetItem.size || 'Unique').trim();
+  const oldColor = String(targetItem.color || 'Default').trim();
+  const newSize = String(body.newSize ?? oldSize).trim() || oldSize;
+  const newColor = String(body.newColor ?? oldColor).trim() || oldColor;
+  const reason = String(body.reason || '').trim().slice(0, 200);
+
+  if (oldSize === newSize && oldColor === newColor) {
+    return res.status(400).json({ error: "Veuillez sélectionner une nouvelle taille ou une nouvelle couleur pour effectuer l'échange." });
+  }
+
+  const prod = productsStore.find((p: any) => Number(p.id) === Number(targetItem.productId || targetItem.id));
+  if (prod) {
+    const hasVariants = prod.variantStock && typeof prod.variantStock === 'object' && Object.keys(prod.variantStock).length > 0;
+    const findKey = (sz: string, col: string): string => {
+      const exact = makeVariantKey(sz, col);
+      if (!hasVariants || prod.variantStock[exact] !== undefined) return exact;
+      const sL = sz.toLowerCase();
+      const cL = col.toLowerCase();
+      for (const k of Object.keys(prod.variantStock)) {
+        const [ks, kc] = String(k).split('__');
+        if (ks && kc && ks.trim().toLowerCase() === sL && (kc.trim().toLowerCase() === cL || formatColorLabelFr(kc).toLowerCase() === formatColorLabelFr(col).toLowerCase())) {
+          return k;
+        }
+      }
+      return exact;
+    };
+
+    if (hasVariants) {
+      const oldKey = findKey(oldSize, oldColor);
+      const newKey = findKey(newSize, newColor);
+      const availNew = Math.max(0, Number(prod.variantStock[newKey] ?? 0) || 0);
+      if (availNew < qty) {
+        return res.status(409).json({
+          error: `Stock insuffisant pour la nouvelle variante (${newSize} / ${formatColorLabelFr(newColor)}) : ${availNew} disponible(s).`
+        });
+      }
+      // Reintegrate old size/color & reserve new size/color
+      prod.variantStock[oldKey] = Math.max(0, Number(prod.variantStock[oldKey] || 0) + qty);
+      prod.variantStock[newKey] = Math.max(0, availNew - qty);
+      prod.stock = Object.values(prod.variantStock).reduce((sum: number, v: any) => sum + Math.max(0, Number(v) || 0), 0);
+      prod.inStock = prod.stock > 0;
+    } else {
+      // Flat stock: +qty (returned) and -qty (reserved) keeps total balanced, ensure >= 0
+      prod.stock = Math.max(0, Number(prod.stock || 0));
+      prod.inStock = prod.stock > 0;
+    }
+  }
+
+  targetItem.size = newSize;
+  targetItem.color = newColor;
+  targetItem.colorLabel = formatColorLabelFr(newColor);
+  items[itemIndex] = targetItem;
+
+  const nowIso = new Date().toISOString();
+  const updatedOrder = {
+    ...order,
+    status: 'Échange en cours',
+    items,
+    exchangeInfo: {
+      active: true,
+      itemIndex,
+      productId: Number(prod?.id || targetItem.productId || 0),
+      productName: String(targetItem.nameFr || 'Article').slice(0, 150),
+      originalSize: oldSize,
+      originalColor: formatColorLabelFr(oldColor),
+      newSize,
+      newColor: formatColorLabelFr(newColor),
+      quantity: qty,
+      reason,
+      requestedAt: nowIso,
+      resolvedAt: null
+    },
+    updatedAt: nowIso
+  };
+
+  const targetIdx = ordersStore.findIndex(o => String(o.id || '').trim().toUpperCase() === orderId);
+  if (targetIdx >= 0) ordersStore[targetIdx] = updatedOrder;
+  savePersistedStore();
+
+  try {
+    const { updateFirestoreOrder, saveFirestoreProduct } = await import('./src/firebase.ts');
+    await updateFirestoreOrder(orderId, updatedOrder);
+    if (prod) {
+      await saveFirestoreProduct(prod);
+    }
+  } catch (err) {
+    console.error('Error persisting SAV exchange to Firestore:', err);
+  }
+
+  return res.json({ ok: true, order: updatedOrder, products: productsStore });
 });
 
 // Helper to inject absolute OpenGraph image & URL tags for WhatsApp / Messenger / Facebook link previews

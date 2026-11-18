@@ -129,7 +129,7 @@
         "status": {
           "type": "string",
           "description": "Order fulfillment status",
-          "enum": ["En attente", "Confirmée", "En cours", "Livrée", "Annulée"]
+          "enum": ["En attente", "Confirmée", "En cours", "Échange en cours", "Livrée", "Annulée"]
         },
         "customerName": {
           "type": "string",
@@ -187,6 +187,15 @@
         "shipment": {
           "type": "object",
           "description": "Carrier dispatch & live tracking metadata (Ozon Express, Cathedis, Amana)"
+        },
+        "exchangeInfo": {
+          "type": "object",
+          "description": "SAV size/color exchange tracking and stock adjustment details"
+        },
+        "source": {
+          "type": "string",
+          "description": "Acquisition channel (Web, WhatsApp, Instagram, Téléphone, Boutique)",
+          "maxLength": 40
         },
         "total": {
           "type": "number",
@@ -314,6 +323,87 @@
         }
       },
       "required": ["id", "dataUrl"]
+    },
+    "DraftOrder": {
+      "title": "DraftOrder",
+      "description": "Captured abandoned checkout draft when visitor starts entering name and 06/07 phone",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Draft reference ID (e.g., DRF-A8F2K9)",
+          "pattern": "^DRF-[A-Z0-9]{4,12}$",
+          "maxLength": 30
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Visitor full name",
+          "maxLength": 200
+        },
+        "customerPhone": {
+          "type": "string",
+          "description": "Visitor Moroccan mobile phone (06/07)",
+          "pattern": "^(06|07)[0-9]{8}$",
+          "maxLength": 15
+        },
+        "city": {
+          "type": "string",
+          "description": "Selected Moroccan city",
+          "maxLength": 100
+        },
+        "address": {
+          "type": "string",
+          "description": "Partial or full street address",
+          "maxLength": 500
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional customer notes",
+          "maxLength": 500
+        },
+        "items": {
+          "type": "array",
+          "description": "Cart line items at time of capture"
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "Subtotal in MAD"
+        },
+        "discount": {
+          "type": "number",
+          "description": "Applied coupon discount in MAD"
+        },
+        "promoCode": {
+          "type": "string",
+          "description": "Promo code entered if any",
+          "maxLength": 40
+        },
+        "total": {
+          "type": "number",
+          "description": "Estimated net total in MAD"
+        },
+        "status": {
+          "type": "string",
+          "description": "Recovery state",
+          "enum": ["Abandonné", "Relancé", "Converti"]
+        },
+        "source": {
+          "type": "string",
+          "description": "Capture source",
+          "maxLength": 50
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of first capture",
+          "maxLength": 50
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last edit",
+          "maxLength": 50
+        }
+      },
+      "required": ["id", "customerName", "customerPhone", "items", "status"]
     }
   },
   "firestore": {
@@ -324,6 +414,10 @@
     "/orders/{orderId}": {
       "schema": "Order",
       "description": "Customer COD orders creatable by customers, readable for tracking by ID, manageable by admin"
+    },
+    "/draftOrders/{draftId}": {
+      "schema": "DraftOrder",
+      "description": "Abandoned cart draft orders captured during checkout for WhatsApp recovery"
     },
     "/settings/{settingId}": {
       "schema": "Setting",

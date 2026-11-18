@@ -404,6 +404,8 @@ export async function updateFirestoreOrder(orderId: string, orderData: any) {
       ? Math.max(0, Number(orderData.realShippingCost) || 0)
       : null,
     shipment: orderData.shipment && typeof orderData.shipment === 'object' ? orderData.shipment : null,
+    exchangeInfo: orderData.exchangeInfo && typeof orderData.exchangeInfo === 'object' ? orderData.exchangeInfo : null,
+    source: orderData.source ? String(orderData.source).trim().slice(0, 40) : 'Web',
     total: Number(orderData.total || 0),
     paymentMethod: String(orderData.paymentMethod || 'COD (Paiement à la livraison)'),
     updatedAt: new Date().toISOString()
@@ -656,5 +658,63 @@ export async function saveCouponsSettings(items: any[]) {
     return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+// 12. Abandoned Cart Draft Orders in Firestore
+export async function fetchFirestoreDraftOrders() {
+  const path = 'draftOrders';
+  try {
+    const docs = await fsGetCollection(path);
+    const list: any[] = docs.map(docSnap => {
+      const data = docSnap.data();
+      return {
+        ...data,
+        id: data.id || docSnap.id
+      };
+    });
+    return list.sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+  } catch (err) {
+    console.warn('Failed to load draftOrders from Firestore:', err);
+    return [];
+  }
+}
+
+export async function saveFirestoreDraftOrder(draft: any) {
+  const cleanId = String(draft?.id || '').trim().toUpperCase();
+  const path = `draftOrders/${cleanId}`;
+  const cleanDraft: Record<string, any> = {
+    id: cleanId,
+    customerName: String(draft.customerName || '').trim().slice(0, 200),
+    customerPhone: String(draft.customerPhone || '').trim().slice(0, 15),
+    city: String(draft.city || '').trim().slice(0, 100),
+    address: String(draft.address || '').trim().slice(0, 500),
+    notes: String(draft.notes || '').trim().slice(0, 500),
+    items: Array.isArray(draft.items) ? draft.items.slice(0, 100) : [],
+    subtotal: Math.max(0, Number(draft.subtotal || 0) || 0),
+    discount: Math.max(0, Number(draft.discount || 0) || 0),
+    promoCode: draft.promoCode ? String(draft.promoCode).trim().slice(0, 40) : null,
+    total: Math.max(0, Number(draft.total || 0) || 0),
+    status: ['Abandonné', 'Relancé', 'Converti'].includes(String(draft.status)) ? String(draft.status) : 'Abandonné',
+    source: String(draft.source || 'checkout_modal').trim().slice(0, 50),
+    createdAt: String(draft.createdAt || new Date().toISOString()).slice(0, 50),
+    updatedAt: String(draft.updatedAt || new Date().toISOString()).slice(0, 50)
+  };
+  try {
+    await fsSetDoc('draftOrders', cleanId, cleanDraft);
+    return cleanDraft;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteFirestoreDraftOrder(draftId: string) {
+  const cleanId = String(draftId || '').trim().toUpperCase();
+  const path = `draftOrders/${cleanId}`;
+  try {
+    await fsDeleteDoc('draftOrders', cleanId);
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
   }
 }

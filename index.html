@@ -1390,6 +1390,73 @@
         setTimeout(() => { window.print(); }, 180);
       }
 
+      function printPickingListHTML(itemsList, subtitleLabel = '') {
+        const list = Array.isArray(itemsList) ? itemsList : [];
+        if (list.length === 0) return;
+        const printArea = document.getElementById('print-area');
+        if (!printArea) { window.print(); return; }
+
+        const dynamicStyle = document.getElementById('dynamic-thermal-page-style');
+        if (dynamicStyle) dynamicStyle.textContent = '';
+
+        const totalUnits = list.reduce((acc, it) => acc + Number(it.totalQty || 0), 0);
+        const nowStr = new Date().toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' });
+
+        const rowsHtml = list.map((it, idx) => `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center; width: 34px;">
+              <span style="display:inline-block; width:16px; height:16px; border:1.5px solid #171717;"></span>
+            </td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center; font-weight:700; width: 32px;">${idx + 1}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight:700; color:#171717;">
+              ${escapeHTML(it.nameFr || 'Produit')}
+              <div style="font-size:10px; color:#666; font-weight:400; margin-top:2px;">Commandes : ${escapeHTML((it.orderRefs || []).join(', '))}</div>
+            </td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight:600; white-space:nowrap;">${escapeHTML(it.size || 'Unique')}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight:600; white-space:nowrap;">${escapeHTML(it.colorLabel || 'Standard')}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align:center; font-size:16px; font-weight:800; color:#171717; background:#FAF6EE;">
+              ${Number(it.totalQty || 0)}x
+            </td>
+          </tr>
+        `).join('');
+
+        printArea.innerHTML = `
+          <div style="font-family: 'Plus Jakarta Sans', Arial, sans-serif; max-width: 780px; margin: 0 auto; padding: 28px; color: #171717; background: #fff;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom: 2px solid #171717; padding-bottom:14px; margin-bottom:18px;">
+              <div>
+                <div style="font-family:'Cormorant Garamond', Georgia, serif; font-size:28px; font-weight:700; letter-spacing:2px;">MODANOVA</div>
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#7A6C5D;">Feuille de Préparation Logistique (Picking List)</div>
+              </div>
+              <div style="text-align:right; font-size:11px;">
+                <div style="font-weight:700;">${escapeHTML(subtitleLabel || 'Préparation Stock')}</div>
+                <div style="color:#666;">${escapeHTML(nowStr)}</div>
+                <div style="margin-top:4px; font-weight:700; color:#C28B53;">Total : ${totalUnits} article(s) · ${list.length} référence(s)</div>
+              </div>
+            </div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+              <thead>
+                <tr style="background:#171717; color:#fff; text-transform:uppercase; font-size:10px; letter-spacing:0.8px;">
+                  <th style="padding:8px; text-align:center;">Prêt</th>
+                  <th style="padding:8px; text-align:center;">#</th>
+                  <th style="padding:8px; text-align:left;">Article & Références Commandes</th>
+                  <th style="padding:8px; text-align:left;">Taille / Pointure</th>
+                  <th style="padding:8px; text-align:left;">Couleur</th>
+                  <th style="padding:8px; text-align:center;">Qté Totale</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        `;
+
+        const handleAfterPrint = () => {
+          printArea.innerHTML = '';
+          window.removeEventListener('afterprint', handleAfterPrint);
+        };
+        window.addEventListener('afterprint', handleAfterPrint);
+        setTimeout(() => { window.print(); }, 180);
+      }
+
       function downloadInvoice(order, lang = 'fr') {
         if (!order) return;
         const invoiceBody = buildInvoiceHTML(order, lang);
@@ -1479,6 +1546,28 @@
         const message = isAr
           ? `مرحباً ${order.customerName}،\nمعك خدمة عملاء مودانوفا (MODANOVA).\nنشكركم على اختياركم متجرنا! نود تأكيد طلبكم رقم *${order.id}* :\n\n*المنتجات :*\n${itemsSummary}\n\n*المبلغ الإجمالي :* ${order.total} درهم (الدفع نقداً عند الاستلام)\n*عنوان التوصيل :* ${order.address}، ${order.city}\n\nيرجى الرد لتأكيد هذا الطلب لنباشر الشحن الفوري إليكم. شكراً جزيلاً!`
           : `Bonjour ${order.customerName},\nC'est le support MODANOVA.\nNous vous remercions pour votre confiance ! Nous souhaitons confirmer avec vous votre commande N° *${order.id}* :\n\n*Articles commandés :*\n${itemsSummary}\n\n*Total à régler :* ${order.total} MAD (Paiement à la livraison)\n*Adresse de livraison :* ${order.address}, ${order.city}\n\nPourriez-vous s'il vous plaît nous confirmer cette commande afin que nous puissions lancer l'expédition express immédiatement ? Merci !`;
+
+        return `https://wa.me/${clientPhone}?text=${encodeURIComponent(message)}`;
+      }
+
+      function buildAbandonedDraftWhatsAppLink(draft) {
+        const clientPhone = formatMoroccanPhone(draft?.customerPhone);
+        const itemsSummary = (Array.isArray(draft?.items) ? draft.items : [])
+          .map(i => {
+            const sz = i.size ? `Taille: ${i.size}` : '';
+            const col = i.colorLabel || (i.color ? getColorLabel(i.color, 'fr') : '');
+            const meta = [sz, col ? `Couleur: ${col}` : ''].filter(Boolean).join(' | ');
+            return `• ${i.nameFr}${meta ? ` (${meta})` : ''} x${i.quantity || 1}`;
+          })
+          .join('\n');
+
+        const message =
+          `Bonjour ${draft?.customerName || ''},\n` +
+          `C'est un conseiller MODANOVA.\n` +
+          `Nous avons remarqué que vous n'avez pas finalisé votre commande sur notre boutique :\n\n` +
+          `*Articles dans votre panier :*\n${itemsSummary}\n\n` +
+          `*Total estimé :* ${Number(draft?.total || 0)} MAD (Livraison gratuite & Paiement à la livraison)\n\n` +
+          `Avez-vous besoin d'aide sur la taille ou souhaitez-vous que je valide l'expédition express pour vous ?`;
 
         return `https://wa.me/${clientPhone}?text=${encodeURIComponent(message)}`;
       }
@@ -6137,6 +6226,16 @@
                     ));
                   }
                 }}
+                onOrderCreatedLocal={(newOrd) => {
+                  if (newOrd && newOrd.id) {
+                    setOrders(prev => [newOrd, ...(prev || []).filter(o => o?.id !== newOrd.id)]);
+                  }
+                }}
+                onProductsUpdatedLocal={(updatedProds) => {
+                  if (Array.isArray(updatedProds)) {
+                    setProducts(updatedProds);
+                  }
+                }}
               />
             )}
 
@@ -6277,6 +6376,19 @@
         const [notes, setNotes] = useState('');
         const [checkoutPromoInput, setCheckoutPromoInput] = useState(promoCode || '');
         const [submitting, setSubmitting] = useState(false);
+        const draftIdRef = useRef(() => {
+          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+          let s = '';
+          for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+          return `DRF-${s}`;
+        });
+        const stableDraftId = useMemo(() => {
+          if (typeof draftIdRef.current === 'function') {
+            draftIdRef.current = draftIdRef.current();
+          }
+          return draftIdRef.current;
+        }, []);
+        const orderCompletedRef = useRef(false);
 
         // Phone Validation (/^(06|07)\d{8}$/)
         const phoneClean = customerPhone.trim().replace(/\s+/g, '');
@@ -6285,6 +6397,54 @@
 
         const selectedCityObj = MOROCCAN_CITIES.find(c => c.id === city) || MOROCCAN_CITIES[0];
 
+        // Auto-capture abandoned checkout draft once visitor enters Name + valid 06/07 Phone
+        useEffect(() => {
+          if (orderCompletedRef.current) return;
+          if (customerName.trim().length < 2 || !isPhoneValid || !Array.isArray(cart) || cart.length === 0) return;
+
+          const draftPayload = {
+            draftId: stableDraftId,
+            customerName: customerName.trim(),
+            customerPhone: phoneClean,
+            city: selectedCityObj.nameFr,
+            address: address.trim(),
+            notes: notes.trim(),
+            promoCode: promoCode || null,
+            items: cart.map(item => ({
+              productId: item.productId,
+              nameFr: item.nameFr,
+              price: item.price,
+              quantity: item.quantity,
+              size: item.size,
+              color: item.color
+            }))
+          };
+
+          const timer = setTimeout(() => {
+            if (orderCompletedRef.current) return;
+            fetch('/api/draft-orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(draftPayload),
+              keepalive: true
+            }).catch(() => {});
+          }, 1100);
+
+          const handleExit = () => {
+            if (orderCompletedRef.current) return;
+            try {
+              const blob = new Blob([JSON.stringify(draftPayload)], { type: 'application/json' });
+              if (navigator.sendBeacon) navigator.sendBeacon('/api/draft-orders', blob);
+            } catch {}
+          };
+          window.addEventListener('pagehide', handleExit);
+
+          return () => {
+            clearTimeout(timer);
+            window.removeEventListener('pagehide', handleExit);
+          };
+        }, [customerName, phoneClean, isPhoneValid, selectedCityObj.nameFr, address, notes, promoCode, cart, stableDraftId]);
+
         const handleSubmit = async (e) => {
           e.preventDefault();
           if (!isFormValid || submitting) return;
@@ -6292,6 +6452,7 @@
           setSubmitting(true);
           try {
             const payload = {
+              draftId: stableDraftId,
               customerName: customerName.trim(),
               customerPhone: phoneClean,
               city: selectedCityObj.nameFr,
@@ -6314,6 +6475,7 @@
 
             const data = await res.json();
             if (res.ok && data.order) {
+              orderCompletedRef.current = true;
               const enrichedOrder = {
                 ...data.order,
                 _adminWhatsappUrl: data.adminWhatsappUrl || buildWhatsAppLink(data.order, lang),
@@ -6680,7 +6842,8 @@
         lang, t, onClose, onRefreshOrders, onDeleteOrderLocal, onRefreshProducts, onReorderProductsLocal, onDeleteProductLocal, onEditProduct,
         onAddProduct, onViewInvoice, showToast, onViewProductPage, onCopyProductLink,
         heroSlides, onSaveSlider, cms, onSaveCms, testimonials, onRefreshTestimonials,
-        storePhone, storePhoneDisplay, onUpdateStorePhone, profitabilitySettings, onUpdateProfitabilitySettings, onOrderUpdated
+        storePhone, storePhoneDisplay, onUpdateStorePhone, profitabilitySettings, onUpdateProfitabilitySettings, onOrderUpdated,
+        onOrderCreatedLocal, onProductsUpdatedLocal
       }) {
         // Slider state
         const [sliderDraft, setSliderDraft] = useState(() => JSON.parse(JSON.stringify(heroSlides || [])));
@@ -6814,9 +6977,63 @@
         const [newCityCost, setNewCityCost] = useState(35);
         const [profitSaving, setProfitSaving] = useState(false);
 
+        // Abandoned Draft Orders, Manual POS Order, Picking List & SAV Exchange states
+        const [draftOrders, setDraftOrders] = useState([]);
+        const [draftsLoading, setDraftsLoading] = useState(false);
+        const [confirmDeleteDraftId, setConfirmDeleteDraftId] = useState(null);
+
+        const [showPosModal, setShowPosModal] = useState(false);
+        const [posSaving, setPosSaving] = useState(false);
+        const [posForm, setPosForm] = useState({
+          customerName: '',
+          customerPhone: '',
+          city: 'Casablanca',
+          address: '',
+          notes: '',
+          source: 'WhatsApp',
+          status: 'Confirmée',
+          discount: 0,
+          shippingFee: 0,
+          fromDraftId: null,
+          items: []
+        });
+        const [posAddProdId, setPosAddProdId] = useState('');
+        const [posAddSize, setPosAddSize] = useState('');
+        const [posAddColor, setPosAddColor] = useState('');
+        const [posAddQty, setPosAddQty] = useState(1);
+
+        const [showPickingModal, setShowPickingModal] = useState(false);
+        const [pickingScope, setPickingScope] = useState('pending'); // 'pending' | 'today' | 'selected'
+        const [pickingChecked, setPickingChecked] = useState({});
+
+        const [exchangeOrder, setExchangeOrder] = useState(null);
+        const [exchangeSaving, setExchangeSaving] = useState(false);
+        const [exchangeForm, setExchangeForm] = useState({
+          itemIndex: 0,
+          newSize: '',
+          newColor: '',
+          reason: ''
+        });
+
         useEffect(() => {
           if (storePhone) setGlobalPhoneInput(storePhone);
         }, [storePhone]);
+
+        const fetchDraftOrders = useCallback(async () => {
+          if (!token) return;
+          setDraftsLoading(true);
+          try {
+            const res = await fetch('/api/admin/draft-orders', {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data)) setDraftOrders(data);
+            }
+          } catch {} finally {
+            setDraftsLoading(false);
+          }
+        }, [token]);
 
         const fetchAdminCoupons = useCallback(async () => {
           if (!token) return;
@@ -6834,10 +7051,11 @@
           }
         }, [token]);
 
-        // Load Admin Security, WhatsApp, Carriers, Profitability & Coupons when authenticated
+        // Load Admin Security, WhatsApp, Carriers, Profitability, Drafts & Coupons when authenticated
         useEffect(() => {
           if (!token) return;
           fetchAdminCoupons();
+          fetchDraftOrders();
           fetch('/api/admin/config', {
             headers: { Authorization: `Bearer ${token}` }
           })
@@ -6877,7 +7095,7 @@
               }
             })
             .catch(() => {});
-        }, [token, fetchAdminCoupons]);
+        }, [token, fetchAdminCoupons, fetchDraftOrders]);
 
         // Live Order Watcher (checks every 15s for new orders and alerts admin with chime + WhatsApp link)
         useEffect(() => {
@@ -7642,6 +7860,306 @@
           showToast(`📊 Export comptable CSV généré (${sourceList.length} commandes) !`, 'success');
         };
 
+        // ============================================================
+        // Abandoned Draft Orders Handlers
+        // ============================================================
+        const handleMarkDraftRelanced = async (draftId) => {
+          if (!draftId) return;
+          setDraftOrders(prev => (prev || []).map(d => d.id === draftId ? { ...d, status: 'Relancé' } : d));
+          try {
+            await fetch(`/api/admin/draft-orders/${encodeURIComponent(draftId)}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ status: 'Relancé' })
+            });
+          } catch {}
+        };
+
+        const handleDeleteDraftOrder = async (draftId) => {
+          if (!draftId) return;
+          setDraftOrders(prev => (prev || []).filter(d => d.id !== draftId));
+          setConfirmDeleteDraftId(null);
+          try {
+            const res = await fetch(`/api/admin/draft-orders/${encodeURIComponent(draftId)}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) showToast('Panier abandonné supprimé.', 'info');
+          } catch {}
+        };
+
+        // ============================================================
+        // Manual POS Order Handlers (WhatsApp / Instagram / Téléphone)
+        // ============================================================
+        const openPosModal = (prefillDraft = null) => {
+          const firstProd = (products || []).find(p => p && p.stock > 0) || (products || [])[0];
+          if (firstProd) {
+            setPosAddProdId(String(firstProd.id));
+            setPosAddSize((Array.isArray(firstProd.sizes) && firstProd.sizes[0]) || 'Unique');
+            setPosAddColor((Array.isArray(firstProd.colors) && firstProd.colors[0]) || 'Noir:#171717');
+          } else {
+            setPosAddProdId('');
+            setPosAddSize('');
+            setPosAddColor('');
+          }
+          setPosAddQty(1);
+
+          if (prefillDraft) {
+            setPosForm({
+              customerName: prefillDraft.customerName || '',
+              customerPhone: prefillDraft.customerPhone || '',
+              city: prefillDraft.city || 'Casablanca',
+              address: prefillDraft.address || '',
+              notes: prefillDraft.notes || `Récupération panier abandonné (${prefillDraft.id})`,
+              source: 'WhatsApp',
+              status: 'Confirmée',
+              discount: Number(prefillDraft.discount || 0),
+              shippingFee: 0,
+              fromDraftId: prefillDraft.id,
+              items: (Array.isArray(prefillDraft.items) ? prefillDraft.items : []).map((it, idx) => ({
+                _key: `pos_drf_${idx}_${it.productId || 0}`,
+                productId: Number(it.productId || it.id || 0),
+                nameFr: it.nameFr || 'Article',
+                price: Number(it.price || 0),
+                quantity: Math.max(1, Number(it.quantity || 1)),
+                size: it.size || 'Unique',
+                color: it.color || 'Noir:#171717',
+                colorLabel: it.colorLabel || getColorLabel(it.color || '', 'fr')
+              }))
+            });
+          } else {
+            setPosForm({
+              customerName: '',
+              customerPhone: '',
+              city: 'Casablanca',
+              address: '',
+              notes: '',
+              source: 'WhatsApp',
+              status: 'Confirmée',
+              discount: 0,
+              shippingFee: 0,
+              fromDraftId: null,
+              items: []
+            });
+          }
+          setShowPosModal(true);
+        };
+
+        const handlePosProductSelect = (newProdId) => {
+          setPosAddProdId(newProdId);
+          const pr = (products || []).find(p => String(p.id) === String(newProdId));
+          if (pr) {
+            setPosAddSize((Array.isArray(pr.sizes) && pr.sizes[0]) || 'Unique');
+            setPosAddColor((Array.isArray(pr.colors) && pr.colors[0]) || 'Noir:#171717');
+            setPosAddQty(1);
+          }
+        };
+
+        const handleAddPosItem = () => {
+          const pr = (products || []).find(p => String(p.id) === String(posAddProdId));
+          if (!pr) {
+            showToast('Sélectionnez un produit du catalogue.', 'warning');
+            return;
+          }
+          const sz = posAddSize || (Array.isArray(pr.sizes) && pr.sizes[0]) || 'Unique';
+          const col = posAddColor || (Array.isArray(pr.colors) && pr.colors[0]) || 'Noir:#171717';
+          const qty = Math.max(1, parseInt(posAddQty, 10) || 1);
+          const avail = getProductVariantStock(pr, sz, col);
+          if (avail < qty) {
+            showToast(`Stock insuffisant pour ${pr.nameFr} (${sz} / ${getColorLabel(col, 'fr')}) : ${avail} disponible(s).`, 'error');
+            return;
+          }
+          setPosForm(prev => {
+            const existingIdx = prev.items.findIndex(
+              it => Number(it.productId) === Number(pr.id) && it.size === sz && it.color === col
+            );
+            if (existingIdx >= 0) {
+              const nextItems = [...prev.items];
+              nextItems[existingIdx] = {
+                ...nextItems[existingIdx],
+                quantity: nextItems[existingIdx].quantity + qty
+              };
+              return { ...prev, items: nextItems };
+            }
+            return {
+              ...prev,
+              items: [
+                ...prev.items,
+                {
+                  _key: `pos_${Date.now()}_${pr.id}`,
+                  productId: pr.id,
+                  nameFr: pr.nameFr,
+                  price: Number(pr.price || 0),
+                  quantity: qty,
+                  size: sz,
+                  color: col,
+                  colorLabel: getColorLabel(col, 'fr')
+                }
+              ]
+            };
+          });
+        };
+
+        const handleSubmitPosOrder = async (printInvoiceAfter = false) => {
+          if (posSaving) return;
+          const cleanPhone = String(posForm.customerPhone || '').trim().replace(/\s+/g, '');
+          if (!String(posForm.customerName || '').trim()) {
+            showToast('Veuillez saisir le nom du client.', 'error');
+            return;
+          }
+          if (!/^(06|07)\d{8}$/.test(cleanPhone)) {
+            showToast('Le numéro de téléphone doit comporter 10 chiffres (06 ou 07).', 'error');
+            return;
+          }
+          if (!posForm.items || posForm.items.length === 0) {
+            showToast('Ajoutez au moins un article à la commande POS.', 'error');
+            return;
+          }
+
+          setPosSaving(true);
+          try {
+            const res = await fetch('/api/admin/orders/manual', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                ...posForm,
+                customerPhone: cleanPhone
+              })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.order) {
+              if (onOrderCreatedLocal) onOrderCreatedLocal(data.order);
+              if (Array.isArray(data.products) && onProductsUpdatedLocal) {
+                onProductsUpdatedLocal(data.products);
+              } else if (onRefreshProducts) {
+                onRefreshProducts();
+              }
+              if (posForm.fromDraftId) {
+                setDraftOrders(prev => (prev || []).filter(d => d.id !== posForm.fromDraftId));
+              }
+              if (onRefreshOrders) await onRefreshOrders();
+              setShowPosModal(false);
+              showToast(`⚡ Commande ${data.order.id} créée (${posForm.source}) & stock mis à jour !`, 'success');
+              if (printInvoiceAfter && onViewInvoice) {
+                onViewInvoice(data.order);
+              }
+            } else {
+              showToast(data.error || 'Erreur lors de la création POS', 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion au serveur', 'error');
+          } finally {
+            setPosSaving(false);
+          }
+        };
+
+        // ============================================================
+        // SAV Return & Exchange Handlers (Échange en cours)
+        // ============================================================
+        const openExchangeModal = (order) => {
+          if (!order || !Array.isArray(order.items) || order.items.length === 0) return;
+          const firstItem = order.items[0];
+          const prod = (products || []).find(p => Number(p.id) === Number(firstItem.productId || firstItem.id));
+          const sizes = prod && Array.isArray(prod.sizes) && prod.sizes.length > 0 ? prod.sizes : [firstItem.size || 'Unique'];
+          const colors = prod && Array.isArray(prod.colors) && prod.colors.length > 0 ? prod.colors : [firstItem.color || 'Noir:#171717'];
+          const altSize = sizes.find(s => s !== firstItem.size) || firstItem.size || sizes[0];
+          setExchangeOrder(order);
+          setExchangeForm({
+            itemIndex: 0,
+            newSize: altSize,
+            newColor: firstItem.color || colors[0],
+            reason: order.exchangeInfo?.reason || 'Échange taille / pointure client'
+          });
+        };
+
+        const handleSubmitExchange = async (e) => {
+          if (e && e.preventDefault) e.preventDefault();
+          if (!exchangeOrder || exchangeSaving) return;
+          setExchangeSaving(true);
+          try {
+            const res = await fetch(`/api/orders/${encodeURIComponent(exchangeOrder.id)}/exchange`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(exchangeForm)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.order) {
+              if (onOrderUpdated) onOrderUpdated(data.order);
+              if (Array.isArray(data.products) && onProductsUpdatedLocal) {
+                onProductsUpdatedLocal(data.products);
+              } else if (onRefreshProducts) {
+                onRefreshProducts();
+              }
+              if (onRefreshOrders) await onRefreshOrders();
+              setExchangeOrder(null);
+              showToast(`🔄 Échange enregistré sur ${data.order.id} : stock ajusté automatiquement sans modifier le CA !`, 'success');
+            } else {
+              showToast(data.error || "Impossible d'enregistrer l'échange", 'error');
+            }
+          } catch {
+            showToast('Erreur de connexion', 'error');
+          } finally {
+            setExchangeSaving(false);
+          }
+        };
+
+        // ============================================================
+        // Picking List Generator (Feuille de préparation groupée)
+        // ============================================================
+        const pickingSourceOrders = useMemo(() => {
+          const all = Array.isArray(orders) ? orders : [];
+          if (pickingScope === 'selected' && selectedOrderIds.length > 0) {
+            return all.filter(o => o && selectedOrderIds.includes(o.id));
+          }
+          if (pickingScope === 'today') {
+            const todayIso = new Date().toISOString().slice(0, 10);
+            return all.filter(o => o && o.status !== 'Annulée' && String(o.date || '').slice(0, 10) === todayIso);
+          }
+          // Default 'pending': commandes à préparer/expédier
+          return all.filter(o => o && ['En attente', 'Confirmée', 'Échange en cours'].includes(o.status));
+        }, [orders, pickingScope, selectedOrderIds]);
+
+        const groupedPickingItems = useMemo(() => {
+          const map = new Map();
+          pickingSourceOrders.forEach(ord => {
+            (Array.isArray(ord.items) ? ord.items : []).forEach(it => {
+              const prodName = String(it.nameFr || it.name || 'Article').trim();
+              const sz = String(it.size || 'Unique').trim();
+              const colLabel = String(it.colorLabel || getColorLabel(it.color || '', 'fr') || 'Standard').trim();
+              const key = `${it.productId || prodName}__${sz.toLowerCase()}__${colLabel.toLowerCase()}`;
+              const qty = Math.max(1, Number(it.quantity || it.qty || 1));
+              if (!map.has(key)) {
+                map.set(key, {
+                  key,
+                  productId: it.productId || 0,
+                  nameFr: prodName,
+                  size: sz,
+                  colorLabel: colLabel,
+                  image: it.image || '',
+                  totalQty: 0,
+                  orderRefs: []
+                });
+              }
+              const entry = map.get(key);
+              entry.totalQty += qty;
+              if (ord.id && !entry.orderRefs.includes(ord.id)) {
+                entry.orderRefs.push(ord.id);
+              }
+            });
+          });
+          return Array.from(map.values()).sort((a, b) => b.totalQty - a.totalQty || a.nameFr.localeCompare(b.nameFr));
+        }, [pickingSourceOrders]);
+
+
         // Coupon Discount CRUD handlers
         const generateRandomCouponCode = () => {
           const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -8401,6 +8919,23 @@
                 </button>
 
                 <button
+                  onClick={() => { setActiveTab('drafts'); fetchDraftOrders(); }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
+                    activeTab === 'drafts'
+                      ? 'bg-[#E6C687] text-[#141414] font-bold shadow-xs'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>🛒</span>
+                    <span>Paniers Abandonnés</span>
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${activeTab === 'drafts' ? 'bg-[#141414] text-[#E6C687]' : 'bg-amber-500/25 text-amber-300'}`}>
+                    {(draftOrders || []).length}
+                  </span>
+                </button>
+
+                <button
                   onClick={() => setActiveTab('coupons')}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors ${
                     activeTab === 'coupons'
@@ -8604,6 +9139,7 @@
                   <h2 className="font-serif text-xl font-bold text-noir flex items-center gap-2">
                     {activeTab === 'products' && 'Catalogue & Produits'}
                     {activeTab === 'orders' && 'Gestion des Commandes & Expéditions'}
+                    {activeTab === 'drafts' && 'Paniers Abandonnés & Récupération WhatsApp'}
                     {activeTab === 'coupons' && 'Coupons & Codes Promo Clients'}
                     {activeTab === 'slider' && "Slider de la Page d'Accueil"}
                     {activeTab === 'cms' && 'Gestion du Contenu Fixe (CMS)'}
@@ -8614,7 +9150,8 @@
                   </h2>
                   <p className="text-xs text-taupe-dark">
                     {activeTab === 'products' && 'Gérez vos créations, photos Firebase, prix, coûts d’achat et stocks.'}
-                    {activeTab === 'orders' && 'Confirmez sur WhatsApp, générez vos bons Ozon/Cathedis/Amana, imprimez étiquettes/factures en masse et exportez en CSV.'}
+                    {activeTab === 'orders' && 'Confirmez sur WhatsApp, créez des commandes POS, gérez vos échanges SAV et imprimez vos Picking Lists.'}
+                    {activeTab === 'drafts' && 'Visiteurs ayant saisi nom et numéro (06/07) sans finaliser : relancez sur WhatsApp en 1 clic ou convertissez en commande.'}
                     {activeTab === 'coupons' && 'Créez des codes de réduction (% ou MAD), conditions minimales et dates d’expiration pour vos clients.'}
                     {activeTab === 'slider' && 'Personnalisez vos 3 bannières et uploadez des fonds haute définition.'}
                     {activeTab === 'cms' && 'Modifiez les textes et photos du site sans toucher au code source.'}
@@ -8625,7 +9162,7 @@
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   {activeTab === 'products' && (
                     <button
                       onClick={onAddProduct}
@@ -8637,14 +9174,54 @@
                   )}
 
                   {activeTab === 'orders' && (
-                    <button
-                      type="button"
-                      onClick={() => handleExportAccountingCSV()}
-                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shadow-xs"
-                    >
-                      <span>📊</span>
-                      <span>Exporter CSV</span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => openPosModal(null)}
+                        className="px-3.5 py-2 bg-noir hover:bg-caramel text-[#E6C687] hover:text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-1.5 shadow-xs"
+                      >
+                        <span>⚡</span>
+                        <span>+ Commande POS</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setPickingScope('pending'); setShowPickingModal(true); }}
+                        className="px-3.5 py-2 bg-caramel hover:bg-noir text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-1.5 shadow-xs"
+                      >
+                        <span>📦</span>
+                        <span>Picking List</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExportAccountingCSV()}
+                        className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-1.5 shadow-xs"
+                      >
+                        <span>📊</span>
+                        <span>Exporter CSV</span>
+                      </button>
+                    </>
+                  )}
+
+                  {activeTab === 'drafts' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={fetchDraftOrders}
+                        disabled={draftsLoading}
+                        className="px-3.5 py-2 bg-white border border-taupe/30 hover:border-noir text-noir text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-1.5 shadow-xs"
+                      >
+                        <span>{draftsLoading ? '⏳' : '↻'}</span>
+                        <span>Actualiser</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openPosModal(null)}
+                        className="px-3.5 py-2 bg-noir hover:bg-caramel text-[#E6C687] hover:text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-1.5 shadow-xs"
+                      >
+                        <span>⚡</span>
+                        <span>Nouvelle Commande POS</span>
+                      </button>
+                    </>
                   )}
 
                   {activeTab === 'coupons' && (
@@ -9265,7 +9842,7 @@
                     {/* Status Filter, Month Accounting Export & Search Toolbar */}
                     <div className="p-4 border-b border-taupe/15 flex flex-col xl:flex-row gap-3 items-stretch xl:items-center justify-between bg-canvas/40">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {['ALL', 'En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(s => (
+                        {['ALL', 'En attente', 'Confirmée', 'En cours', 'Échange en cours', 'Livrée', 'Annulée'].map(s => (
                           <button
                             key={s}
                             onClick={() => {
@@ -9350,7 +9927,7 @@
                               onChange={(e) => setBulkStatusTarget(e.target.value)}
                               className="bg-[#1C1C1C] border border-white/20 text-white text-xs px-2 py-1 rounded-xs font-semibold"
                             >
-                              {['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(st => (
+                              {['En attente', 'Confirmée', 'En cours', 'Échange en cours', 'Livrée', 'Annulée'].map(st => (
                                 <option key={st} value={st}>{st}</option>
                               ))}
                             </select>
@@ -9382,6 +9959,16 @@
                           >
                             <span>🏷️</span>
                             <span>Étiquettes Thermiques</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => { setPickingScope('selected'); setShowPickingModal(true); }}
+                            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-[#141414] text-[11px] font-bold rounded-xs transition-colors flex items-center gap-1"
+                            title="Générer la feuille de préparation (Picking List) pour ces commandes"
+                          >
+                            <span>📦</span>
+                            <span>Picking List Sélection</span>
                           </button>
 
                           <button
@@ -9468,7 +10055,19 @@
                                       {orderNum}
                                     </span>
                                   </td>
-                                  <td className="p-2.5 font-mono font-bold text-noir whitespace-nowrap">{o.id}</td>
+                                  <td className="p-2.5 whitespace-nowrap">
+                                    <div className="font-mono font-bold text-noir">{o.id}</div>
+                                    {o.source && o.source !== 'Web' && (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[9px] font-bold uppercase rounded-2xs">
+                                        POS · {o.source}
+                                      </span>
+                                    )}
+                                    {o.exchangeInfo && o.exchangeInfo.active && (
+                                      <div className="mt-0.5 px-1.5 py-0.5 bg-purple-50 border border-purple-200 text-purple-800 text-[9px] font-semibold rounded-2xs" title={o.exchangeInfo.reason || ''}>
+                                        🔄 {o.exchangeInfo.originalSize} → {o.exchangeInfo.newSize}
+                                      </div>
+                                    )}
+                                  </td>
                                   <td className="p-2.5 text-taupe-dark whitespace-nowrap">
                                     {formattedDate}
                                   </td>
@@ -9573,7 +10172,7 @@
                                       onChange={(e) => handleStatusChange(o.id, e.target.value)}
                                       className="bg-white border border-taupe/30 px-2 py-1 text-xs text-noir font-semibold rounded-xs"
                                     >
-                                      {['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(s => (
+                                      {['En attente', 'Confirmée', 'En cours', 'Échange en cours', 'Livrée', 'Annulée'].map(s => (
                                         <option key={s} value={s}>{s}</option>
                                       ))}
                                     </select>
@@ -9591,6 +10190,14 @@
                                         <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
                                         <span className="hidden 2xl:inline">WhatsApp</span>
                                       </a>
+                                      <button
+                                        type="button"
+                                        onClick={() => openExchangeModal(o)}
+                                        className="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold rounded-xs transition-colors whitespace-nowrap"
+                                        title="SAV : Échange taille / pointure (réintègre l'ancien stock & réserve le nouveau)"
+                                      >
+                                        🔄
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => openEditOrder(o)}
@@ -10152,6 +10759,164 @@
                           </div>
                         ))
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ======================================================= */}
+                {/* TAB: ABANDONED CARTS / DRAFT ORDERS RECOVERY            */}
+                {/* ======================================================= */}
+                {activeTab === 'drafts' && (
+                  <div className="space-y-6">
+                    {/* Summary KPI Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="bg-white p-4 border border-taupe/20 rounded-xs shadow-2xs">
+                        <div className="text-[11px] uppercase tracking-wider text-taupe font-semibold">Paniers Abandonnés Actifs</div>
+                        <div className="text-2xl font-serif font-bold text-noir mt-1">{(draftOrders || []).length}</div>
+                      </div>
+                      <div className="bg-white p-4 border border-taupe/20 rounded-xs shadow-2xs">
+                        <div className="text-[11px] uppercase tracking-wider text-taupe font-semibold">Chiffre d'Affaires Récupérable</div>
+                        <div className="text-2xl font-serif font-bold text-caramel mt-1">
+                          {(draftOrders || []).reduce((acc, d) => acc + Number(d?.total || 0), 0).toLocaleString()} MAD
+                        </div>
+                      </div>
+                      <div className="bg-white p-4 border border-taupe/20 rounded-xs shadow-2xs">
+                        <div className="text-[11px] uppercase tracking-wider text-taupe font-semibold">Déjà Relancés sur WhatsApp</div>
+                        <div className="text-2xl font-serif font-bold text-emerald-700 mt-1">
+                          {(draftOrders || []).filter(d => d?.status === 'Relancé').length}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Drafts Table */}
+                    <div className="bg-white border border-taupe/20 rounded-xs shadow-2xs overflow-hidden">
+                      <div className="p-4 border-b border-taupe/15 bg-[#FAF9F6] flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <h3 className="font-serif text-base font-bold text-noir">Pré-commandes Capturées en Temps Réel</h3>
+                          <p className="text-xs text-taupe-dark">
+                            Enregistrées automatiquement dès qu'un visiteur saisit son nom et son numéro (06/07) dans le formulaire sans valider.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-canvas border-b border-taupe/20 text-taupe-dark uppercase text-[10px] tracking-wider">
+                              <th className="p-3">Réf & Date</th>
+                              <th className="p-3">Prospect & Tél</th>
+                              <th className="p-3">Ville</th>
+                              <th className="p-3">Articles du Panier</th>
+                              <th className="p-3">Total Estimé</th>
+                              <th className="p-3">Statut</th>
+                              <th className="p-3 text-right">Actions de Récupération</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-taupe/15">
+                            {(draftOrders || []).length === 0 ? (
+                              <tr>
+                                <td colSpan="7" className="p-10 text-center text-taupe-dark">
+                                  {draftsLoading ? 'Chargement des paniers abandonnés...' : 'Aucun panier abandonné en attente pour le moment.'}
+                                </td>
+                              </tr>
+                            ) : (
+                              (draftOrders || []).map(d => {
+                                const dt = d.updatedAt || d.createdAt;
+                                const formattedDt = dt ? new Date(dt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+                                const isConfirmDel = confirmDeleteDraftId === d.id;
+                                return (
+                                  <tr key={d.id} className="hover:bg-canvas/50 transition-colors">
+                                    <td className="p-3 whitespace-nowrap">
+                                      <div className="font-mono font-bold text-noir">{d.id}</div>
+                                      <div className="text-[10px] text-taupe">{formattedDt}</div>
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="font-bold text-noir">{d.customerName}</div>
+                                      <div className="text-[11px] font-mono text-caramel">{d.customerPhone}</div>
+                                    </td>
+                                    <td className="p-3 text-taupe-dark">
+                                      <div>{d.city || '—'}</div>
+                                      {d.address && <div className="text-[10px] text-taupe truncate max-w-[140px]" title={d.address}>{d.address}</div>}
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="space-y-1 max-w-[260px]">
+                                        {(Array.isArray(d.items) ? d.items : []).map((it, idx) => (
+                                          <div key={idx} className="text-[11px] text-noir">
+                                            <span className="font-bold">{it.quantity || 1}x</span> {it.nameFr}{' '}
+                                            <span className="text-taupe-dark">({it.size || 'Std'}{it.colorLabel ? ` · ${it.colorLabel}` : ''})</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </td>
+                                    <td className="p-3 whitespace-nowrap font-bold text-noir tabular-nums">
+                                      {Number(d.total || 0).toLocaleString()} MAD
+                                    </td>
+                                    <td className="p-3 whitespace-nowrap">
+                                      <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-2xs ${
+                                        d.status === 'Relancé'
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : 'bg-amber-100 text-amber-800'
+                                      }`}>
+                                        {d.status || 'Abandonné'}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-right whitespace-nowrap">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <a
+                                          href={buildAbandonedDraftWhatsAppLink(d)}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={() => handleMarkDraftRelanced(d.id)}
+                                          className="px-2.5 py-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white text-[11px] font-bold rounded-xs inline-flex items-center gap-1 transition-colors shadow-2xs"
+                                          title="Ouvrir WhatsApp avec le message de relance personnalisé"
+                                        >
+                                          <WhatsAppIcon className="w-3.5 h-3.5 fill-white" />
+                                          <span>Relancer sur WhatsApp</span>
+                                        </a>
+                                        <button
+                                          type="button"
+                                          onClick={() => openPosModal(d)}
+                                          className="px-2.5 py-1.5 bg-noir hover:bg-caramel text-[#E6C687] hover:text-white text-[11px] font-bold rounded-xs transition-colors"
+                                          title="Convertir ce panier en vraie commande (POS)"
+                                        >
+                                          ⚡ Convertir
+                                        </button>
+                                        {isConfirmDel ? (
+                                          <div className="inline-flex items-center gap-1 bg-red-50 border border-red-200 px-1.5 py-1 rounded-xs">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteDraftOrder(d.id)}
+                                              className="px-2 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded-2xs"
+                                            >
+                                              Confirmer
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => setConfirmDeleteDraftId(null)}
+                                              className="px-1 text-taupe-dark text-[10px]"
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => setConfirmDeleteDraftId(d.id)}
+                                            className="px-2 py-1.5 border border-red-200 text-red-600 hover:bg-red-600 hover:text-white text-[11px] font-bold rounded-xs transition-colors"
+                                            title="Supprimer ce brouillon"
+                                          >
+                                            ✕
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -11630,7 +12395,7 @@
                                 onChange={(e) => setOrderEditForm(p => ({ ...p, status: e.target.value }))}
                                 className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs font-semibold text-noir focus:border-caramel"
                               >
-                                {['En attente', 'Confirmée', 'En cours', 'Livrée', 'Annulée'].map(st => (
+                                {['En attente', 'Confirmée', 'En cours', 'Échange en cours', 'Livrée', 'Annulée'].map(st => (
                                   <option key={st} value={st}>{st}</option>
                                 ))}
                               </select>
@@ -11858,6 +12623,586 @@
                       </form>
                     );
                   })()}
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================= */}
+            {/* MODAL: MANUAL POS ORDER (WhatsApp / Instagram / Phone)  */}
+            {/* ======================================================= */}
+            {showPosModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+                <div className="fixed inset-0 bg-black/65 backdrop-blur-xs" onClick={() => setShowPosModal(false)} />
+                <div className="relative bg-canvas w-full max-w-3xl max-h-[92vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-5 sm:p-7 rounded-xs text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setShowPosModal(false)}
+                    className="absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg"
+                  >
+                    ✕
+                  </button>
+
+                  <div className="mb-5 pb-3 border-b border-taupe/20">
+                    <div className="inline-block px-2 py-0.5 bg-noir text-[#E6C687] text-[10px] font-bold uppercase tracking-widest rounded-2xs mb-1">
+                      Prise de Commande Rapide (POS)
+                    </div>
+                    <h3 className="font-serif text-2xl font-bold text-noir">
+                      {posForm.fromDraftId ? `Convertir le Panier ${posForm.fromDraftId}` : 'Enregistrer une Commande WhatsApp / IG / Tél'}
+                    </h3>
+                    <p className="text-xs text-taupe-dark mt-0.5">
+                      Le stock des variantes sélectionnées est déduit automatiquement et la facture A4 est prête immédiatement.
+                    </p>
+                  </div>
+
+                  {(() => {
+                    const selProd = (products || []).find(p => String(p.id) === String(posAddProdId));
+                    const selSizes = selProd && Array.isArray(selProd.sizes) && selProd.sizes.length > 0 ? selProd.sizes : ['Unique'];
+                    const selColors = selProd && Array.isArray(selProd.colors) && selProd.colors.length > 0 ? selProd.colors : ['Noir:#171717'];
+                    const curVarStock = selProd ? getProductVariantStock(selProd, posAddSize || selSizes[0], posAddColor || selColors[0]) : 0;
+                    const posSubtotal = (posForm.items || []).reduce((acc, it) => acc + (Number(it.price || 0) * Math.max(1, Number(it.quantity || 1))), 0);
+                    const posDiscount = Math.max(0, Number(posForm.discount) || 0);
+                    const posShipping = Math.max(0, Number(posForm.shippingFee) || 0);
+                    const posTotal = Math.max(0, posSubtotal - posDiscount + posShipping);
+
+                    return (
+                      <div className="space-y-4">
+                        {/* Channel & Client Info */}
+                        <div className="bg-white border border-taupe/20 p-4 rounded-xs space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Canal de vente *</label>
+                              <select
+                                value={posForm.source}
+                                onChange={(e) => setPosForm(p => ({ ...p, source: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-2.5 py-2 text-xs font-bold text-noir"
+                              >
+                                <option value="WhatsApp">💬 WhatsApp</option>
+                                <option value="Instagram">📸 Instagram DM</option>
+                                <option value="Téléphone">📞 Appel Téléphonique</option>
+                                <option value="Boutique">🏬 Vente Directe</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Statut initial</label>
+                              <select
+                                value={posForm.status}
+                                onChange={(e) => setPosForm(p => ({ ...p, status: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-2.5 py-2 text-xs font-bold text-noir"
+                              >
+                                <option value="Confirmée">Confirmée</option>
+                                <option value="En attente">En attente</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Ville *</label>
+                              <select
+                                value={MOROCCAN_CITIES.some(c => c.nameFr === posForm.city) ? posForm.city : 'Autre'}
+                                onChange={(e) => setPosForm(p => ({ ...p, city: e.target.value === 'Autre' ? '' : e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-2.5 py-2 text-xs text-noir"
+                              >
+                                {MOROCCAN_CITIES.map(c => (
+                                  <option key={c.id} value={c.nameFr}>{c.nameFr}</option>
+                                ))}
+                                <option value="Autre">Autre ville...</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Nom complet client *</label>
+                              <input
+                                type="text"
+                                value={posForm.customerName}
+                                onChange={(e) => setPosForm(p => ({ ...p, customerName: e.target.value }))}
+                                placeholder="Ex: Youssef Alami"
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Téléphone (06 / 07) *</label>
+                              <input
+                                type="tel"
+                                value={posForm.customerPhone}
+                                onChange={(e) => setPosForm(p => ({ ...p, customerPhone: e.target.value }))}
+                                placeholder="06XXXXXXXX"
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs font-mono text-noir focus:border-caramel"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Adresse de livraison</label>
+                              <input
+                                type="text"
+                                value={posForm.address}
+                                onChange={(e) => setPosForm(p => ({ ...p, address: e.target.value }))}
+                                placeholder="Quartier, Rue, N°..."
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Note interne</label>
+                              <input
+                                type="text"
+                                value={posForm.notes}
+                                onChange={(e) => setPosForm(p => ({ ...p, notes: e.target.value }))}
+                                placeholder="Ex: Client fidèle, livrer avant 18h"
+                                className="w-full bg-card border border-taupe/30 px-3 py-2 text-xs text-noir focus:border-caramel"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Product Picker */}
+                        <div className="bg-white border border-taupe/20 p-4 rounded-xs space-y-3">
+                          <div className="font-bold uppercase tracking-wider text-[11px] text-noir border-b border-taupe/15 pb-2">
+                            Ajouter des Articles du Stock
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                            <div className="sm:col-span-5">
+                              <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-1">Produit</label>
+                              <select
+                                value={posAddProdId}
+                                onChange={(e) => handlePosProductSelect(e.target.value)}
+                                className="w-full bg-card border border-taupe/30 px-2.5 py-2 text-xs text-noir"
+                              >
+                                <option value="">Choisir un produit...</option>
+                                {(products || []).map(pr => (
+                                  <option key={pr.id} value={pr.id}>
+                                    {pr.nameFr} — {pr.price} MAD ({pr.stock} en stock)
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-1">Taille</label>
+                              <select
+                                value={posAddSize}
+                                onChange={(e) => setPosAddSize(e.target.value)}
+                                className="w-full bg-card border border-taupe/30 px-2 py-2 text-xs text-noir"
+                              >
+                                {selSizes.map(sz => <option key={sz} value={sz}>{sz}</option>)}
+                              </select>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-1">Couleur</label>
+                              <select
+                                value={posAddColor}
+                                onChange={(e) => setPosAddColor(e.target.value)}
+                                className="w-full bg-card border border-taupe/30 px-2 py-2 text-xs text-noir"
+                              >
+                                {selColors.map(col => (
+                                  <option key={col} value={col}>{getColorLabel(col, 'fr')}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="sm:col-span-1">
+                              <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-1">Qté ({curVarStock})</label>
+                              <input
+                                type="number"
+                                min="1"
+                                max={Math.max(1, curVarStock)}
+                                value={posAddQty}
+                                onChange={(e) => setPosAddQty(e.target.value)}
+                                className="w-full bg-card border border-taupe/30 px-2 py-2 text-xs font-mono font-bold text-noir"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <button
+                                type="button"
+                                onClick={handleAddPosItem}
+                                className="w-full py-2 bg-noir hover:bg-caramel text-white font-bold text-xs rounded-xs transition-colors"
+                              >
+                                + Ajouter
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Selected items */}
+                          {(posForm.items || []).length === 0 ? (
+                            <div className="p-4 text-center text-taupe bg-canvas/50 border border-dashed border-taupe/30 rounded-xs">
+                              Aucun article ajouté pour l'instant.
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-taupe/15 border border-taupe/20 rounded-xs">
+                              {posForm.items.map((it, idx) => (
+                                <div key={it._key || idx} className="p-2.5 flex items-center justify-between gap-2 bg-canvas/30">
+                                  <div>
+                                    <div className="font-bold text-noir">{it.nameFr}</div>
+                                    <div className="text-[11px] text-taupe-dark">
+                                      Taille : <strong>{it.size}</strong> · Couleur : <strong>{it.colorLabel || getColorLabel(it.color, 'fr')}</strong> · {it.price} MAD/u
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setPosForm(p => ({
+                                        ...p,
+                                        items: p.items.map((x, i) => i === idx ? { ...x, quantity: Math.max(1, x.quantity - 1) } : x)
+                                      }))}
+                                      className="w-6 h-6 bg-white border border-taupe/30 font-bold"
+                                    >-</button>
+                                    <span className="font-mono font-bold w-6 text-center">{it.quantity}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPosForm(p => ({
+                                        ...p,
+                                        items: p.items.map((x, i) => i === idx ? { ...x, quantity: x.quantity + 1 } : x)
+                                      }))}
+                                      className="w-6 h-6 bg-white border border-taupe/30 font-bold"
+                                    >+</button>
+                                    <span className="font-bold text-noir ml-2 w-20 text-right">{it.price * it.quantity} MAD</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPosForm(p => ({ ...p, items: p.items.filter((_, i) => i !== idx) }))}
+                                      className="text-red-600 hover:text-red-800 px-1.5 font-bold"
+                                    >✕</button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Pricing summary */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                            <div>
+                              <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-1">Remise accordée (MAD)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={posForm.discount}
+                                onChange={(e) => setPosForm(p => ({ ...p, discount: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-2.5 py-1.5 font-mono font-bold text-noir"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold uppercase text-taupe-dark mb-1">Frais livraison (MAD)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={posForm.shippingFee}
+                                onChange={(e) => setPosForm(p => ({ ...p, shippingFee: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-2.5 py-1.5 font-mono font-bold text-noir"
+                              />
+                            </div>
+                            <div className="bg-[#FAF7F2] border border-caramel/40 p-2.5 flex flex-col justify-center items-end">
+                              <span className="text-[10px] uppercase text-taupe-dark font-semibold">Total COD à encaisser</span>
+                              <span className="text-lg font-serif font-bold text-noir">{posTotal.toLocaleString()} MAD</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap justify-end gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowPosModal(false)}
+                            className="px-4 py-2 border border-taupe/30 hover:border-noir text-noir font-semibold rounded-xs"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            type="button"
+                            disabled={posSaving}
+                            onClick={() => handleSubmitPosOrder(false)}
+                            className="px-4 py-2 bg-noir hover:bg-noir/85 text-white font-bold uppercase tracking-wider rounded-xs transition-colors"
+                          >
+                            {posSaving ? 'Enregistrement...' : '✅ Enregistrer Commande'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={posSaving}
+                            onClick={() => handleSubmitPosOrder(true)}
+                            className="px-5 py-2 bg-caramel hover:bg-noir text-white font-bold uppercase tracking-wider rounded-xs transition-colors shadow-xs"
+                          >
+                            {posSaving ? '...' : '🖨️ Enregistrer & Imprimer Facture A4'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================= */}
+            {/* MODAL: SAV RETURN / SIZE EXCHANGE (Échange en cours)    */}
+            {/* ======================================================= */}
+            {exchangeOrder && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+                <div className="fixed inset-0 bg-black/65 backdrop-blur-xs" onClick={() => setExchangeOrder(null)} />
+                <div className="relative bg-canvas w-full max-w-xl max-h-[90vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-5 sm:p-7 rounded-xs text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setExchangeOrder(null)}
+                    className="absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg"
+                  >
+                    ✕
+                  </button>
+
+                  <div className="mb-4 pb-3 border-b border-taupe/20">
+                    <span className="inline-block px-2 py-0.5 bg-purple-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-2xs mb-1">
+                      SAV · Échange de Taille / Pointure
+                    </span>
+                    <h3 className="font-serif text-xl font-bold text-noir">
+                      Échange sur Commande <span className="font-mono text-caramel">{exchangeOrder.id}</span>
+                    </h3>
+                    <p className="text-[11px] text-taupe-dark mt-0.5">
+                      Client : <strong>{exchangeOrder.customerName}</strong> ({exchangeOrder.customerPhone})
+                    </p>
+                  </div>
+
+                  {(() => {
+                    const itemsArr = Array.isArray(exchangeOrder.items) ? exchangeOrder.items : [];
+                    const chosenIdx = Math.min(Math.max(0, Number(exchangeForm.itemIndex) || 0), Math.max(0, itemsArr.length - 1));
+                    const targetItem = itemsArr[chosenIdx] || {};
+                    const prod = (products || []).find(p => Number(p.id) === Number(targetItem.productId || targetItem.id));
+                    const availSizes = prod && Array.isArray(prod.sizes) && prod.sizes.length > 0 ? prod.sizes : [targetItem.size || 'Unique'];
+                    const availColors = prod && Array.isArray(prod.colors) && prod.colors.length > 0 ? prod.colors : [targetItem.color || 'Noir:#171717'];
+                    const newVariantAvail = prod ? getProductVariantStock(prod, exchangeForm.newSize, exchangeForm.newColor) : null;
+
+                    return (
+                      <form onSubmit={handleSubmitExchange} className="space-y-4">
+                        <div className="bg-purple-50 border border-purple-200 p-3 rounded-xs text-[11px] text-purple-900">
+                          <strong>Automatisation Stock & Chiffre d'Affaires :</strong><br />
+                          • L'ancienne taille (<strong>{targetItem.size}</strong>) est réintégrée dans le stock (<strong>+{targetItem.quantity || 1}</strong>).<br />
+                          • La nouvelle taille choisie est réservée (<strong>-{targetItem.quantity || 1}</strong>).<br />
+                          • Le montant facturé ({Number(exchangeOrder.total || 0)} MAD) reste intact afin de ne pas fausser votre CA.
+                        </div>
+
+                        {itemsArr.length > 1 && (
+                          <div>
+                            <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Article concerné</label>
+                            <select
+                              value={chosenIdx}
+                              onChange={(e) => {
+                                const idx = Number(e.target.value);
+                                const nextIt = itemsArr[idx];
+                                const nextPr = (products || []).find(p => Number(p.id) === Number(nextIt?.productId || nextIt?.id));
+                                const nextSizes = nextPr && Array.isArray(nextPr.sizes) && nextPr.sizes.length > 0 ? nextPr.sizes : [nextIt?.size || 'Unique'];
+                                setExchangeForm(f => ({
+                                  ...f,
+                                  itemIndex: idx,
+                                  newSize: nextSizes.find(s => s !== nextIt?.size) || nextIt?.size || '',
+                                  newColor: nextIt?.color || 'Noir:#171717'
+                                }));
+                              }}
+                              className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs font-semibold text-noir"
+                            >
+                              {itemsArr.map((it, idx) => (
+                                <option key={idx} value={idx}>
+                                  {it.nameFr} — Actuel : {it.size} / {it.colorLabel || getColorLabel(it.color, 'fr')} (x{it.quantity || 1})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        <div className="bg-white border border-taupe/20 p-3.5 rounded-xs grid grid-cols-2 gap-3">
+                          <div>
+                            <div className="text-[10px] uppercase text-taupe font-bold">Ancienne Variante (Retournée)</div>
+                            <div className="font-bold text-noir mt-1">
+                              {targetItem.nameFr}
+                            </div>
+                            <div className="text-xs text-caramel font-semibold">
+                              Taille : {targetItem.size || 'Unique'} · {targetItem.colorLabel || getColorLabel(targetItem.color, 'fr')} (x{targetItem.quantity || 1})
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div>
+                              <label className="block text-[10px] uppercase text-taupe-dark font-bold mb-1">Nouvelle Taille / Pointure *</label>
+                              <select
+                                value={exchangeForm.newSize}
+                                onChange={(e) => setExchangeForm(f => ({ ...f, newSize: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-2.5 py-1.5 text-xs font-bold text-noir"
+                              >
+                                {availSizes.map(sz => (
+                                  <option key={sz} value={sz}>{sz}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] uppercase text-taupe-dark font-bold mb-1">Nouvelle Couleur</label>
+                              <select
+                                value={exchangeForm.newColor}
+                                onChange={(e) => setExchangeForm(f => ({ ...f, newColor: e.target.value }))}
+                                className="w-full bg-card border border-taupe/30 px-2.5 py-1.5 text-xs font-semibold text-noir"
+                              >
+                                {availColors.map(col => (
+                                  <option key={col} value={col}>{getColorLabel(col, 'fr')}</option>
+                                ))}
+                              </select>
+                            </div>
+                            {newVariantAvail !== null && (
+                              <div className={`text-[10px] font-bold ${newVariantAvail >= (targetItem.quantity || 1) ? 'text-emerald-700' : 'text-red-600'}`}>
+                                Stock disponible pour cette variante : {newVariantAvail}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">Motif de l'échange (optionnel)</label>
+                          <input
+                            type="text"
+                            value={exchangeForm.reason}
+                            onChange={(e) => setExchangeForm(f => ({ ...f, reason: e.target.value }))}
+                            placeholder="Ex: Pointure 42 trop serrée, client souhaite du 43"
+                            className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir"
+                          />
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setExchangeOrder(null)}
+                            className="px-4 py-2 border border-taupe/30 text-noir font-semibold rounded-xs"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={exchangeSaving}
+                            className="px-5 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold uppercase tracking-wider rounded-xs transition-colors shadow-xs"
+                          >
+                            {exchangeSaving ? 'Traitement...' : '🔄 Valider Échange & Ajuster Stock'}
+                          </button>
+                        </div>
+                      </form>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================= */}
+            {/* MODAL: PICKING LIST GENERATOR (Feuille de préparation)  */}
+            {/* ======================================================= */}
+            {showPickingModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+                <div className="fixed inset-0 bg-black/65 backdrop-blur-xs" onClick={() => setShowPickingModal(false)} />
+                <div className="relative bg-canvas w-full max-w-4xl max-h-[92vh] overflow-y-auto z-10 shadow-2xl border border-taupe/30 p-5 sm:p-7 rounded-xs text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setShowPickingModal(false)}
+                    className="absolute top-4 end-4 text-taupe-dark hover:text-noir text-lg"
+                  >
+                    ✕
+                  </button>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3 border-b border-taupe/20 pr-8">
+                    <div>
+                      <span className="inline-block px-2 py-0.5 bg-caramel text-white text-[10px] font-bold uppercase tracking-wider rounded-2xs mb-1">
+                        Logistique Entrepôt
+                      </span>
+                      <h3 className="font-serif text-2xl font-bold text-noir">
+                        Feuille de Préparation Groupée (Picking List)
+                      </h3>
+                      <p className="text-xs text-taupe-dark mt-0.5">
+                        Rassemblez tous les articles nécessaires en un seul passage dans votre stock ({pickingSourceOrders.length} commande(s) · {groupedPickingItems.reduce((s, x) => s + x.totalQty, 0)} unité(s)).
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={groupedPickingItems.length === 0}
+                      onClick={() => {
+                        const scopeLabel = pickingScope === 'today'
+                          ? "Commandes du Jour"
+                          : pickingScope === 'selected'
+                          ? `Sélection (${pickingSourceOrders.length} cmd)`
+                          : 'À préparer (En attente + Confirmée + Échange)';
+                        printPickingListHTML(groupedPickingItems, scopeLabel);
+                      }}
+                      className="px-4 py-2.5 bg-noir hover:bg-caramel disabled:opacity-40 text-white font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shadow-xs shrink-0"
+                    >
+                      <span>🖨️</span>
+                      <span>Imprimer / PDF Picking List</span>
+                    </button>
+                  </div>
+
+                  {/* Scope Selector */}
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setPickingScope('pending')}
+                      className={`px-3 py-1.5 font-bold rounded-xs border transition-colors ${pickingScope === 'pending' ? 'bg-noir text-[#E6C687] border-noir' : 'bg-white text-noir border-taupe/30'}`}
+                    >
+                      📦 À Expédier (En attente / Confirmée / Échange)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPickingScope('today')}
+                      className={`px-3 py-1.5 font-bold rounded-xs border transition-colors ${pickingScope === 'today' ? 'bg-noir text-[#E6C687] border-noir' : 'bg-white text-noir border-taupe/30'}`}
+                    >
+                      📅 Commandes d'Aujourd'hui
+                    </button>
+                    {selectedOrderIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPickingScope('selected')}
+                        className={`px-3 py-1.5 font-bold rounded-xs border transition-colors ${pickingScope === 'selected' ? 'bg-noir text-[#E6C687] border-noir' : 'bg-white text-noir border-taupe/30'}`}
+                      >
+                        ☑️ Sélection Cochée ({selectedOrderIds.length})
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="bg-white border border-taupe/20 rounded-xs overflow-hidden">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-noir text-white uppercase text-[10px] tracking-wider">
+                          <th className="p-3 text-center w-10">Prêt</th>
+                          <th className="p-3">Article & Commandes Associées</th>
+                          <th className="p-3">Taille / Pointure</th>
+                          <th className="p-3">Couleur</th>
+                          <th className="p-3 text-center bg-caramel text-white">Qté à Préparer</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-taupe/15">
+                        {groupedPickingItems.length === 0 ? (
+                          <tr>
+                            <td colSpan="5" className="p-8 text-center text-taupe-dark">
+                              Aucun article à préparer pour ce filtre.
+                            </td>
+                          </tr>
+                        ) : (
+                          groupedPickingItems.map(it => {
+                            const checked = !!pickingChecked[it.key];
+                            return (
+                              <tr
+                                key={it.key}
+                                onClick={() => setPickingChecked(prev => ({ ...prev, [it.key]: !prev[it.key] }))}
+                                className={`cursor-pointer transition-colors ${checked ? 'bg-emerald-50/70 opacity-65' : 'hover:bg-canvas/60'}`}
+                              >
+                                <td className="p-3 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => {}}
+                                    className="w-4 h-4 accent-emerald-700 cursor-pointer"
+                                  />
+                                </td>
+                                <td className="p-3">
+                                  <div className={`font-bold text-noir ${checked ? 'line-through' : ''}`}>{it.nameFr}</div>
+                                  <div className="text-[10px] font-mono text-taupe-dark mt-0.5">
+                                    Commandes : {(it.orderRefs || []).join(', ')}
+                                  </div>
+                                </td>
+                                <td className="p-3 font-mono font-bold text-noir">{it.size}</td>
+                                <td className="p-3 font-semibold text-taupe-dark">{it.colorLabel}</td>
+                                <td className="p-3 text-center bg-[#FAF6EE]">
+                                  <span className="inline-block px-2.5 py-1 bg-noir text-[#E6C687] font-mono font-extrabold text-sm rounded-2xs">
+                                    {it.totalQty}x
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
