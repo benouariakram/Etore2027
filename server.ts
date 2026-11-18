@@ -116,11 +116,16 @@ interface CarrierCredentialConfig {
   apiKey: string;
   secretKey?: string;
   apiUrl: string;
+  openPackage?: boolean;
+  fragile?: boolean;
+  stockMode?: boolean;
 }
 
 interface CarriersConfig {
   defaultCarrier: 'ozon' | 'cathedis' | 'amana';
   pickupCity: string;
+  autoSyncOnOrder?: boolean;
+  autoSyncOnConfirm?: boolean;
   ozon: CarrierCredentialConfig;
   cathedis: CarrierCredentialConfig;
   amana: CarrierCredentialConfig;
@@ -156,7 +161,9 @@ let adminConfigStore: AdminConfig = {
   carriersConfig: {
     defaultCarrier: 'ozon',
     pickupCity: 'Kénitra',
-    ozon: { enabled: true, customerId: '', apiKey: '', apiUrl: 'https://api.ozonexpress.ma/customers' },
+    autoSyncOnOrder: false,
+    autoSyncOnConfirm: false,
+    ozon: { enabled: true, customerId: '', apiKey: '', apiUrl: 'https://api.ozonexpress.ma/customers', openPackage: true, fragile: false, stockMode: false },
     cathedis: { enabled: true, apiKey: '', secretKey: '', apiUrl: 'https://api.cathedis.delivery/api' },
     amana: { enabled: true, clientCode: '', apiKey: '', apiUrl: 'https://tracking.poste.ma/api' }
   }
@@ -1023,6 +1030,8 @@ app.put('/api/admin/carriers', async (req: Request, res: Response) => {
   const nextCarriers: CarriersConfig = {
     defaultCarrier: ['ozon', 'cathedis', 'amana'].includes(body.defaultCarrier) ? body.defaultCarrier : prev.defaultCarrier,
     pickupCity: String(body.pickupCity ?? prev.pickupCity ?? 'Kénitra').trim() || 'Kénitra',
+    autoSyncOnOrder: body.autoSyncOnOrder !== undefined ? Boolean(body.autoSyncOnOrder) : Boolean(prev.autoSyncOnOrder),
+    autoSyncOnConfirm: body.autoSyncOnConfirm !== undefined ? Boolean(body.autoSyncOnConfirm) : Boolean(prev.autoSyncOnConfirm),
     ozon: { ...prev.ozon, ...(body.ozon || {}) },
     cathedis: { ...prev.cathedis, ...(body.cathedis || {}) },
     amana: { ...prev.amana, ...(body.amana || {}) }
@@ -1039,6 +1048,66 @@ app.put('/api/admin/carriers', async (req: Request, res: Response) => {
     console.warn('Error saving carriersConfig to Firestore:', err);
   }
   return res.json({ ok: true, carriersConfig: nextCarriers });
+});
+
+// Test Ozon Express API credentials live & list cached cities count
+app.post('/api/admin/carriers/test-ozon', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const customerId = String(req.body?.customerId ?? adminConfigStore.carriersConfig?.ozon?.customerId ?? '').trim();
+  const apiKey = String(req.body?.apiKey ?? adminConfigStore.carriersConfig?.ozon?.apiKey ?? '').trim();
+  const rawApiUrl = String(req.body?.apiUrl ?? adminConfigStore.carriersConfig?.ozon?.apiUrl ?? 'https://api.ozonexpress.ma/customers').trim();
+
+  if (!customerId || !apiKey) {
+    return res.status(400).json({ ok: false, error: "Veuillez renseigner l'ID Client et la Clé API Ozon Express." });
+  }
+
+  try {
+    const cleanBase = rawApiUrl.replace(/\/+$/, '');
+    const trackEndpoint = cleanBase.includes(`/${customerId}/${apiKey}`)
+      ? `${cleanBase.replace(/\/(add-parcel|tracking)$/i, '')}/tracking`
+      : `${cleanBase}/${encodeURIComponent(customerId)}/${encodeURIComponent(apiKey)}/tracking`;
+
+    const resp = await fetch(trackEndpoint, {
+      method: 'POST',
+      body: new URLSearchParams({ 'tracking-number': 'MODANOVA-PING' }),
+      signal: AbortSignal.timeout(7000)
+    });
+    const text = await resp.text();
+    let json: any = null;
+    try { json = JSON.parse(text); } catch {}
+
+    if (json?.CHECK_API?.RESULT === 'ERROR') {
+      return res.status(400).json({
+        ok: false,
+        error: `Ozon Express a refusé les identifiants : ${json.CHECK_API.MESSAGE || 'Vérifiez votre ID Client et Clé API.'}`,
+        raw: json
+      });
+    }
+
+    const cities = await fetchOzonCities(true);
+    return res.json({
+      ok: true,
+      message: `Connexion Ozon Express validée ! (${cities.length} villes marocaines synchronisées)`,
+      citiesCount: cities.length,
+      raw: json || text.slice(0, 200)
+    });
+  } catch (err: any) {
+    return res.status(502).json({
+      ok: false,
+      error: `Impossible de joindre api.ozonexpress.ma (${err?.message || 'timeout'})`
+    });
+  }
+});
+
+// List cached Ozon Express Moroccan cities (Admin)
+app.get('/api/admin/ozon/cities', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const cities = await fetchOzonCities(Boolean(req.query.refresh));
+  return res.json({ ok: true, count: cities.length, cities });
 });
 
 // Profitability Settings PUT (Real Shipping Cost per City & Default Cost)
@@ -2181,9 +2250,10 @@ app.post('/api/orders', async (req: Request, res: Response) => {
 
   const realShippingCost = getCityRealShippingCost(String(city));
 
-  const newOrder = {
+  const newOrder: any = {
     id: orderId,
     date: orderDate,
+    updatedAt: orderDate,
     status: "En attente",
     customerName: String(customerName).trim(),
     customerPhone: cleanPhone,
@@ -2233,6 +2303,25 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     }
   } catch (err) {
     console.warn('Firestore order sync note:', err);
+  }
+
+  // Auto-sync immediately with Ozon Express if configured & autoSyncOnOrder is enabled
+  if (
+    adminConfigStore.carriersConfig?.autoSyncOnOrder &&
+    adminConfigStore.carriersConfig?.ozon?.enabled !== false &&
+    adminConfigStore.carriersConfig?.ozon?.customerId &&
+    adminConfigStore.carriersConfig?.ozon?.apiKey
+  ) {
+    try {
+      const autoRes = await dispatchOrderToCarrier(newOrder, 'ozon', { allowLocalFallback: false });
+      if (autoRes.ok && autoRes.order) {
+        newOrder.shipment = autoRes.order.shipment;
+        newOrder.status = autoRes.order.status;
+        newOrder.updatedAt = autoRes.order.updatedAt;
+      }
+    } catch (autoErr) {
+      console.warn('Ozon autoSyncOnOrder notice:', autoErr);
+    }
   }
 
   // Trigger Automatic WhatsApp Notification to Admin
@@ -2328,6 +2417,25 @@ app.patch('/api/orders/:id', async (req: Request, res: Response) => {
     await updateFirestoreOrderStatus(orderId, status);
   } catch (err) {
     console.error('Error updating order status in Firestore:', err);
+  }
+
+  // Auto-sync to Ozon Express when order transitions to "Confirmée" and hasn't been synced via API yet
+  if (
+    status === 'Confirmée' &&
+    (!order.shipment || order.shipment.mode !== 'api') &&
+    adminConfigStore.carriersConfig?.autoSyncOnConfirm &&
+    adminConfigStore.carriersConfig?.ozon?.enabled !== false &&
+    adminConfigStore.carriersConfig?.ozon?.customerId &&
+    adminConfigStore.carriersConfig?.ozon?.apiKey
+  ) {
+    try {
+      const autoRes = await dispatchOrderToCarrier(order, 'ozon', { allowLocalFallback: false });
+      if (autoRes.ok && autoRes.order) {
+        order = autoRes.order;
+      }
+    } catch (autoErr) {
+      console.warn('Ozon autoSyncOnConfirm notice:', autoErr);
+    }
   }
 
   return res.json({ ok: true, order });
@@ -2455,7 +2563,24 @@ app.put('/api/orders/:id', async (req: Request, res: Response) => {
     console.error('Error updating order in Firestore:', err);
   }
 
-  return res.json({ ok: true, order: updatedOrder });
+  let finalOrder = updatedOrder;
+  if (
+    status === 'Confirmée' &&
+    (!finalOrder.shipment || finalOrder.shipment.mode !== 'api') &&
+    adminConfigStore.carriersConfig?.autoSyncOnConfirm &&
+    adminConfigStore.carriersConfig?.ozon?.enabled !== false &&
+    adminConfigStore.carriersConfig?.ozon?.customerId &&
+    adminConfigStore.carriersConfig?.ozon?.apiKey
+  ) {
+    try {
+      const autoRes = await dispatchOrderToCarrier(finalOrder, 'ozon', { allowLocalFallback: false });
+      if (autoRes.ok && autoRes.order) {
+        finalOrder = autoRes.order;
+      }
+    } catch {}
+  }
+
+  return res.json({ ok: true, order: finalOrder });
 });
 
 // Bulk Order Status Update (Admin — Update multiple orders in one batch & sync Firestore)
@@ -2492,7 +2617,26 @@ app.post('/api/orders/bulk-status', async (req: Request, res: Response) => {
     console.error('Error in bulk status update Firestore:', err);
   }
 
-  return res.json({ ok: true, updatedCount, status, orderIds: normalizedIds });
+  let autoSyncedCount = 0;
+  if (
+    status === 'Confirmée' &&
+    adminConfigStore.carriersConfig?.autoSyncOnConfirm &&
+    adminConfigStore.carriersConfig?.ozon?.enabled !== false &&
+    adminConfigStore.carriersConfig?.ozon?.customerId &&
+    adminConfigStore.carriersConfig?.ozon?.apiKey
+  ) {
+    for (const oid of normalizedIds) {
+      const target = ordersStore.find(o => String(o?.id || '').trim().toUpperCase() === oid);
+      if (target && (!target.shipment || target.shipment.mode !== 'api')) {
+        try {
+          const autoRes = await dispatchOrderToCarrier(target, 'ozon', { allowLocalFallback: false });
+          if (autoRes.ok && autoRes.shipment?.mode === 'api') autoSyncedCount += 1;
+        } catch {}
+      }
+    }
+  }
+
+  return res.json({ ok: true, updatedCount, autoSyncedCount, status, orderIds: normalizedIds });
 });
 
 // ==========================================
@@ -2512,6 +2656,93 @@ const CARRIER_STATUS_LABELS: Record<string, string> = {
   RETURNED: 'Retour expéditeur'
 };
 
+interface OzonCityEntry {
+  ID: number;
+  REF: string;
+  NAME: string;
+  'DELIVERED-PRICE'?: number;
+}
+let ozonCitiesCache: OzonCityEntry[] = [];
+let ozonCitiesCacheTime = 0;
+
+function normalizeMoroccoCityStr(raw: string): string {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['’\-_]/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+async function fetchOzonCities(forceRefresh = false): Promise<OzonCityEntry[]> {
+  if (!forceRefresh && ozonCitiesCache.length > 0 && (Date.now() - ozonCitiesCacheTime) < 6 * 3600 * 1000) {
+    return ozonCitiesCache;
+  }
+  try {
+    const resp = await fetch('https://api.ozonexpress.ma/cities', { signal: AbortSignal.timeout(7000) });
+    if (resp.ok) {
+      const json: any = await resp.json().catch(() => null);
+      const citiesObj = json?.CITIES || json?.cities || json;
+      if (citiesObj && typeof citiesObj === 'object') {
+        const list = Object.values(citiesObj).filter((c: any) => c && c.ID !== undefined && c.NAME) as OzonCityEntry[];
+        if (list.length > 0) {
+          ozonCitiesCache = list;
+          ozonCitiesCacheTime = Date.now();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Ozon Express cities fetch note:', err);
+  }
+  return ozonCitiesCache;
+}
+
+async function resolveOzonCityId(cityName: string): Promise<OzonCityEntry | null> {
+  const clean = normalizeMoroccoCityStr(cityName);
+  if (!clean) return null;
+  const cities = await fetchOzonCities();
+  if (!cities.length) return null;
+
+  // Common bilingual/spelling aliases
+  const aliases: Record<string, string[]> = {
+    'casablanca': ['casablanca', 'casa', 'dar el beida'],
+    'rabat': ['rabat'],
+    'sale': ['sale', 'salé'],
+    'kenitra': ['kenitra', 'kénitra'],
+    'temara': ['temara', 'témara'],
+    'mohammedia': ['mohammedia', 'mohammédia'],
+    'tanger': ['tanger', 'tangier'],
+    'marrakech': ['marrakech', 'marrakesh'],
+    'fes': ['fes', 'fès'],
+    'meknes': ['meknes', 'meknès'],
+    'tetouan': ['tetouan', 'tétouan'],
+    'agadir': ['agadir'],
+    'oujda': ['oujda'],
+    'laayoune': ['laayoune', 'laâyoune'],
+    'beni mellal': ['beni mellal', 'béni mellal']
+  };
+
+  // 1. Exact normalized match
+  const exact = cities.find(c => normalizeMoroccoCityStr(c.NAME) === clean);
+  if (exact) return exact;
+
+  // 2. Alias group match
+  for (const [, variants] of Object.entries(aliases)) {
+    if (variants.some(v => normalizeMoroccoCityStr(v) === clean)) {
+      const match = cities.find(c => variants.some(v => normalizeMoroccoCityStr(c.NAME) === normalizeMoroccoCityStr(v)));
+      if (match) return match;
+    }
+  }
+
+  // 3. Substring/startsWith match (e.g. "Casablanca - Maarif" -> "Casablanca")
+  const partial = cities.find(c => {
+    const cn = normalizeMoroccoCityStr(c.NAME);
+    return clean.includes(cn) || cn.includes(clean);
+  });
+  return partial || null;
+}
+
 function mapCarrierStatusToOrderStatus(carrierStatus: string, currentOrderStatus: string): string {
   if (carrierStatus === 'DELIVERED') return 'Livrée';
   if (carrierStatus === 'IN_TRANSIT' || carrierStatus === 'OUT_FOR_DELIVERY') return 'En cours';
@@ -2520,27 +2751,21 @@ function mapCarrierStatusToOrderStatus(carrierStatus: string, currentOrderStatus
   return currentOrderStatus || 'Confirmée';
 }
 
-// Generate Shipping Dispatch / Bon d'expédition & Barcode
-app.post('/api/orders/:id/shipment', async (req: Request, res: Response) => {
-  if (!verifyAdmin(req)) {
-    return res.status(401).json({ error: "Non autorisé" });
-  }
-  const orderId = String(req.params.id).trim().toUpperCase();
-  const idx = ordersStore.findIndex(o => String(o.id || '').trim().toUpperCase() === orderId);
-  let order = idx >= 0 ? ordersStore[idx] : null;
-  if (!order) {
-    try {
-      const { getFirestoreOrder } = await import('./src/firebase.ts');
-      order = await getFirestoreOrder(orderId);
-      if (order) ordersStore.unshift(order);
-    } catch {}
-  }
-  if (!order) {
-    return res.status(404).json({ error: "Commande introuvable" });
-  }
+function mapOzonRawStatus(rawStatusText: string): string {
+  const rawSt = String(rawStatusText || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (rawSt.includes('LIVR') || rawSt.includes('DELIVER')) return 'DELIVERED';
+  if (rawSt.includes('DIST') || rawSt.includes('OUT FOR') || rawSt.includes('COURS DE LIV')) return 'OUT_FOR_DELIVERY';
+  if (rawSt.includes('EXP') || rawSt.includes('TRANS') || rawSt.includes('RAMASS') || rawSt.includes('REC') || rawSt.includes('HUB') || rawSt.includes('SHIP')) return 'IN_TRANSIT';
+  if (rawSt.includes('RET') || rawSt.includes('ANNUL') || rawSt.includes('REFUS')) return 'RETURNED';
+  return 'PICKUP_PENDING';
+}
 
-  const rawCarrier = String(req.body?.carrier || adminConfigStore.carriersConfig?.defaultCarrier || 'ozon').toLowerCase();
-  const carrierKey: 'ozon' | 'cathedis' | 'amana' = ['ozon', 'cathedis', 'amana'].includes(rawCarrier) ? (rawCarrier as any) : 'ozon';
+async function dispatchOrderToCarrier(
+  order: any,
+  carrierKey: 'ozon' | 'cathedis' | 'amana',
+  options: { allowLocalFallback?: boolean } = { allowLocalFallback: true }
+): Promise<{ ok: boolean; order?: any; shipment?: any; error?: string }> {
+  const orderId = String(order?.id || '').trim().toUpperCase();
   const meta = CARRIER_META[carrierKey];
   const cfg = adminConfigStore.carriersConfig?.[carrierKey] || { enabled: true, apiKey: '', apiUrl: '' };
 
@@ -2550,75 +2775,129 @@ app.post('/api/orders/:id/shipment', async (req: Request, res: Response) => {
   let mode: 'api' | 'bordereau' = 'bordereau';
   let lastError = '';
 
-  const itemsSummary = (order.items || []).map((it: any) => `${it.nameFr} x${it.quantity || 1}`).join(', ');
+  const itemsSummary = (Array.isArray(order.items) ? order.items : [])
+    .map((it: any) => `${it.nameFr}${it.size ? ' (' + it.size + ')' : ''} x${it.quantity || 1}`)
+    .join(', ');
   const apiKey = String(cfg.apiKey || '').trim();
   const apiUrl = String(cfg.apiUrl || '').trim();
 
-  // Attempt live Carrier API call if API key & endpoint are configured
   if (apiKey && apiUrl) {
     try {
-      let targetEndpoint = apiUrl;
-      let fetchHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      let payloadBody: any = {
-        receiver: order.customerName,
-        phone: order.customerPhone,
-        city: order.city,
-        address: order.address,
-        price: Number(order.total || 0),
-        nature: itemsSummary || 'Vêtements & Essentiels',
-        reference: order.id,
-        note: order.notes || ''
-      };
-
-      if (carrierKey === 'ozon' && cfg.customerId) {
-        targetEndpoint = apiUrl.endsWith('/add-parcel')
-          ? apiUrl
-          : `${apiUrl.replace(/\/+$/, '')}/${encodeURIComponent(cfg.customerId)}/${encodeURIComponent(apiKey)}/add-parcel`;
-        payloadBody = {
-          'tracking-number': '',
-          'parcel-receiver': order.customerName,
-          'parcel-phone': order.customerPhone,
-          'parcel-city': order.city,
-          'parcel-address': order.address,
-          'parcel-note': order.notes || itemsSummary,
-          'parcel-price': Number(order.total || 0),
-          'parcel-nature': itemsSummary || 'Essentiels MODANOVA',
-          'parcel-stock': 0,
-          'parcel-open': 1,
-          'parcel-fragile': 0,
-          'parcel-replace': 0
-        };
-      } else if (carrierKey === 'cathedis') {
-        targetEndpoint = apiUrl.endsWith('/deliveries') ? apiUrl : `${apiUrl.replace(/\/+$/, '')}/v1/deliveries`;
-        fetchHeaders['Authorization'] = `Bearer ${apiKey}`;
-        if (cfg.secretKey) fetchHeaders['X-Secret-Key'] = cfg.secretKey;
-      } else if (carrierKey === 'amana') {
-        fetchHeaders['Authorization'] = `Bearer ${apiKey}`;
-        if (cfg.clientCode) payloadBody.clientCode = cfg.clientCode;
-      }
-
-      const apiResp = await fetch(targetEndpoint, {
-        method: 'POST',
-        headers: fetchHeaders,
-        body: JSON.stringify(payloadBody),
-        signal: AbortSignal.timeout(7000)
-      });
-      const json: any = await apiResp.json().catch(() => null);
-      if (apiResp.ok && json) {
-        const remoteTrack = json['TRACKING-NUMBER'] || json.trackingNumber || json.tracking_number || json.code || json.data?.tracking;
-        if (remoteTrack) {
-          trackingNumber = String(remoteTrack).trim();
-          externalId = String(json.id || json.parcel_id || remoteTrack);
-          mode = 'api';
+      if (carrierKey === 'ozon') {
+        const customerId = String(cfg.customerId || '').trim();
+        if (!customerId) {
+          lastError = "ID Client Ozon Express manquant dans Paramètres -> Livraison & Tél.";
         } else {
-          lastError = json.message || json.error || 'Réponse API sans code de suivi — bordereau local généré.';
+          const cleanBase = apiUrl.replace(/\/+$/, '');
+          const targetEndpoint = cleanBase.endsWith('/add-parcel')
+            ? cleanBase
+            : (cleanBase.includes(`/${customerId}/${apiKey}`)
+              ? `${cleanBase}/add-parcel`
+              : `${cleanBase}/${encodeURIComponent(customerId)}/${encodeURIComponent(apiKey)}/add-parcel`);
+
+          const matchedCity = await resolveOzonCityId(order.city || '');
+          const ozonCityParam = matchedCity ? String(matchedCity.ID) : String(order.city || '');
+          const isExchange = order.status === 'Échange en cours' || Boolean(order.exchangeInfo?.active);
+
+          const formParams = new URLSearchParams({
+            'tracking-number': '',
+            'parcel-receiver': String(order.customerName || '').trim(),
+            'parcel-phone': String(order.customerPhone || '').trim(),
+            'parcel-city': ozonCityParam,
+            'parcel-address': String(order.address || '').trim(),
+            'parcel-note': order.notes ? `${orderId} - ${order.notes}` : `${orderId} - ${itemsSummary}`.slice(0, 250),
+            'parcel-price': String(Math.max(0, Math.round(Number(order.total || 0)))),
+            'parcel-nature': (itemsSummary || 'Essentiels MODANOVA').slice(0, 150),
+            'parcel-stock': cfg.stockMode ? '1' : '0',
+            'parcel-open': cfg.openPackage === false ? '0' : '1',
+            'parcel-fragile': cfg.fragile ? '1' : '0',
+            'parcel-replace': isExchange ? '1' : '0'
+          });
+
+          const apiResp = await fetch(targetEndpoint, {
+            method: 'POST',
+            body: formParams,
+            signal: AbortSignal.timeout(9000)
+          });
+          const rawText = await apiResp.text();
+          let json: any = null;
+          try { json = JSON.parse(rawText); } catch {}
+
+          if (json?.CHECK_API?.RESULT === 'ERROR') {
+            lastError = `Ozon Express : ${json.CHECK_API.MESSAGE || 'ID Client ou Clé API invalide'}`;
+          } else if (json?.['ADD-PARCEL']?.RESULT === 'ERROR') {
+            lastError = `Ozon Express : ${json['ADD-PARCEL'].MESSAGE || 'Paramètres colis refusés (vérifiez la ville)'}`;
+          } else {
+            const remoteTrack =
+              json?.['ADD-PARCEL']?.['NEW-PARCEL']?.['TRACKING-NUMBER'] ||
+              json?.['ADD-PARCEL']?.['TRACKING-NUMBER'] ||
+              json?.['NEW-PARCEL']?.['TRACKING-NUMBER'] ||
+              json?.['TRACKING-NUMBER'] ||
+              json?.trackingNumber ||
+              json?.tracking_number ||
+              json?.data?.tracking;
+
+            if (remoteTrack) {
+              trackingNumber = String(remoteTrack).trim();
+              externalId = String(json?.['ADD-PARCEL']?.['NEW-PARCEL']?.ID || json?.id || remoteTrack);
+              mode = 'api';
+              lastError = '';
+            } else {
+              lastError = json?.MESSAGE || json?.message || `Réponse Ozon Express inattendue (${apiResp.status}) : ${rawText.slice(0, 120)}`;
+            }
+          }
         }
       } else {
-        lastError = `API ${meta.label} (${apiResp.status}) — bordereau local généré.`;
+        let targetEndpoint = apiUrl;
+        const fetchHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        };
+        const payloadBody: any = {
+          receiver: order.customerName,
+          phone: order.customerPhone,
+          city: order.city,
+          address: order.address,
+          price: Number(order.total || 0),
+          nature: itemsSummary || 'Vêtements & Essentiels',
+          reference: order.id,
+          note: order.notes || ''
+        };
+        if (carrierKey === 'cathedis') {
+          targetEndpoint = apiUrl.endsWith('/deliveries') ? apiUrl : `${apiUrl.replace(/\/+$/, '')}/v1/deliveries`;
+          if (cfg.secretKey) fetchHeaders['X-Secret-Key'] = cfg.secretKey;
+        } else if (carrierKey === 'amana') {
+          if (cfg.clientCode) payloadBody.clientCode = cfg.clientCode;
+        }
+
+        const apiResp = await fetch(targetEndpoint, {
+          method: 'POST',
+          headers: fetchHeaders,
+          body: JSON.stringify(payloadBody),
+          signal: AbortSignal.timeout(7000)
+        });
+        const json: any = await apiResp.json().catch(() => null);
+        if (apiResp.ok && json) {
+          const remoteTrack = json['TRACKING-NUMBER'] || json.trackingNumber || json.tracking_number || json.code || json.data?.tracking;
+          if (remoteTrack) {
+            trackingNumber = String(remoteTrack).trim();
+            externalId = String(json.id || json.parcel_id || remoteTrack);
+            mode = 'api';
+          } else {
+            lastError = json.message || json.error || 'Réponse API sans code de suivi — bordereau local généré.';
+          }
+        } else {
+          lastError = `API ${meta.label} (${apiResp.status}) — bordereau local généré.`;
+        }
       }
     } catch (apiErr: any) {
       lastError = `Connexion ${meta.label} indisponible (${apiErr?.message || 'timeout'}) — bordereau local généré.`;
     }
+  }
+
+  // If called in strict auto-sync mode and live API failed, do NOT attach fake local bordereau
+  if (options.allowLocalFallback === false && mode !== 'api') {
+    return { ok: false, error: lastError || 'Synchronisation API non aboutie' };
   }
 
   const nowIso = new Date().toISOString();
@@ -2632,7 +2911,7 @@ app.post('/api/orders/:id/shipment', async (req: Request, res: Response) => {
     mode,
     pickupCity: adminConfigStore.carriersConfig?.pickupCity || 'Kénitra',
     externalId,
-    lastError,
+    lastError: lastError.slice(0, 480),
     createdAt: order.shipment?.createdAt || nowIso,
     updatedAt: nowIso
   };
@@ -2657,7 +2936,78 @@ app.post('/api/orders/:id/shipment', async (req: Request, res: Response) => {
     console.error('Error saving shipment to Firestore:', err);
   }
 
-  return res.json({ ok: true, order: updatedOrder, shipment });
+  return { ok: true, order: updatedOrder, shipment };
+}
+
+// Generate Shipping Dispatch / Bon d'expédition & Barcode
+app.post('/api/orders/:id/shipment', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const orderId = String(req.params.id).trim().toUpperCase();
+  const idx = ordersStore.findIndex(o => String(o.id || '').trim().toUpperCase() === orderId);
+  let order = idx >= 0 ? ordersStore[idx] : null;
+  if (!order) {
+    try {
+      const { getFirestoreOrder } = await import('./src/firebase.ts');
+      order = await getFirestoreOrder(orderId);
+      if (order) ordersStore.unshift(order);
+    } catch {}
+  }
+  if (!order) {
+    return res.status(404).json({ error: "Commande introuvable" });
+  }
+
+  const rawCarrier = String(req.body?.carrier || adminConfigStore.carriersConfig?.defaultCarrier || 'ozon').toLowerCase();
+  const carrierKey: 'ozon' | 'cathedis' | 'amana' = ['ozon', 'cathedis', 'amana'].includes(rawCarrier) ? (rawCarrier as any) : 'ozon';
+
+  const result = await dispatchOrderToCarrier(order, carrierKey, { allowLocalFallback: true });
+  return res.json({ ok: true, order: result.order, shipment: result.shipment });
+});
+
+// Bulk Dispatch Selected Orders to Carrier (Ozon Express / Cathedis / Amana)
+app.post('/api/orders/bulk-shipment', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const { orderIds, carrier } = req.body || {};
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    return res.status(400).json({ error: "Veuillez sélectionner au moins une commande." });
+  }
+  const rawCarrier = String(carrier || adminConfigStore.carriersConfig?.defaultCarrier || 'ozon').toLowerCase();
+  const carrierKey: 'ozon' | 'cathedis' | 'amana' = ['ozon', 'cathedis', 'amana'].includes(rawCarrier) ? (rawCarrier as any) : 'ozon';
+
+  const normalizedIds = Array.from(new Set(orderIds.map((id: any) => String(id || '').trim().toUpperCase()).filter(Boolean)));
+  let apiSuccessCount = 0;
+  let fallbackCount = 0;
+  const results: any[] = [];
+
+  for (const oid of normalizedIds) {
+    const order = ordersStore.find(o => String(o?.id || '').trim().toUpperCase() === oid);
+    if (!order) continue;
+    if (order.shipment && order.shipment.mode === 'api') {
+      results.push({ id: oid, skipped: true, trackingNumber: order.shipment.trackingNumber });
+      apiSuccessCount += 1;
+      continue;
+    }
+    const resDispatch = await dispatchOrderToCarrier(order, carrierKey, { allowLocalFallback: true });
+    if (resDispatch.shipment?.mode === 'api') apiSuccessCount += 1;
+    else fallbackCount += 1;
+    results.push({
+      id: oid,
+      mode: resDispatch.shipment?.mode,
+      trackingNumber: resDispatch.shipment?.trackingNumber,
+      lastError: resDispatch.shipment?.lastError || ''
+    });
+  }
+
+  return res.json({
+    ok: true,
+    processed: results.length,
+    apiSuccessCount,
+    fallbackCount,
+    results
+  });
 });
 
 // Refresh / Update Real-Time Carrier Tracking Status
@@ -2688,22 +3038,41 @@ app.post('/api/orders/:id/shipment/refresh', async (req: Request, res: Response)
   // If mode === 'api' and no explicit override passed, poll live tracking endpoint
   if (!nextCarrierStatus && prevShipment.mode === 'api' && cfg?.apiKey && cfg?.apiUrl) {
     try {
-      let trackUrl = '';
-      const headers: Record<string, string> = {};
+      let trResp: globalThis.Response;
       if (carrierKey === 'ozon' && cfg.customerId) {
-        trackUrl = `${cfg.apiUrl.replace(/\/+$/, '')}/${encodeURIComponent(cfg.customerId)}/${encodeURIComponent(cfg.apiKey)}/tracking/${encodeURIComponent(prevShipment.trackingNumber)}`;
+        const cleanBase = cfg.apiUrl.replace(/\/+$/, '').replace(/\/add-parcel$/i, '');
+        const trackUrl = cleanBase.includes(`/${cfg.customerId}/${cfg.apiKey}`)
+          ? `${cleanBase.replace(/\/tracking$/i, '')}/tracking`
+          : `${cleanBase}/${encodeURIComponent(cfg.customerId)}/${encodeURIComponent(cfg.apiKey)}/tracking`;
+        trResp = await fetch(trackUrl, {
+          method: 'POST',
+          body: new URLSearchParams({ 'tracking-number': prevShipment.trackingNumber }),
+          signal: AbortSignal.timeout(8000)
+        });
       } else {
-        trackUrl = `${cfg.apiUrl.replace(/\/+$/, '')}/tracking/${encodeURIComponent(prevShipment.trackingNumber)}`;
-        headers['Authorization'] = `Bearer ${cfg.apiKey}`;
+        const trackUrl = `${cfg.apiUrl.replace(/\/+$/, '')}/tracking/${encodeURIComponent(prevShipment.trackingNumber)}`;
+        trResp = await fetch(trackUrl, {
+          headers: { Authorization: `Bearer ${cfg.apiKey}` },
+          signal: AbortSignal.timeout(7000)
+        });
       }
-      const trResp = await fetch(trackUrl, { headers, signal: AbortSignal.timeout(7000) });
       const trJson: any = await trResp.json().catch(() => null);
       if (trResp.ok && trJson) {
-        const rawSt = String(trJson.status || trJson.state || trJson.TRACKING?.STATUT || '').toUpperCase();
-        if (rawSt.includes('LIVR') || rawSt.includes('DELIVER')) nextCarrierStatus = 'DELIVERED';
-        else if (rawSt.includes('DIST') || rawSt.includes('OUT')) nextCarrierStatus = 'OUT_FOR_DELIVERY';
-        else if (rawSt.includes('TRANS') || rawSt.includes('EXP') || rawSt.includes('SHIP')) nextCarrierStatus = 'IN_TRANSIT';
-        else if (rawSt.includes('RET') || rawSt.includes('ANNUL')) nextCarrierStatus = 'RETURNED';
+        if (trJson?.CHECK_API?.RESULT === 'ERROR') {
+          lastError = `Ozon Express : ${trJson.CHECK_API.MESSAGE || 'Erreur suivi'}`;
+        } else {
+          const rawSt = String(
+            trJson?.TRACKING?.STATUT ||
+            trJson?.['PARCEL-INFO']?.STATUT ||
+            trJson?.STATUT ||
+            trJson?.status ||
+            trJson?.state ||
+            ''
+          );
+          if (rawSt) {
+            nextCarrierStatus = mapOzonRawStatus(rawSt);
+          }
+        }
       }
     } catch (err: any) {
       lastError = `Suivi API temporairement indisponible (${err?.message || 'timeout'})`;
@@ -2723,7 +3092,7 @@ app.post('/api/orders/:id/shipment/refresh', async (req: Request, res: Response)
     ...prevShipment,
     status: validCarrierStatus,
     statusLabel: CARRIER_STATUS_LABELS[validCarrierStatus] || prevShipment.statusLabel,
-    lastError,
+    lastError: lastError.slice(0, 480),
     updatedAt: nowIso
   };
   const syncedOrderStatus = mapCarrierStatusToOrderStatus(validCarrierStatus, order.status);
@@ -3068,7 +3437,22 @@ app.post('/api/admin/orders/manual', async (req: Request, res: Response) => {
     console.warn('Firestore manual POS order sync note:', err);
   }
 
-  return res.status(201).json({ ok: true, order: newOrder, products: productsStore });
+  // Auto-sync to Ozon Express if POS order is saved as Confirmée & autoSyncOnConfirm is enabled
+  let finalManualOrder = newOrder;
+  if (
+    requestedStatus === 'Confirmée' &&
+    adminConfigStore.carriersConfig?.autoSyncOnConfirm &&
+    adminConfigStore.carriersConfig?.ozon?.enabled !== false &&
+    adminConfigStore.carriersConfig?.ozon?.customerId &&
+    adminConfigStore.carriersConfig?.ozon?.apiKey
+  ) {
+    try {
+      const autoRes = await dispatchOrderToCarrier(finalManualOrder, 'ozon', { allowLocalFallback: false });
+      if (autoRes.ok && autoRes.order) finalManualOrder = autoRes.order;
+    } catch {}
+  }
+
+  return res.status(201).json({ ok: true, order: finalManualOrder, products: productsStore });
 });
 
 // ==========================================
