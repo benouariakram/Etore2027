@@ -1521,7 +1521,16 @@ function formatColorLabelFr(rawColor: string): string {
     '#991B1B': 'Rouge Bordeaux',
     '#D4AF37': 'Or / Doré',
     '#E6C687': 'Or Champagne',
-    '#C0C0C0': 'Argent'
+    '#C0C0C0': 'Argent',
+    '#38BDF8': 'Bleu Ciel',
+    '#1D4ED8': 'Bleu Roi',
+    '#556B2F': 'Kaki',
+    '#84A98C': 'Vert Sauge',
+    '#DC2626': 'Rouge',
+    '#F472B6': 'Rose Poudré',
+    '#C2410C': 'Terracotta',
+    '#CA8A04': 'Moutarde',
+    '#6D28D9': 'Violet'
   };
   return hexMap[upper] || c;
 }
