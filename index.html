@@ -6980,7 +6980,47 @@
         const [ogUploading, setOgUploading] = useState(false);
         const [ogSaving, setOgSaving] = useState(false);
         const [liveNewOrderAlert, setLiveNewOrderAlert] = useState(null);
-        const knownOrderIdsRef = useRef(null);
+        const knownOrderIdsRef = useRef(new Set());
+        const knownOrderIdsInitializedRef = useRef(false);
+
+        // Multi-Channel Automatic Order Notifications (Email + ntfy Push + Telegram Bot)
+        const [notifConfig, setNotifConfig] = useState({
+          email: {
+            enabled: false,
+            recipientEmails: '',
+            provider: 'smtp',
+            smtpHost: 'smtp.gmail.com',
+            smtpPort: 465,
+            smtpSecure: true,
+            smtpUser: '',
+            smtpPass: '',
+            hasSmtpPass: false,
+            fromEmail: '',
+            fromName: 'MODANOVA Commandes',
+            resendApiKey: '',
+            hasResendApiKey: false,
+            brevoApiKey: '',
+            hasBrevoApiKey: false
+          },
+          telegram: {
+            enabled: false,
+            botToken: '',
+            hasBotToken: false,
+            chatId: ''
+          },
+          ntfy: {
+            enabled: false,
+            topic: '',
+            serverUrl: 'https://ntfy.sh'
+          }
+        });
+        const [notifSaving, setNotifSaving] = useState(false);
+        const [emailTesting, setEmailTesting] = useState(false);
+        const [emailTestFeedback, setEmailTestFeedback] = useState(null);
+        const [ntfyTesting, setNtfyTesting] = useState(false);
+        const [tgDetecting, setTgDetecting] = useState(false);
+        const [tgTesting, setTgTesting] = useState(false);
+        const [pushTestFeedback, setPushTestFeedback] = useState(null);
 
         // Coupons & Discounts CRUD state
         const [coupons, setCoupons] = useState([]);
@@ -7157,33 +7197,115 @@
                   setProfitDraft(nextProfit);
                   if (onUpdateProfitabilitySettings) onUpdateProfitabilitySettings(nextProfit);
                 }
+                if (data.notificationsConfig) {
+                  const nc = data.notificationsConfig;
+                  setNotifConfig(prev => ({
+                    email: {
+                      ...prev.email,
+                      ...(nc.email || {}),
+                      smtpPass: '',
+                      resendApiKey: '',
+                      brevoApiKey: ''
+                    },
+                    telegram: {
+                      ...prev.telegram,
+                      ...(nc.telegram || {}),
+                      botToken: ''
+                    },
+                    ntfy: {
+                      ...prev.ntfy,
+                      ...(nc.ntfy || {})
+                    }
+                  }));
+                }
               }
             })
             .catch(() => {});
         }, [token, fetchAdminCoupons, fetchDraftOrders]);
 
-        // Live Order Watcher (checks every 15s for new orders and alerts admin with chime + WhatsApp link)
+        // Helper to persist seen order IDs so already-processed or delivered orders NEVER re-trigger alerts
+        const loadSeenOrderIds = () => {
+          try {
+            const raw = localStorage.getItem('modanova_seen_order_ids');
+            const arr = raw ? JSON.parse(raw) : [];
+            return new Set(Array.isArray(arr) ? arr.map(String) : []);
+          } catch {
+            return new Set();
+          }
+        };
+
+        const persistSeenOrderIds = (idSet) => {
+          try {
+            const list = Array.from(idSet).slice(-400);
+            localStorage.setItem('modanova_seen_order_ids', JSON.stringify(list));
+          } catch {}
+        };
+
+        const dismissLiveNewOrderAlert = (orderIdToMark) => {
+          if (orderIdToMark) {
+            knownOrderIdsRef.current.add(String(orderIdToMark));
+            persistSeenOrderIds(knownOrderIdsRef.current);
+          }
+          setLiveNewOrderAlert(null);
+        };
+
+        // Keep knownOrderIds synchronized & auto-clear banner as soon as the alerted order is no longer "En attente"
+        useEffect(() => {
+          if (!Array.isArray(orders) || orders.length === 0) return;
+          const stored = loadSeenOrderIds();
+          stored.forEach(id => knownOrderIdsRef.current.add(id));
+          if (!knownOrderIdsInitializedRef.current) {
+            orders.forEach(o => { if (o && o.id) knownOrderIdsRef.current.add(String(o.id)); });
+            persistSeenOrderIds(knownOrderIdsRef.current);
+            knownOrderIdsInitializedRef.current = true;
+          }
+          if (liveNewOrderAlert && liveNewOrderAlert.id) {
+            const liveMatch = orders.find(o => o && o.id === liveNewOrderAlert.id);
+            if (!liveMatch || liveMatch.status !== 'En attente') {
+              dismissLiveNewOrderAlert(liveNewOrderAlert.id);
+            }
+          }
+        }, [orders, liveNewOrderAlert]);
+
+        // Live Order Watcher (checks every 15s for brand-new "En attente" orders only)
         useEffect(() => {
           if (!token) return;
-          if (Array.isArray(orders) && knownOrderIdsRef.current === null) {
-            knownOrderIdsRef.current = new Set(orders.map(o => o.id));
-          }
-          const interval = setInterval(async () => {
+          const stored = loadSeenOrderIds();
+          stored.forEach(id => knownOrderIdsRef.current.add(id));
+
+          let cancelled = false;
+          const pollOrders = async (isBaselineOnly = false) => {
             try {
               const res = await fetch('/api/orders', {
                 headers: { Authorization: `Bearer ${token}` }
               });
-              if (!res.ok) return;
+              if (!res.ok || cancelled) return;
               const latestOrders = await res.json();
-              if (!Array.isArray(latestOrders)) return;
-              if (knownOrderIdsRef.current === null) {
-                knownOrderIdsRef.current = new Set(latestOrders.map(o => o.id));
+              if (!Array.isArray(latestOrders) || cancelled) return;
+
+              // Baseline pass: register every existing order quietly so old/delivered orders NEVER fire an alert
+              if (!knownOrderIdsInitializedRef.current || isBaselineOnly) {
+                latestOrders.forEach(o => { if (o && o.id) knownOrderIdsRef.current.add(String(o.id)); });
+                persistSeenOrderIds(knownOrderIdsRef.current);
+                knownOrderIdsInitializedRef.current = true;
                 return;
               }
-              const newlyArrived = latestOrders.filter(o => o && o.id && !knownOrderIdsRef.current.has(o.id));
-              if (newlyArrived.length > 0) {
-                newlyArrived.forEach(o => knownOrderIdsRef.current.add(o.id));
-                const newest = newlyArrived[0];
+
+              // Strictly alert ONLY for brand-new unseen orders that are still "En attente"
+              const newlyArrivedPending = latestOrders.filter(
+                o => o && o.id && !knownOrderIdsRef.current.has(String(o.id)) && o.status === 'En attente'
+              );
+              // Silently mark any non-pending orders as seen so delivered/confirmed orders never alert
+              latestOrders.forEach(o => {
+                if (o && o.id && o.status !== 'En attente') {
+                  knownOrderIdsRef.current.add(String(o.id));
+                }
+              });
+
+              if (newlyArrivedPending.length > 0) {
+                newlyArrivedPending.forEach(o => knownOrderIdsRef.current.add(String(o.id)));
+                persistSeenOrderIds(knownOrderIdsRef.current);
+                const newest = newlyArrivedPending[0];
                 setLiveNewOrderAlert(newest);
                 if (onRefreshOrders) onRefreshOrders();
                 showToast(`🔔 Nouvelle commande reçue : ${newest.id} (${newest.customerName} — ${newest.total} MAD)`, 'success');
@@ -7201,11 +7323,22 @@
                   osc.start();
                   osc.stop(ctx.currentTime + 0.6);
                 } catch {}
+              } else {
+                persistSeenOrderIds(knownOrderIdsRef.current);
               }
             } catch {}
-          }, 15000);
-          return () => clearInterval(interval);
-        }, [token, orders]);
+          };
+
+          // Establish baseline immediately on mount before starting the 15s watcher
+          if (!knownOrderIdsInitializedRef.current) {
+            pollOrders(true);
+          }
+          const interval = setInterval(() => pollOrders(false), 15000);
+          return () => {
+            cancelled = true;
+            clearInterval(interval);
+          };
+        }, [token]);
 
         const handleChangeAdminPassword = async (e) => {
           e.preventDefault();
@@ -7332,6 +7465,172 @@
             showToast('Erreur de connexion lors du test WhatsApp', 'error');
           } finally {
             setWaTesting(false);
+          }
+        };
+
+        // Multi-Channel Order Alerts Handlers (Email + ntfy Push + Telegram Bot)
+        const handleSaveNotificationsConfig = async (e, successLabel = 'Paramètres de notifications enregistrés sur Firebase !') => {
+          if (e && e.preventDefault) e.preventDefault();
+          setNotifSaving(true);
+          try {
+            const res = await fetch('/api/admin/notifications', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify(notifConfig)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+              if (data.notificationsConfig) {
+                const nc = data.notificationsConfig;
+                setNotifConfig(prev => ({
+                  email: {
+                    ...prev.email,
+                    ...(nc.email || {}),
+                    smtpPass: '',
+                    resendApiKey: '',
+                    brevoApiKey: ''
+                  },
+                  telegram: {
+                    ...prev.telegram,
+                    ...(nc.telegram || {}),
+                    botToken: ''
+                  },
+                  ntfy: {
+                    ...prev.ntfy,
+                    ...(nc.ntfy || {})
+                  }
+                }));
+              }
+              showToast(`✅ ${successLabel}`, 'success');
+              return true;
+            } else {
+              showToast(data.error || 'Erreur lors de la sauvegarde des notifications', 'error');
+              return false;
+            }
+          } catch {
+            showToast('Erreur réseau lors de la sauvegarde', 'error');
+            return false;
+          } finally {
+            setNotifSaving(false);
+          }
+        };
+
+        const handleTestEmailNotification = async () => {
+          setEmailTesting(true);
+          setEmailTestFeedback(null);
+          try {
+            const res = await fetch('/api/admin/test-email', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ email: notifConfig.email })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+              setEmailTestFeedback({ type: 'success', text: data.message || 'Email de test envoyé avec succès !' });
+              showToast(`📧 ${data.message || 'Email de test envoyé !'}`, 'success');
+            } else {
+              setEmailTestFeedback({ type: 'error', text: data.error || "Échec de l'envoi de l'email de test." });
+              showToast(data.error || "Échec de l'envoi de l'email", 'error');
+            }
+          } catch {
+            setEmailTestFeedback({ type: 'error', text: 'Erreur de connexion au serveur.' });
+          } finally {
+            setEmailTesting(false);
+          }
+        };
+
+        const generateRandomNtfyTopic = () => {
+          const rand = Math.random().toString(36).slice(2, 8);
+          const topic = `modanova-cmd-${rand}`;
+          setNotifConfig(p => ({ ...p, ntfy: { ...p.ntfy, topic, enabled: true } }));
+          showToast(`Canal privé généré : ${topic} (Ajoutez-le dans l'app ntfy sur votre téléphone)`, 'info');
+        };
+
+        const handleTestNtfyNotification = async () => {
+          setNtfyTesting(true);
+          setPushTestFeedback(null);
+          try {
+            const res = await fetch('/api/admin/test-ntfy', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ ntfy: notifConfig.ntfy })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+              setPushTestFeedback({ type: 'success', text: data.message || 'Push ntfy envoyé avec succès !' });
+              showToast('🔔 Notification Push envoyée sur votre téléphone via ntfy !', 'success');
+            } else {
+              setPushTestFeedback({ type: 'error', text: data.error || 'Échec du test Push ntfy.' });
+              showToast(data.error || 'Erreur test ntfy', 'error');
+            }
+          } catch {
+            setPushTestFeedback({ type: 'error', text: 'Erreur réseau lors du test ntfy.' });
+          } finally {
+            setNtfyTesting(false);
+          }
+        };
+
+        const handleDetectTelegramChat = async () => {
+          setTgDetecting(true);
+          setPushTestFeedback(null);
+          try {
+            const res = await fetch('/api/admin/telegram/detect-chat', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ botToken: notifConfig.telegram.botToken })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.chatId) {
+              setNotifConfig(p => ({ ...p, telegram: { ...p.telegram, chatId: data.chatId, enabled: true } }));
+              setPushTestFeedback({ type: 'success', text: `Chat ID détecté : ${data.chatId}${data.chatName ? ` (${data.chatName})` : ''}. Pensez à cliquer sur « Enregistrer » !` });
+              showToast(`✈️ Chat ID Telegram détecté : ${data.chatId}`, 'success');
+            } else {
+              setPushTestFeedback({ type: 'error', text: data.error || 'Impossible de détecter le Chat ID.' });
+              showToast(data.error || 'Chat ID introuvable', 'warning');
+            }
+          } catch {
+            setPushTestFeedback({ type: 'error', text: 'Erreur réseau Telegram.' });
+          } finally {
+            setTgDetecting(false);
+          }
+        };
+
+        const handleTestTelegramNotification = async () => {
+          setTgTesting(true);
+          setPushTestFeedback(null);
+          try {
+            const res = await fetch('/api/admin/test-telegram', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ telegram: notifConfig.telegram })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+              setPushTestFeedback({ type: 'success', text: data.message || 'Notification Telegram envoyée avec succès !' });
+              showToast('✈️ Alerte Telegram envoyée sur votre téléphone !', 'success');
+            } else {
+              setPushTestFeedback({ type: 'error', text: data.error || 'Échec du test Telegram.' });
+              showToast(data.error || 'Erreur test Telegram', 'error');
+            }
+          } catch {
+            setPushTestFeedback({ type: 'error', text: 'Erreur réseau lors du test Telegram.' });
+          } finally {
+            setTgTesting(false);
           }
         };
 
@@ -9378,7 +9677,7 @@
                       type="button"
                       onClick={() => {
                         setActiveTab('orders');
-                        setLiveNewOrderAlert(null);
+                        dismissLiveNewOrderAlert(liveNewOrderAlert.id);
                       }}
                       className="px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded-xs"
                     >
@@ -9386,7 +9685,7 @@
                     </button>
                     <button
                       type="button"
-                      onClick={() => setLiveNewOrderAlert(null)}
+                      onClick={() => dismissLiveNewOrderAlert(liveNewOrderAlert.id)}
                       className="text-white/70 hover:text-white px-1.5"
                     >
                       ✕
@@ -12066,16 +12365,447 @@
                       </form>
                     </div>
 
-                    {/* 2. NOTIFICATIONS AUTOMATIQUES WHATSAPP DES COMMANDES */}
+                    {/* 2A. NOTIFICATIONS AUTOMATIQUES PAR EMAIL (NOUVELLES COMMANDES) */}
+                    <div className="bg-white border-2 border-caramel/40 p-6 rounded-xs shadow-2xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-taupe/15 pb-4 mb-5">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
+                              <span>📧</span>
+                              <span>Notifications Automatiques par Email (Nouvelles Commandes)</span>
+                            </h3>
+                            <span className="text-[10px] bg-caramel text-white px-2 py-0.5 rounded-xs font-bold uppercase tracking-wider">
+                              100% Fiable & Gratuit
+                            </span>
+                          </div>
+                          <p className="text-xs text-taupe-dark mt-0.5">
+                            Recevez automatiquement un email complet (client, téléphone, ville, articles, tailles, couleurs + bouton WhatsApp) à chaque nouvelle commande.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleTestEmailNotification}
+                          disabled={emailTesting}
+                          className="px-4 py-2 bg-caramel hover:bg-noir text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors flex items-center gap-2 shrink-0 shadow-xs"
+                        >
+                          <span>✉️</span>
+                          <span>{emailTesting ? 'Envoi test...' : 'Envoyer un Email de Test'}</span>
+                        </button>
+                      </div>
+
+                      <form onSubmit={(e) => handleSaveNotificationsConfig(e, 'Alertes Email enregistrées sur Firebase !')} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-noir mb-1">
+                              Email(s) de Réception des Nouvelles Commandes *
+                            </label>
+                            <input
+                              type="text"
+                              value={notifConfig.email.recipientEmails}
+                              onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, recipientEmails: e.target.value } }))}
+                              placeholder="Ex: votre-email@gmail.com (ou plusieurs séparés par virgule)"
+                              className="w-full bg-[#FAF9F6] border border-taupe/35 px-3.5 py-2.5 text-xs text-noir focus:border-caramel"
+                            />
+                            <p className="text-[11px] text-taupe-dark mt-1">
+                              Ajoutez 1 ou plusieurs adresses email qui recevront instantanément chaque nouvelle commande.
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col justify-center bg-[#FAF7F2] border border-caramel/30 p-3.5 rounded-xs space-y-2">
+                            <label className="flex items-center gap-2.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(notifConfig.email.enabled)}
+                                onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, enabled: e.target.checked } }))}
+                                className="w-4 h-4 accent-noir"
+                              />
+                              <span className="text-xs font-bold text-noir">
+                                Activer l'envoi automatique d'un Email à chaque nouvelle commande
+                              </span>
+                            </label>
+                            <div className="flex items-center gap-2 text-[11px] text-taupe-dark">
+                              <span>Nom expéditeur :</span>
+                              <input
+                                type="text"
+                                value={notifConfig.email.fromName}
+                                onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, fromName: e.target.value } }))}
+                                placeholder="MODANOVA Commandes"
+                                className="flex-1 bg-white border border-taupe/30 px-2 py-1 text-xs text-noir"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Email Delivery Method Selector */}
+                        <div className="bg-[#FAF9F6] border border-taupe/25 p-4 rounded-xs space-y-3">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-noir">
+                            Service d'envoi d'Email (Choisissez votre méthode gratuite) :
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            {[
+                              { id: 'smtp', label: '📮 Gmail / SMTP', sub: 'Gratuit • 500 emails/jour' },
+                              { id: 'resend', label: '⚡ Resend API', sub: 'Gratuit • 3 000/mois (HTTPS)' },
+                              { id: 'brevo', label: '📨 Brevo API', sub: 'Gratuit • 300/jour (HTTPS)' }
+                            ].map(prov => (
+                              <button
+                                key={prov.id}
+                                type="button"
+                                onClick={() => setNotifConfig(p => ({ ...p, email: { ...p.email, provider: prov.id } }))}
+                                className={`p-2.5 text-left rounded-xs border transition-all ${
+                                  notifConfig.email.provider === prov.id
+                                    ? 'bg-noir text-white border-noir shadow-xs'
+                                    : 'bg-white text-noir border-taupe/30 hover:border-caramel'
+                                }`}
+                              >
+                                <div className="text-xs font-bold">{prov.label}</div>
+                                <div className={`text-[10px] mt-0.5 ${notifConfig.email.provider === prov.id ? 'text-[#E6C687]' : 'text-taupe-dark'}`}>
+                                  {prov.sub}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Provider Form: Gmail / SMTP */}
+                          {notifConfig.email.provider === 'smtp' && (
+                            <div className="space-y-3 pt-1">
+                              <div className="text-[11px] text-noir bg-white border border-taupe/20 p-3 rounded-xs leading-relaxed">
+                                <strong>💡 Configuration Gmail en 1 minute :</strong> Activez la validation en 2 étapes sur votre compte Google, puis créez un <strong>Mot de passe d'application</strong> (16 lettres) sur{' '}
+                                <code className="bg-[#FAF7F2] px-1.5 py-0.5 rounded font-mono text-caramel select-all">myaccount.google.com/apppasswords</code>{' '}
+                                et collez-le ci-dessous.
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="sm:col-span-2">
+                                  <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">
+                                    Email Expéditeur (Votre Gmail / SMTP)
+                                  </label>
+                                  <input
+                                    type="email"
+                                    value={notifConfig.email.smtpUser}
+                                    onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, smtpUser: e.target.value } }))}
+                                    placeholder="votre-email@gmail.com"
+                                    className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir"
+                                  />
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">
+                                    Mot de passe d'application {notifConfig.email.hasSmtpPass && <span className="text-emerald-700">(✓ Enregistré)</span>}
+                                  </label>
+                                  <input
+                                    type="password"
+                                    value={notifConfig.email.smtpPass}
+                                    onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, smtpPass: e.target.value } }))}
+                                    placeholder={notifConfig.email.hasSmtpPass ? '•••••••••••• (laisser vide pour conserver)' : '16 caractères Google App Password'}
+                                    className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir font-mono"
+                                  />
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">Serveur SMTP</label>
+                                  <input
+                                    type="text"
+                                    value={notifConfig.email.smtpHost}
+                                    onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, smtpHost: e.target.value } }))}
+                                    placeholder="smtp.gmail.com"
+                                    className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir font-mono"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">Port</label>
+                                  <input
+                                    type="number"
+                                    value={notifConfig.email.smtpPort}
+                                    onChange={(e) => {
+                                      const pt = Number(e.target.value) || 465;
+                                      setNotifConfig(p => ({ ...p, email: { ...p.email, smtpPort: pt, smtpSecure: pt === 465 } }));
+                                    }}
+                                    className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir font-mono"
+                                  />
+                                </div>
+                                <div className="flex items-end pb-2">
+                                  <label className="flex items-center gap-2 text-xs text-noir cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(notifConfig.email.smtpSecure)}
+                                      onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, smtpSecure: e.target.checked } }))}
+                                      className="w-4 h-4 accent-noir"
+                                    />
+                                    <span>SSL/TLS (465)</span>
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Provider Form: Resend HTTPS API */}
+                          {notifConfig.email.provider === 'resend' && (
+                            <div className="space-y-3 pt-1">
+                              <div className="text-[11px] text-noir bg-white border border-taupe/20 p-3 rounded-xs leading-relaxed">
+                                <strong>⚡ Resend (Recommandé sans SMTP) :</strong> Créez un compte gratuit sur <strong>resend.com</strong> → <em>API Keys</em> → collez votre clé <code className="font-mono bg-canvas px-1">re_...</code>. L'adresse expéditeur <code className="font-mono bg-canvas px-1">onboarding@resend.dev</code> fonctionne immédiatement vers votre email d'inscription.
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">
+                                    Clé API Resend {notifConfig.email.hasResendApiKey && <span className="text-emerald-700">(✓ Enregistrée)</span>}
+                                  </label>
+                                  <input
+                                    type="password"
+                                    value={notifConfig.email.resendApiKey}
+                                    onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, resendApiKey: e.target.value } }))}
+                                    placeholder={notifConfig.email.hasResendApiKey ? '•••••••• (laisser vide pour conserver)' : 're_xxxxxxxxxxxxxxxx'}
+                                    className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir font-mono"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">
+                                    Email Expéditeur (Optionnel)
+                                  </label>
+                                  <input
+                                    type="email"
+                                    value={notifConfig.email.fromEmail}
+                                    onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, fromEmail: e.target.value } }))}
+                                    placeholder="onboarding@resend.dev (par défaut)"
+                                    className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Provider Form: Brevo HTTPS API */}
+                          {notifConfig.email.provider === 'brevo' && (
+                            <div className="space-y-3 pt-1">
+                              <div className="text-[11px] text-noir bg-white border border-taupe/20 p-3 rounded-xs leading-relaxed">
+                                <strong>📨 Brevo (Ex-Sendinblue — 300 emails/jour gratuits) :</strong> Créez un compte gratuit sur <strong>brevo.com</strong> → <em>SMTP & API</em> → générez une clé API (<code className="font-mono bg-canvas px-1">xkeysib-...</code>). Permet d'envoyer vers n'importe quel email destinataire.
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">
+                                    Clé API Brevo {notifConfig.email.hasBrevoApiKey && <span className="text-emerald-700">(✓ Enregistrée)</span>}
+                                  </label>
+                                  <input
+                                    type="password"
+                                    value={notifConfig.email.brevoApiKey}
+                                    onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, brevoApiKey: e.target.value } }))}
+                                    placeholder={notifConfig.email.hasBrevoApiKey ? '•••••••• (laisser vide pour conserver)' : 'xkeysib-xxxxxxxxxxxx'}
+                                    className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir font-mono"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold uppercase text-taupe-dark mb-1">
+                                    Email Expéditeur Vérifié sur Brevo
+                                  </label>
+                                  <input
+                                    type="email"
+                                    value={notifConfig.email.fromEmail}
+                                    onChange={(e) => setNotifConfig(p => ({ ...p, email: { ...p.email, fromEmail: e.target.value } }))}
+                                    placeholder="votre-email@gmail.com"
+                                    className="w-full bg-white border border-taupe/30 px-3 py-2 text-xs text-noir"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {emailTestFeedback && (
+                          <div className={`p-3 rounded-xs border text-xs font-medium ${
+                            emailTestFeedback.type === 'success'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                              : 'bg-red-50 border-red-300 text-red-800'
+                          }`}>
+                            {emailTestFeedback.type === 'success' ? '✅ ' : '⚠️ '}{emailTestFeedback.text}
+                          </div>
+                        )}
+
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="submit"
+                            disabled={notifSaving}
+                            className="px-6 py-2.5 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shadow-xs"
+                          >
+                            {notifSaving ? '⏳ Sauvegarde...' : '💾 Enregistrer Notifications Email'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* 2B. ALTERNATIVES PUSH GRATUITES SUR TÉLÉPHONE (NTFY & TELEGRAM — REMPLACE CALLMEBOT) */}
+                    <div className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs space-y-5">
+                      <div className="border-b border-taupe/15 pb-4">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
+                            <span>📱</span>
+                            <span>Alertes Instantanées sur Téléphone (Alternatives Gratuites & Fiables à CallMeBot)</span>
+                          </h3>
+                          <span className="text-[10px] bg-emerald-700 text-white px-2 py-0.5 rounded-xs font-bold uppercase">
+                            iPhone & Android
+                          </span>
+                        </div>
+                        <p className="text-xs text-taupe-dark mt-0.5">
+                          CallMeBot ne répond souvent plus aux demandes de clé API. Utilisez plutôt <strong>ntfy</strong> (zéro compte, 10 secondes) ou <strong>Telegram Bot</strong> (100% gratuit, illimité, avec bouton WhatsApp direct dans chaque alerte).
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        {/* Option 1: ntfy.sh */}
+                        <div className="bg-[#FAF7F2] border border-caramel/35 p-4 rounded-xs space-y-3 flex flex-col justify-between">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-noir uppercase tracking-wider">
+                                🔔 Option 1 : App « ntfy » (La + Simple — Zéro Clé API)
+                              </span>
+                              <label className="flex items-center gap-1.5 text-xs font-bold text-noir cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(notifConfig.ntfy.enabled)}
+                                  onChange={(e) => setNotifConfig(p => ({ ...p, ntfy: { ...p.ntfy, enabled: e.target.checked } }))}
+                                  className="w-4 h-4 accent-caramel"
+                                />
+                                <span>Actif</span>
+                              </label>
+                            </div>
+                            <ol className="text-[11px] text-taupe-dark list-decimal list-inside space-y-1 bg-white p-2.5 rounded-xs border border-taupe/20">
+                              <li>Installez l'app gratuite <strong>ntfy</strong> sur Android (Play Store) ou iPhone (App Store).</li>
+                              <li>Cliquez sur <strong>« 🎲 Générer »</strong> ci-dessous (ou inventez un nom de canal secret) puis abonnez-vous au <strong>même nom</strong> dans l'app ntfy (bouton <code>+</code>).</li>
+                              <li>Cliquez sur <strong>« 🔔 Tester Push »</strong> : votre téléphone sonne immédiatement !</li>
+                            </ol>
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase text-noir mb-1">
+                                Nom de votre Canal Privé ntfy
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={notifConfig.ntfy.topic}
+                                  onChange={(e) => setNotifConfig(p => ({ ...p, ntfy: { ...p.ntfy, topic: e.target.value } }))}
+                                  placeholder="Ex: modanova-cmd-8492x"
+                                  className="flex-1 bg-white border border-taupe/30 px-3 py-2 text-xs text-noir font-mono"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={generateRandomNtfyTopic}
+                                  className="px-2.5 py-2 bg-white hover:bg-noir hover:text-white border border-taupe/35 text-[11px] font-semibold rounded-xs transition-colors shrink-0"
+                                >
+                                  🎲 Générer
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={handleTestNtfyNotification}
+                              disabled={ntfyTesting}
+                              className="w-full py-2 bg-caramel hover:bg-noir text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors"
+                            >
+                              {ntfyTesting ? 'Envoi...' : '🔔 Tester Push sur mon Téléphone (ntfy)'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Option 2: Telegram Bot */}
+                        <div className="bg-[#F0F9FF] border border-[#BAE6FD] p-4 rounded-xs space-y-3 flex flex-col justify-between">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-[#0369A1] uppercase tracking-wider">
+                                ✈️ Option 2 : Bot Telegram (100% Gratuit & Illimité)
+                              </span>
+                              <label className="flex items-center gap-1.5 text-xs font-bold text-[#0369A1] cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(notifConfig.telegram.enabled)}
+                                  onChange={(e) => setNotifConfig(p => ({ ...p, telegram: { ...p.telegram, enabled: e.target.checked } }))}
+                                  className="w-4 h-4 accent-[#0284C7]"
+                                />
+                                <span>Actif</span>
+                              </label>
+                            </div>
+                            <ol className="text-[11px] text-[#075985] list-decimal list-inside space-y-1 bg-white/90 p-2.5 rounded-xs border border-[#BAE6FD]">
+                              <li>Dans Telegram, cherchez <strong>@BotFather</strong> → envoyez <code className="bg-[#E0F2FE] px-1 rounded">/newbot</code> → copiez le <strong>Token</strong>.</li>
+                              <li>Ouvrez le lien de votre nouveau bot et appuyez sur <strong>Démarrer (/start)</strong>.</li>
+                              <li>Collez le Token ci-dessous puis cliquez sur <strong>« 🔍 Détecter mon Chat ID »</strong>.</li>
+                            </ol>
+                            <div className="space-y-2">
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase text-[#0369A1] mb-1">
+                                  Token du Bot Telegram {notifConfig.telegram.hasBotToken && <span className="text-emerald-700">(✓ Enregistré)</span>}
+                                </label>
+                                <input
+                                  type="password"
+                                  value={notifConfig.telegram.botToken}
+                                  onChange={(e) => setNotifConfig(p => ({ ...p, telegram: { ...p.telegram, botToken: e.target.value } }))}
+                                  placeholder={notifConfig.telegram.hasBotToken ? '•••••••• (laisser vide pour conserver)' : '123456789:ABCdef...'}
+                                  className="w-full bg-white border border-[#7DD3FC] px-3 py-2 text-xs text-noir font-mono"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase text-[#0369A1] mb-1">
+                                  Votre Chat ID Telegram
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={notifConfig.telegram.chatId}
+                                    onChange={(e) => setNotifConfig(p => ({ ...p, telegram: { ...p.telegram, chatId: e.target.value } }))}
+                                    placeholder="Ex: 542198371"
+                                    className="flex-1 bg-white border border-[#7DD3FC] px-3 py-2 text-xs text-noir font-mono"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={handleDetectTelegramChat}
+                                    disabled={tgDetecting}
+                                    className="px-2.5 py-2 bg-white hover:bg-[#0284C7] hover:text-white border border-[#7DD3FC] text-[#0369A1] text-[11px] font-bold rounded-xs transition-colors shrink-0"
+                                  >
+                                    {tgDetecting ? '...' : '🔍 Détecter'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={handleTestTelegramNotification}
+                              disabled={tgTesting}
+                              className="w-full py-2 bg-[#0284C7] hover:bg-[#0369A1] text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors"
+                            >
+                              {tgTesting ? 'Envoi...' : '✈️ Tester Alerte Telegram'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {pushTestFeedback && (
+                        <div className={`p-3 rounded-xs border text-xs font-medium ${
+                          pushTestFeedback.type === 'success'
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                            : 'bg-red-50 border-red-300 text-red-800'
+                        }`}>
+                          {pushTestFeedback.type === 'success' ? '✅ ' : '⚠️ '}{pushTestFeedback.text}
+                        </div>
+                      )}
+
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={(e) => handleSaveNotificationsConfig(e, 'Alertes Push (ntfy / Telegram) enregistrées sur Firebase !')}
+                          disabled={notifSaving}
+                          className="px-6 py-2.5 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shadow-xs"
+                        >
+                          {notifSaving ? '⏳ Sauvegarde...' : '💾 Enregistrer Alertes Téléphone (ntfy & Telegram)'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2C. NOTIFICATIONS WHATSAPP & CALLMEBOT / WEBHOOK */}
                     <div className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-taupe/15 pb-4 mb-5">
                         <div>
                           <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
                             <WhatsAppIcon className="w-5 h-5 fill-[#25D366]" />
-                            <span>Notifications Automatiques WhatsApp (Nouvelles Commandes)</span>
+                            <span>WhatsApp Boutique & Options Avancées (Webhook / CallMeBot)</span>
                           </h3>
                           <p className="text-xs text-taupe-dark mt-0.5">
-                            Recevez automatiquement les détails complets sur votre WhatsApp dès qu'un client passe une commande sur le site.
+                            Configurez le numéro WhatsApp de réception et la redirection client après commande.
                           </p>
                         </div>
                         <button
@@ -12134,48 +12864,34 @@
                           </div>
                         </div>
 
-                        {/* CallMeBot Instant Background Notification Setup */}
-                        <div className="bg-[#F0FDF4] border border-[#BBF7D0] p-4 rounded-xs space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#065F46] uppercase tracking-wider flex items-center gap-1.5">
-                              <span>⚡</span>
-                              <span>Mode 100% Automatique en Arrière-Plan (CallMeBot WhatsApp API — Gratuit)</span>
+                        {/* Secondary CallMeBot / Webhook Setup */}
+                        <div className="bg-[#FAF9F6] border border-taupe/25 p-4 rounded-xs space-y-3">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="text-xs font-bold text-noir uppercase tracking-wider flex items-center gap-1.5">
+                              <span>🔗</span>
+                              <span>Options Avancées : Webhook (Make / Zapier / UltraMsg) ou CallMeBot</span>
                             </span>
-                            <span className="text-[10px] bg-[#25D366] text-white px-2 py-0.5 rounded-xs font-bold">
-                              Recommandé
+                            <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-xs font-bold">
+                              Note : CallMeBot souvent saturé — Préférez Email / ntfy / Telegram ci-dessus
                             </span>
                           </div>
-                          <p className="text-xs text-[#065F46]/90 leading-relaxed">
-                            Pour recevoir un message WhatsApp automatique instantané même si le client ferme la page immédiatement après sa commande, activez votre clé gratuite CallMeBot en 30 secondes :
-                          </p>
-                          <ol className="text-xs text-[#065F46] list-decimal list-inside space-y-1 font-medium bg-white/80 p-3 rounded-xs border border-[#BBF7D0]">
-                            <li>
-                              Ajoutez le numéro <strong>+34 644 52 74 88</strong> sur votre téléphone et envoyez-lui par WhatsApp ce message exact :{' '}
-                              <code className="bg-[#DCFCE7] px-1.5 py-0.5 rounded font-mono text-[#065F46] select-all">
-                                I allow callmebot to send me messages
-                              </code>
-                            </li>
-                            <li>
-                              CallMeBot vous répondra immédiatement sur WhatsApp avec votre code <strong>apikey</strong> (ex: <em>1234567</em>) et le numéro exact. Collez ce code ci-dessous :
-                            </li>
-                          </ol>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                             <div>
-                              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#065F46] mb-1">
-                                Clé API CallMeBot (API Key)
+                              <label className="block text-[11px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
+                                Clé API CallMeBot (Optionnel si déjà obtenue)
                               </label>
                               <input
                                 type="text"
                                 value={waConfig.callmebotApiKey}
                                 onChange={(e) => setWaConfig(p => ({ ...p, callmebotApiKey: e.target.value }))}
-                                placeholder="Ex: 4829103 (Reçu par WhatsApp)"
-                                className="w-full bg-white border border-[#86EFAC] px-3.5 py-2 text-xs text-noir font-mono focus:border-[#25D366]"
+                                placeholder="Ex: 4829103"
+                                className="w-full bg-white border border-taupe/30 px-3.5 py-2 text-xs text-noir font-mono focus:border-[#25D366]"
                               />
                             </div>
                             <div>
                               <label className="block text-[11px] font-bold uppercase tracking-wider text-taupe-dark mb-1">
-                                Webhook Personnalisé (Optionnel : Make / UltraMsg / Zapier)
+                                Webhook Personnalisé (Make / UltraMsg / Zapier / Green-API)
                               </label>
                               <input
                                 type="text"

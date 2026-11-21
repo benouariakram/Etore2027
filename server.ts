@@ -10,6 +10,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { transformSync } from 'esbuild';
+import nodemailer from 'nodemailer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -131,6 +132,66 @@ interface CarriersConfig {
   amana: CarrierCredentialConfig;
 }
 
+interface EmailNotificationConfig {
+  enabled: boolean;
+  recipientEmails: string;
+  provider: 'smtp' | 'resend' | 'brevo';
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPass: string;
+  fromEmail: string;
+  fromName: string;
+  resendApiKey: string;
+  brevoApiKey: string;
+}
+
+interface TelegramNotificationConfig {
+  enabled: boolean;
+  botToken: string;
+  chatId: string;
+}
+
+interface NtfyNotificationConfig {
+  enabled: boolean;
+  topic: string;
+  serverUrl: string;
+}
+
+interface NotificationsConfig {
+  email: EmailNotificationConfig;
+  telegram: TelegramNotificationConfig;
+  ntfy: NtfyNotificationConfig;
+}
+
+const DEFAULT_NOTIFICATIONS_CONFIG: NotificationsConfig = {
+  email: {
+    enabled: false,
+    recipientEmails: '',
+    provider: 'smtp',
+    smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+    smtpPort: Number(process.env.SMTP_PORT || 465) || 465,
+    smtpSecure: Number(process.env.SMTP_PORT || 465) === 465,
+    smtpUser: process.env.SMTP_USER || '',
+    smtpPass: process.env.SMTP_PASS || '',
+    fromEmail: '',
+    fromName: 'MODANOVA Commandes',
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    brevoApiKey: process.env.BREVO_API_KEY || ''
+  },
+  telegram: {
+    enabled: false,
+    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+    chatId: process.env.TELEGRAM_CHAT_ID || ''
+  },
+  ntfy: {
+    enabled: false,
+    topic: '',
+    serverUrl: 'https://ntfy.sh'
+  }
+};
+
 interface AdminConfig {
   adminUser: string;
   passwordHash: string;
@@ -144,6 +205,7 @@ interface AdminConfig {
   defaultShippingCost: number;
   cityShippingCosts: Record<string, number>;
   carriersConfig: CarriersConfig;
+  notificationsConfig: NotificationsConfig;
 }
 
 let adminConfigStore: AdminConfig = {
@@ -166,8 +228,52 @@ let adminConfigStore: AdminConfig = {
     ozon: { enabled: true, customerId: '', apiKey: '', apiUrl: 'https://api.ozonexpress.ma/customers', openPackage: true, fragile: false, stockMode: false },
     cathedis: { enabled: true, apiKey: '', secretKey: '', apiUrl: 'https://api.cathedis.delivery/api' },
     amana: { enabled: true, clientCode: '', apiKey: '', apiUrl: 'https://tracking.poste.ma/api' }
+  },
+  notificationsConfig: {
+    email: { ...DEFAULT_NOTIFICATIONS_CONFIG.email },
+    telegram: { ...DEFAULT_NOTIFICATIONS_CONFIG.telegram },
+    ntfy: { ...DEFAULT_NOTIFICATIONS_CONFIG.ntfy }
   }
 };
+
+function mergeNotificationsConfig(incoming?: any): NotificationsConfig {
+  const base = adminConfigStore?.notificationsConfig || DEFAULT_NOTIFICATIONS_CONFIG;
+  return {
+    email: { ...DEFAULT_NOTIFICATIONS_CONFIG.email, ...(base.email || {}), ...(incoming?.email || {}) },
+    telegram: { ...DEFAULT_NOTIFICATIONS_CONFIG.telegram, ...(base.telegram || {}), ...(incoming?.telegram || {}) },
+    ntfy: { ...DEFAULT_NOTIFICATIONS_CONFIG.ntfy, ...(base.ntfy || {}), ...(incoming?.ntfy || {}) }
+  };
+}
+
+function sanitizeNotificationsForClient(cfg?: NotificationsConfig) {
+  const merged = mergeNotificationsConfig(cfg);
+  return {
+    email: {
+      enabled: Boolean(merged.email.enabled),
+      recipientEmails: String(merged.email.recipientEmails || ''),
+      provider: (['smtp', 'resend', 'brevo'].includes(merged.email.provider) ? merged.email.provider : 'smtp') as 'smtp' | 'resend' | 'brevo',
+      smtpHost: String(merged.email.smtpHost || 'smtp.gmail.com'),
+      smtpPort: Number(merged.email.smtpPort || 465) || 465,
+      smtpSecure: Boolean(merged.email.smtpSecure),
+      smtpUser: String(merged.email.smtpUser || ''),
+      hasSmtpPass: Boolean(String(merged.email.smtpPass || '').trim()),
+      fromEmail: String(merged.email.fromEmail || ''),
+      fromName: String(merged.email.fromName || 'MODANOVA Commandes'),
+      hasResendApiKey: Boolean(String(merged.email.resendApiKey || '').trim()),
+      hasBrevoApiKey: Boolean(String(merged.email.brevoApiKey || '').trim())
+    },
+    telegram: {
+      enabled: Boolean(merged.telegram.enabled),
+      hasBotToken: Boolean(String(merged.telegram.botToken || '').trim()),
+      chatId: String(merged.telegram.chatId || '')
+    },
+    ntfy: {
+      enabled: Boolean(merged.ntfy.enabled),
+      topic: String(merged.ntfy.topic || ''),
+      serverUrl: String(merged.ntfy.serverUrl || 'https://ntfy.sh')
+    }
+  };
+}
 
 function normalizePhoneParts(rawPhone: string) {
   let digits = String(rawPhone || "+212600773716").replace(/\D/g, "");
@@ -297,6 +403,405 @@ function buildOrderWhatsAppAlertText(order: any): string {
   );
 }
 
+function escapeHtml(str: any): string {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function isPrivateOrLocalHost(hostname: string): boolean {
+  const h = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+  if (!h) return true;
+  if (h === 'localhost' || h === '::1' || h.endsWith('.local') || h.endsWith('.internal')) return true;
+  if (/^127\./.test(h) || /^10\./.test(h) || /^0\./.test(h) || /^169\.254\./.test(h) || /^192\.168\./.test(h)) return true;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(h)) return true;
+  if (/^(fc|fd|fe80)/i.test(h)) return true;
+  return false;
+}
+
+function isSafePublicUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(String(rawUrl || '').trim());
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    if (isPrivateOrLocalHost(parsed.hostname)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function parseValidEmails(raw: string): string[] {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  return String(raw || '')
+    .split(/[,;\n]+/)
+    .map(e => e.trim())
+    .filter(e => emailRegex.test(e))
+    .slice(0, 10);
+}
+
+function buildCustomerConfirmWhatsappUrl(order: any): string {
+  const phoneDigits = normalizePhoneParts(String(order?.customerPhone || '')).digits;
+  const msg = `Bonjour ${order?.customerName || ''}, c'est le support MODANOVA. Nous souhaitons confirmer votre commande N° ${order?.id || ''} (${order?.total || 0} MAD - ${order?.city || ''}) afin de lancer l'expédition express.`;
+  return `https://wa.me/${phoneDigits}?text=${encodeURIComponent(msg)}`;
+}
+
+function buildOrderEmailHtml(order: any): string {
+  const customerWaUrl = buildCustomerConfirmWhatsappUrl(order);
+  const itemsRows = (order.items || [])
+    .map((it: any) => {
+      const colLabel = it.colorLabel || (it.color ? formatColorLabelFr(it.color) : 'Standard');
+      const lineTotal = Number(it.price || 0) * Number(it.quantity || 1);
+      return `
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #EAE6DF;color:#171717;font-weight:600;">${escapeHtml(it.nameFr || 'Article')}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #EAE6DF;color:#555;text-align:center;">${escapeHtml(it.size || 'Unique')}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #EAE6DF;color:#555;text-align:center;">${escapeHtml(colLabel)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #EAE6DF;color:#171717;text-align:center;font-weight:700;">x${Number(it.quantity || 1)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #EAE6DF;color:#171717;text-align:right;font-weight:700;">${lineTotal.toLocaleString('fr-FR')} MAD</td>
+        </tr>`;
+    })
+    .join('');
+
+  const discountRow = Number(order.discount || 0) > 0
+    ? `<tr><td colspan="4" style="padding:8px 12px;text-align:right;color:#059669;font-weight:600;">Remise${order.promoCode ? ` (${escapeHtml(order.promoCode)})` : ''}</td><td style="padding:8px 12px;text-align:right;color:#059669;font-weight:700;">-${Number(order.discount).toLocaleString('fr-FR')} MAD</td></tr>`
+    : '';
+
+  const notesBlock = order.notes
+    ? `<div style="margin-top:12px;padding:10px 14px;background:#FEF3C7;border-left:3px solid #D97706;color:#92400E;font-size:13px;"><strong>Note client :</strong> ${escapeHtml(order.notes)}</div>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:24px;background:#F5F4F0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#171717;">
+  <div style="max-width:620px;margin:0 auto;background:#FFFFFF;border:1px solid #E5E0D8;border-radius:6px;overflow:hidden;">
+    <div style="background:#171717;color:#FFFFFF;padding:22px 26px;">
+      <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#E6C687;font-weight:700;">MODANOVA — Men's Essentials</div>
+      <h1 style="margin:6px 0 0;font-size:21px;font-weight:700;">🔔 Nouvelle Commande Reçue : ${escapeHtml(order.id)}</h1>
+    </div>
+    <div style="padding:24px 26px;">
+      <div style="background:#FAF9F6;border:1px solid #EAE6DF;border-radius:4px;padding:16px;margin-bottom:20px;font-size:14px;line-height:1.6;">
+        <div><strong>Client :</strong> ${escapeHtml(order.customerName)}</div>
+        <div><strong>Téléphone :</strong> <a href="tel:${escapeHtml(order.customerPhone)}" style="color:#C28B53;font-weight:700;text-decoration:none;">${escapeHtml(order.customerPhone)}</a></div>
+        <div><strong>Ville :</strong> ${escapeHtml(order.city)}</div>
+        <div><strong>Adresse :</strong> ${escapeHtml(order.address)}</div>
+        <div><strong>Paiement :</strong> ${escapeHtml(order.paymentMethod || 'COD (Paiement à la livraison)')}</div>
+        ${notesBlock}
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;">
+        <thead>
+          <tr style="background:#F5F4F0;border-bottom:2px solid #171717;">
+            <th style="padding:10px 12px;text-align:left;">Article</th>
+            <th style="padding:10px 12px;text-align:center;">Taille</th>
+            <th style="padding:10px 12px;text-align:center;">Couleur</th>
+            <th style="padding:10px 12px;text-align:center;">Qté</th>
+            <th style="padding:10px 12px;text-align:right;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsRows}
+          ${discountRow}
+          <tr style="background:#FAF7F2;">
+            <td colspan="4" style="padding:12px;text-align:right;font-size:15px;font-weight:700;color:#171717;">TOTAL À RÉGLER (COD)</td>
+            <td style="padding:12px;text-align:right;font-size:17px;font-weight:800;color:#C28B53;">${Number(order.total || 0).toLocaleString('fr-FR')} MAD</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="text-align:center;margin-top:24px;">
+        <a href="${escapeHtml(customerWaUrl)}" style="display:inline-block;background:#25D366;color:#FFFFFF;font-weight:700;font-size:14px;text-decoration:none;padding:12px 24px;border-radius:4px;">
+          💬 Confirmer la commande sur WhatsApp
+        </a>
+      </div>
+    </div>
+    <div style="background:#FAF9F6;padding:14px 26px;font-size:11px;color:#78716C;border-top:1px solid #EAE6DF;text-align:center;">
+      Alerte automatique générée par votre boutique MODANOVA.
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+async function sendAdminEmailOrderAlert(
+  order: any,
+  overrideEmail?: Partial<EmailNotificationConfig>,
+  forceSend: boolean = false
+): Promise<{ ok: boolean; sent: boolean; provider?: string; recipients?: string[]; error?: string }> {
+  const saved = mergeNotificationsConfig().email;
+  const cfg: EmailNotificationConfig = {
+    ...saved,
+    ...(overrideEmail || {}),
+    smtpPass: (overrideEmail && overrideEmail.smtpPass && String(overrideEmail.smtpPass).trim())
+      ? String(overrideEmail.smtpPass).trim()
+      : saved.smtpPass,
+    resendApiKey: (overrideEmail && overrideEmail.resendApiKey && String(overrideEmail.resendApiKey).trim())
+      ? String(overrideEmail.resendApiKey).trim()
+      : saved.resendApiKey,
+    brevoApiKey: (overrideEmail && overrideEmail.brevoApiKey && String(overrideEmail.brevoApiKey).trim())
+      ? String(overrideEmail.brevoApiKey).trim()
+      : saved.brevoApiKey
+  };
+
+  if (!forceSend && !cfg.enabled) {
+    return { ok: true, sent: false };
+  }
+
+  const recipients = parseValidEmails(cfg.recipientEmails);
+  if (recipients.length === 0) {
+    return { ok: false, sent: false, error: "Veuillez saisir au moins une adresse email destinataire valide." };
+  }
+
+  const subject = `🔔 Nouvelle Commande ${order.id} — ${order.customerName} (${order.total} MAD)`;
+  const textBody = buildOrderWhatsAppAlertText(order).replace(/\*/g, '');
+  const htmlBody = buildOrderEmailHtml(order);
+  const fromName = String(cfg.fromName || 'MODANOVA Commandes').replace(/[\r\n<>"]/g, '').trim() || 'MODANOVA Commandes';
+
+  // Provider 1: Resend HTTPS API (Free 3,000 emails/month, zero SMTP ports needed)
+  if (cfg.provider === 'resend') {
+    const apiKey = String(cfg.resendApiKey || '').trim();
+    if (!apiKey) {
+      return { ok: false, sent: false, provider: 'resend', error: "Clé API Resend manquante (re_...)." };
+    }
+    const fromEmail = parseValidEmails(cfg.fromEmail)[0] || 'onboarding@resend.dev';
+    try {
+      const resp = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: `${fromName} <${fromEmail}>`,
+          to: recipients,
+          subject,
+          html: htmlBody,
+          text: textBody
+        })
+      });
+      const data: any = await resp.json().catch(() => ({}));
+      if (resp.ok && data?.id) {
+        console.log(`[Email Alert] Sent order ${order.id} via Resend to ${recipients.join(', ')}`);
+        return { ok: true, sent: true, provider: 'resend', recipients };
+      }
+      return {
+        ok: false,
+        sent: false,
+        provider: 'resend',
+        error: data?.message || data?.error?.message || `Erreur Resend HTTP ${resp.status}`
+      };
+    } catch (err: any) {
+      return { ok: false, sent: false, provider: 'resend', error: err?.message || "Erreur de connexion à Resend" };
+    }
+  }
+
+  // Provider 2: Brevo HTTPS API (Free 300 emails/day, sends to any email over HTTPS)
+  if (cfg.provider === 'brevo') {
+    const apiKey = String(cfg.brevoApiKey || '').trim();
+    if (!apiKey) {
+      return { ok: false, sent: false, provider: 'brevo', error: "Clé API Brevo manquante (xkeysib-...)." };
+    }
+    const fromEmail = parseValidEmails(cfg.fromEmail)[0] || recipients[0];
+    try {
+      const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': apiKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { name: fromName, email: fromEmail },
+          to: recipients.map(email => ({ email })),
+          subject,
+          htmlContent: htmlBody,
+          textContent: textBody
+        })
+      });
+      const data: any = await resp.json().catch(() => ({}));
+      if (resp.ok) {
+        console.log(`[Email Alert] Sent order ${order.id} via Brevo to ${recipients.join(', ')}`);
+        return { ok: true, sent: true, provider: 'brevo', recipients };
+      }
+      return {
+        ok: false,
+        sent: false,
+        provider: 'brevo',
+        error: data?.message || `Erreur Brevo HTTP ${resp.status}`
+      };
+    } catch (err: any) {
+      return { ok: false, sent: false, provider: 'brevo', error: err?.message || "Erreur de connexion à Brevo" };
+    }
+  }
+
+  // Provider 3: Gmail / Custom SMTP via Nodemailer
+  const smtpHost = String(cfg.smtpHost || 'smtp.gmail.com').trim();
+  const smtpPort = Math.min(65535, Math.max(1, Number(cfg.smtpPort || 465) || 465));
+  const smtpUser = String(cfg.smtpUser || '').trim();
+  const smtpPass = String(cfg.smtpPass || '').replace(/\s+/g, '');
+
+  if (isPrivateOrLocalHost(smtpHost)) {
+    return { ok: false, sent: false, provider: 'smtp', error: "Hôte SMTP non autorisé (utilisez un serveur SMTP public tel que smtp.gmail.com)." };
+  }
+  if (!smtpUser || !smtpPass) {
+    return { ok: false, sent: false, provider: 'smtp', error: "Veuillez renseigner l'Email expéditeur (Gmail/SMTP) et son Mot de passe d'application." };
+  }
+
+  const fromEmail = parseValidEmails(cfg.fromEmail)[0] || smtpUser;
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465 ? true : Boolean(cfg.smtpSecure),
+      auth: { user: smtpUser, pass: smtpPass },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 12000
+    });
+    await transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: recipients.join(', '),
+      subject,
+      text: textBody,
+      html: htmlBody
+    });
+    console.log(`[Email Alert] Sent order ${order.id} via SMTP (${smtpHost}) to ${recipients.join(', ')}`);
+    return { ok: true, sent: true, provider: 'smtp', recipients };
+  } catch (err: any) {
+    const rawMsg = String(err?.message || 'Erreur SMTP');
+    let friendly = rawMsg;
+    if (/535|Username and Password not accepted|Invalid login/i.test(rawMsg)) {
+      friendly = "Identifiants refusés par Gmail/SMTP. Pour Gmail, utilisez obligatoirement un « Mot de passe d'application » (16 caractères) créé sur myaccount.google.com/apppasswords (et non votre mot de passe Gmail habituel).";
+    } else if (/ETIMEDOUT|ECONNREFUSED|ENOTFOUND/i.test(rawMsg)) {
+      friendly = `Impossible de joindre le serveur SMTP (${smtpHost}:${smtpPort}). Essayez le port 587 ou utilisez Resend / Brevo API (HTTPS).`;
+    }
+    console.warn(`[Email Alert] SMTP error:`, rawMsg);
+    return { ok: false, sent: false, provider: 'smtp', error: friendly };
+  }
+}
+
+async function sendAdminTelegramOrderAlert(
+  order: any,
+  overrideTg?: Partial<TelegramNotificationConfig>,
+  forceSend: boolean = false
+): Promise<{ ok: boolean; sent: boolean; error?: string }> {
+  const saved = mergeNotificationsConfig().telegram;
+  const botToken = (overrideTg && overrideTg.botToken && String(overrideTg.botToken).trim())
+    ? String(overrideTg.botToken).trim()
+    : String(saved.botToken || '').trim();
+  const chatId = (overrideTg && overrideTg.chatId !== undefined)
+    ? String(overrideTg.chatId || '').trim()
+    : String(saved.chatId || '').trim();
+  const enabled = overrideTg?.enabled !== undefined ? Boolean(overrideTg.enabled) : Boolean(saved.enabled);
+
+  if (!forceSend && !enabled) {
+    return { ok: true, sent: false };
+  }
+  if (!botToken || !chatId) {
+    return { ok: false, sent: false, error: "Veuillez renseigner le Bot Token Telegram et votre Chat ID." };
+  }
+
+  const itemsLines = (order.items || [])
+    .map((it: any) => {
+      const col = it.colorLabel || (it.color ? formatColorLabelFr(it.color) : 'Standard');
+      return `• <b>${Number(it.quantity || 1)}x</b> ${escapeHtml(it.nameFr || 'Article')} (${escapeHtml(it.size || 'Unique')} / ${escapeHtml(col)}) — ${Number(it.price || 0) * Number(it.quantity || 1)} MAD`;
+    })
+    .join('\n');
+
+  const tgText =
+    `🔔 <b>NOUVELLE COMMANDE MODANOVA</b>\n` +
+    `━━━━━━━━━━━━━━━━━━\n` +
+    `📦 <b>N° :</b> <code>${escapeHtml(order.id)}</code>\n` +
+    `👤 <b>Client :</b> ${escapeHtml(order.customerName)}\n` +
+    `📞 <b>Tél :</b> <code>${escapeHtml(order.customerPhone)}</code>\n` +
+    `📍 <b>Ville :</b> ${escapeHtml(order.city)}\n` +
+    `🏠 <b>Adresse :</b> ${escapeHtml(order.address)}\n` +
+    (order.notes ? `📝 <b>Note :</b> ${escapeHtml(order.notes)}\n` : '') +
+    `━━━━━━━━━━━━━━━━━━\n` +
+    `${itemsLines}\n` +
+    `━━━━━━━━━━━━━━━━━━\n` +
+    `💰 <b>TOTAL COD : ${Number(order.total || 0).toLocaleString('fr-FR')} MAD</b>`;
+
+  const customerWaUrl = buildCustomerConfirmWhatsappUrl(order);
+
+  try {
+    const resp = await fetch(`https://api.telegram.org/bot${encodeURIComponent(botToken)}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: tgText,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[{ text: '💬 Confirmer sur WhatsApp', url: customerWaUrl }]]
+        }
+      })
+    });
+    const data: any = await resp.json().catch(() => ({}));
+    if (resp.ok && data?.ok) {
+      console.log(`[Telegram Alert] Sent order ${order.id} to chat ${chatId}`);
+      return { ok: true, sent: true };
+    }
+    return { ok: false, sent: false, error: data?.description || `Erreur Telegram HTTP ${resp.status}` };
+  } catch (err: any) {
+    return { ok: false, sent: false, error: err?.message || "Erreur réseau Telegram" };
+  }
+}
+
+async function sendAdminNtfyOrderAlert(
+  order: any,
+  overrideNtfy?: Partial<NtfyNotificationConfig>,
+  forceSend: boolean = false
+): Promise<{ ok: boolean; sent: boolean; error?: string }> {
+  const saved = mergeNotificationsConfig().ntfy;
+  const enabled = overrideNtfy?.enabled !== undefined ? Boolean(overrideNtfy.enabled) : Boolean(saved.enabled);
+  const topic = String(overrideNtfy?.topic !== undefined ? overrideNtfy.topic : saved.topic || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+  const serverUrl = String(overrideNtfy?.serverUrl || saved.serverUrl || 'https://ntfy.sh').trim().replace(/\/+$/, '');
+
+  if (!forceSend && !enabled) {
+    return { ok: true, sent: false };
+  }
+  if (!topic || topic.length < 4) {
+    return { ok: false, sent: false, error: "Veuillez saisir un nom de canal ntfy privé (min. 4 caractères, lettres/chiffres/tirets)." };
+  }
+  if (!isSafePublicUrl(serverUrl)) {
+    return { ok: false, sent: false, error: "URL serveur ntfy invalide." };
+  }
+
+  const itemsSummary = (order.items || [])
+    .map((it: any) => `${Number(it.quantity || 1)}x ${it.nameFr || 'Article'} (${it.size || 'Unique'})`)
+    .join(', ');
+  const bodyText =
+    `Client : ${order.customerName} (${order.customerPhone})\n` +
+    `Ville : ${order.city} — ${order.address}\n` +
+    `Articles : ${itemsSummary}\n` +
+    `Total COD : ${order.total} MAD`;
+  const customerWaUrl = buildCustomerConfirmWhatsappUrl(order);
+
+  try {
+    const resp = await fetch(`${serverUrl}/${encodeURIComponent(topic)}`, {
+      method: 'POST',
+      headers: {
+        'Title': `Nouvelle Commande ${order.id} (${order.total} MAD)`,
+        'Priority': 'high',
+        'Tags': 'shopping_bags,moneybag',
+        'Actions': `view, Confirmer sur WhatsApp, ${customerWaUrl}`
+      },
+      body: bodyText
+    });
+    if (resp.ok) {
+      console.log(`[ntfy Alert] Sent order ${order.id} push to topic ${topic}`);
+      return { ok: true, sent: true };
+    }
+    return { ok: false, sent: false, error: `Erreur ntfy HTTP ${resp.status}` };
+  } catch (err: any) {
+    return { ok: false, sent: false, error: err?.message || "Erreur réseau ntfy" };
+  }
+}
+
 async function sendAdminWhatsAppOrderAlert(order: any): Promise<{ sentViaApi: boolean; whatsappUrl: string }> {
   const targetDigits = formatAdminWhatsappDigits(adminConfigStore.adminWhatsappPhone || cmsStore?.whatsappNumber || "+212600773716");
   const alertText = buildOrderWhatsAppAlertText(order);
@@ -323,9 +828,9 @@ async function sendAdminWhatsAppOrderAlert(order: any): Promise<{ sentViaApi: bo
     }
   }
 
-  // 2. Custom WhatsApp Webhook push (if Webhook URL configured)
+  // 2. Custom WhatsApp Webhook push (if Webhook URL configured & passes SSRF validation)
   const webhookUrl = String(adminConfigStore.whatsappWebhookUrl || "").trim();
-  if (webhookUrl) {
+  if (webhookUrl && isSafePublicUrl(webhookUrl)) {
     try {
       const resp = await fetch(webhookUrl, {
         method: "POST",
@@ -346,6 +851,34 @@ async function sendAdminWhatsAppOrderAlert(order: any): Promise<{ sentViaApi: bo
   }
 
   return { sentViaApi, whatsappUrl };
+}
+
+async function dispatchAllAdminOrderAlerts(order: any): Promise<{
+  whatsappUrl: string;
+  sentViaApi: boolean;
+  emailSent: boolean;
+  telegramSent: boolean;
+  ntfySent: boolean;
+}> {
+  const [waRes, emailRes, tgRes, ntfyRes] = await Promise.allSettled([
+    sendAdminWhatsAppOrderAlert(order),
+    sendAdminEmailOrderAlert(order),
+    sendAdminTelegramOrderAlert(order),
+    sendAdminNtfyOrderAlert(order)
+  ]);
+
+  const waVal = waRes.status === 'fulfilled' ? waRes.value : { sentViaApi: false, whatsappUrl: '' };
+  const emailSent = emailRes.status === 'fulfilled' && Boolean(emailRes.value?.sent);
+  const telegramSent = tgRes.status === 'fulfilled' && Boolean(tgRes.value?.sent);
+  const ntfySent = ntfyRes.status === 'fulfilled' && Boolean(ntfyRes.value?.sent);
+
+  return {
+    whatsappUrl: waVal.whatsappUrl,
+    sentViaApi: Boolean(waVal.sentViaApi || emailSent || telegramSent || ntfySent),
+    emailSent,
+    telegramSent,
+    ntfySent
+  };
 }
 
 // High-speed JSX bundle compiler with in-memory caching
@@ -683,7 +1216,11 @@ function loadPersistedStore() {
         couponsStore = parsed.coupons;
       }
       if (parsed.adminConfig && typeof parsed.adminConfig === 'object') {
-        adminConfigStore = { ...adminConfigStore, ...parsed.adminConfig };
+        adminConfigStore = {
+          ...adminConfigStore,
+          ...parsed.adminConfig,
+          notificationsConfig: mergeNotificationsConfig(parsed.adminConfig.notificationsConfig)
+        };
       }
     }
   } catch (err) {
@@ -809,8 +1346,12 @@ async function syncWithFirestoreOnBoot() {
     // 0. Admin Security & WhatsApp Config sync
     const remoteAdminConfig = await fetchAdminConfig();
     if (remoteAdminConfig && typeof remoteAdminConfig === 'object') {
-      adminConfigStore = { ...adminConfigStore, ...remoteAdminConfig };
-      console.log(`[Firestore] Loaded Admin Security & WhatsApp config from Firebase.`);
+      adminConfigStore = {
+        ...adminConfigStore,
+        ...remoteAdminConfig,
+        notificationsConfig: mergeNotificationsConfig(remoteAdminConfig.notificationsConfig)
+      };
+      console.log(`[Firestore] Loaded Admin Security & Notifications config from Firebase.`);
     } else {
       await saveAdminConfig(adminConfigStore);
     }
@@ -1163,7 +1704,8 @@ app.get('/api/admin/config', async (req: Request, res: Response) => {
           ozon: { ...adminConfigStore.carriersConfig.ozon, ...(remote.carriersConfig?.ozon || {}) },
           cathedis: { ...adminConfigStore.carriersConfig.cathedis, ...(remote.carriersConfig?.cathedis || {}) },
           amana: { ...adminConfigStore.carriersConfig.amana, ...(remote.carriersConfig?.amana || {}) }
-        }
+        },
+        notificationsConfig: mergeNotificationsConfig(remote.notificationsConfig)
       };
       savePersistedStore();
     }
@@ -1185,7 +1727,8 @@ app.get('/api/admin/config', async (req: Request, res: Response) => {
     ogImageUrl: adminConfigStore.ogImageUrl || "",
     defaultShippingCost: adminConfigStore.defaultShippingCost ?? 35,
     cityShippingCosts: adminConfigStore.cityShippingCosts || DEFAULT_CITY_SHIPPING_COSTS,
-    carriersConfig: adminConfigStore.carriersConfig
+    carriersConfig: adminConfigStore.carriersConfig,
+    notificationsConfig: sanitizeNotificationsForClient(adminConfigStore.notificationsConfig)
   });
 });
 
@@ -1313,6 +1856,202 @@ app.put('/api/admin/password', async (req: Request, res: Response) => {
     adminUser: adminConfigStore.adminUser,
     message: "Votre mot de passe administrateur a été modifié et sauvegardé sur Firebase."
   });
+});
+
+// Save Multi-Channel Notification Settings (Email + Telegram + ntfy) — Admin
+app.put('/api/admin/notifications', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const body = req.body || {};
+  const prev = mergeNotificationsConfig();
+
+  const inEmail = body.email || {};
+  const inTg = body.telegram || {};
+  const inNtfy = body.ntfy || {};
+
+  const nextEmail: EmailNotificationConfig = {
+    enabled: inEmail.enabled !== undefined ? Boolean(inEmail.enabled) : prev.email.enabled,
+    recipientEmails: inEmail.recipientEmails !== undefined ? String(inEmail.recipientEmails).trim().slice(0, 500) : prev.email.recipientEmails,
+    provider: ['smtp', 'resend', 'brevo'].includes(String(inEmail.provider)) ? inEmail.provider : prev.email.provider,
+    smtpHost: inEmail.smtpHost !== undefined ? (String(inEmail.smtpHost).trim().slice(0, 150) || 'smtp.gmail.com') : prev.email.smtpHost,
+    smtpPort: inEmail.smtpPort !== undefined ? (Math.min(65535, Math.max(1, Number(inEmail.smtpPort) || 465))) : prev.email.smtpPort,
+    smtpSecure: inEmail.smtpSecure !== undefined ? Boolean(inEmail.smtpSecure) : (Number(inEmail.smtpPort || prev.email.smtpPort) === 465),
+    smtpUser: inEmail.smtpUser !== undefined ? String(inEmail.smtpUser).trim().slice(0, 200) : prev.email.smtpUser,
+    smtpPass: inEmail.clearSmtpPass
+      ? ''
+      : (inEmail.smtpPass !== undefined && String(inEmail.smtpPass).trim() ? String(inEmail.smtpPass).trim().slice(0, 200) : prev.email.smtpPass),
+    fromEmail: inEmail.fromEmail !== undefined ? String(inEmail.fromEmail).trim().slice(0, 200) : prev.email.fromEmail,
+    fromName: inEmail.fromName !== undefined ? (String(inEmail.fromName).trim().slice(0, 120) || 'MODANOVA Commandes') : prev.email.fromName,
+    resendApiKey: inEmail.clearResendApiKey
+      ? ''
+      : (inEmail.resendApiKey !== undefined && String(inEmail.resendApiKey).trim() ? String(inEmail.resendApiKey).trim().slice(0, 200) : prev.email.resendApiKey),
+    brevoApiKey: inEmail.clearBrevoApiKey
+      ? ''
+      : (inEmail.brevoApiKey !== undefined && String(inEmail.brevoApiKey).trim() ? String(inEmail.brevoApiKey).trim().slice(0, 250) : prev.email.brevoApiKey)
+  };
+
+  if (nextEmail.enabled && parseValidEmails(nextEmail.recipientEmails).length === 0) {
+    return res.status(400).json({ error: "Veuillez saisir au moins une adresse email destinataire valide (ex: votre-email@gmail.com)." });
+  }
+  if (nextEmail.provider === 'smtp' && isPrivateOrLocalHost(nextEmail.smtpHost)) {
+    return res.status(400).json({ error: "Hôte SMTP invalide. Utilisez un serveur public (ex: smtp.gmail.com)." });
+  }
+
+  const nextTg: TelegramNotificationConfig = {
+    enabled: inTg.enabled !== undefined ? Boolean(inTg.enabled) : prev.telegram.enabled,
+    botToken: inTg.clearBotToken
+      ? ''
+      : (inTg.botToken !== undefined && String(inTg.botToken).trim() ? String(inTg.botToken).trim().slice(0, 200) : prev.telegram.botToken),
+    chatId: inTg.chatId !== undefined ? String(inTg.chatId).trim().slice(0, 80) : prev.telegram.chatId
+  };
+
+  const cleanTopic = inNtfy.topic !== undefined
+    ? String(inNtfy.topic).trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80)
+    : prev.ntfy.topic;
+  const cleanNtfyServer = inNtfy.serverUrl !== undefined
+    ? (String(inNtfy.serverUrl).trim().replace(/\/+$/, '') || 'https://ntfy.sh')
+    : (prev.ntfy.serverUrl || 'https://ntfy.sh');
+  if (!isSafePublicUrl(cleanNtfyServer)) {
+    return res.status(400).json({ error: "L'URL du serveur ntfy doit être une URL HTTPS publique valide." });
+  }
+
+  const nextNtfy: NtfyNotificationConfig = {
+    enabled: inNtfy.enabled !== undefined ? Boolean(inNtfy.enabled) : prev.ntfy.enabled,
+    topic: cleanTopic,
+    serverUrl: cleanNtfyServer
+  };
+
+  adminConfigStore = {
+    ...adminConfigStore,
+    notificationsConfig: {
+      email: nextEmail,
+      telegram: nextTg,
+      ntfy: nextNtfy
+    }
+  };
+  savePersistedStore();
+
+  try {
+    const { saveAdminConfig } = await import('./src/firebase.ts');
+    await saveAdminConfig(adminConfigStore);
+  } catch (err) {
+    console.warn('Error saving notificationsConfig to Firestore:', err);
+  }
+
+  return res.json({
+    ok: true,
+    notificationsConfig: sanitizeNotificationsForClient(adminConfigStore.notificationsConfig)
+  });
+});
+
+// Test Email Order Alert (Admin)
+app.post('/api/admin/test-email', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const sampleOrder = {
+    id: "CMD-TEST01",
+    customerName: "Client Test MODANOVA",
+    customerPhone: "0600000000",
+    city: "Casablanca",
+    address: "Boulevard d'Anfa, Casablanca",
+    notes: "Ceci est un test d'alerte Email automatique MODANOVA.",
+    items: [{ nameFr: "Veste Signature MODANOVA", quantity: 1, price: 650, size: "L", colorLabel: "Noir" }],
+    discount: 0,
+    total: 650,
+    paymentMethod: "COD (Paiement à la livraison)"
+  };
+  const overrideEmail = req.body?.email && typeof req.body.email === 'object' ? req.body.email : undefined;
+  const result = await sendAdminEmailOrderAlert(sampleOrder, overrideEmail, true);
+  if (!result.ok) {
+    return res.status(400).json({ ok: false, error: result.error || "Échec de l'envoi de l'email de test." });
+  }
+  return res.json({
+    ok: true,
+    provider: result.provider,
+    recipients: result.recipients,
+    message: `Email de test envoyé avec succès à ${(result.recipients || []).join(', ')} !`
+  });
+});
+
+// Auto-detect Telegram Chat ID from latest /start message sent to Bot (Admin)
+app.post('/api/admin/telegram/detect-chat', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const tokenInput = String(req.body?.botToken || '').trim() || String(mergeNotificationsConfig().telegram.botToken || '').trim();
+  if (!tokenInput) {
+    return res.status(400).json({ error: "Veuillez d'abord coller le Token de votre Bot Telegram (obtenu via @BotFather)." });
+  }
+  try {
+    const resp = await fetch(`https://api.telegram.org/bot${encodeURIComponent(tokenInput)}/getUpdates`);
+    const data: any = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data?.ok) {
+      return res.status(400).json({ error: data?.description || "Token Bot Telegram invalide." });
+    }
+    const updates = Array.isArray(data.result) ? data.result : [];
+    for (let i = updates.length - 1; i >= 0; i--) {
+      const chat = updates[i]?.message?.chat || updates[i]?.channel_post?.chat || updates[i]?.my_chat_member?.chat;
+      if (chat && chat.id) {
+        return res.json({
+          ok: true,
+          chatId: String(chat.id),
+          chatName: [chat.first_name, chat.last_name, chat.username ? `@${chat.username}` : ''].filter(Boolean).join(' ')
+        });
+      }
+    }
+    return res.status(404).json({
+      error: "Aucun message trouvé. Ouvrez votre Bot dans Telegram, appuyez sur « Démarrer » (/start) ou envoyez « Bonjour », puis recliquez ici."
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || "Erreur réseau Telegram" });
+  }
+});
+
+// Test Telegram Order Alert (Admin)
+app.post('/api/admin/test-telegram', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const sampleOrder = {
+    id: "CMD-TEST01",
+    customerName: "Client Test MODANOVA",
+    customerPhone: "0600000000",
+    city: "Casablanca",
+    address: "Boulevard d'Anfa, Casablanca",
+    notes: "Test de notification Telegram instantanée",
+    items: [{ nameFr: "Article Test MODANOVA", quantity: 1, price: 650, size: "42", colorLabel: "Noir" }],
+    total: 650
+  };
+  const overrideTg = req.body?.telegram && typeof req.body.telegram === 'object' ? req.body.telegram : undefined;
+  const result = await sendAdminTelegramOrderAlert(sampleOrder, overrideTg, true);
+  if (!result.ok) {
+    return res.status(400).json({ ok: false, error: result.error || "Échec du test Telegram" });
+  }
+  return res.json({ ok: true, message: "Notification Telegram envoyée avec succès !" });
+});
+
+// Test ntfy Push Order Alert (Admin)
+app.post('/api/admin/test-ntfy', async (req: Request, res: Response) => {
+  if (!verifyAdmin(req)) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  const sampleOrder = {
+    id: "CMD-TEST01",
+    customerName: "Client Test MODANOVA",
+    customerPhone: "0600000000",
+    city: "Casablanca",
+    address: "Boulevard d'Anfa, Casablanca",
+    items: [{ nameFr: "Article Test MODANOVA", quantity: 1, price: 650, size: "42" }],
+    total: 650
+  };
+  const overrideNtfy = req.body?.ntfy && typeof req.body.ntfy === 'object' ? req.body.ntfy : undefined;
+  const result = await sendAdminNtfyOrderAlert(sampleOrder, overrideNtfy, true);
+  if (!result.ok) {
+    return res.status(400).json({ ok: false, error: result.error || "Échec du test Push ntfy" });
+  }
+  return res.json({ ok: true, message: "Notification Push envoyée avec succès vers l'application ntfy !" });
 });
 
 // Test Automatic WhatsApp Notification (Admin)
@@ -2333,15 +3072,15 @@ app.post('/api/orders', async (req: Request, res: Response) => {
     }
   }
 
-  // Trigger Automatic WhatsApp Notification to Admin
+  // Trigger Multi-Channel Automatic Notifications to Admin (WhatsApp + Email + Telegram + ntfy)
   let adminWhatsappUrl = "";
   let sentViaApi = false;
   try {
-    const notifyResult = await sendAdminWhatsAppOrderAlert(newOrder);
+    const notifyResult = await dispatchAllAdminOrderAlerts(newOrder);
     adminWhatsappUrl = notifyResult.whatsappUrl;
     sentViaApi = notifyResult.sentViaApi;
   } catch (err) {
-    console.warn('WhatsApp notification note:', err);
+    console.warn('Admin notification dispatch note:', err);
   }
 
   return res.status(201).json({
