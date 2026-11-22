@@ -13,11 +13,35 @@
     <meta name="twitter:title" content="MODANOVA — Men's Essentials | Luxe Minimaliste Maroc" />
     <meta name="twitter:description" content="Luxe contemporain masculin au Maroc. Paiement à la livraison partout au Maroc." />
 
-    <!-- Favicon & Logo MODANOVA -->
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <!-- Android / iOS PWA Manifest & Mobile App Capabilities -->
+    <meta name="theme-color" content="#171717" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MODANOVA" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Favicon & Android / iOS App Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="shortcut icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- Early Android PWA Install Prompt Capture & Service Worker Registration -->
+    <script>
+      window.__deferredPwaPrompt = null;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__deferredPwaPrompt = e;
+        window.dispatchEvent(new Event('modanova-pwa-prompt-ready'));
+      });
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {});
+        });
+      }
+    </script>
 
     <!-- Google Fonts: Cormorant Garamond, Plus Jakarta Sans, Cairo -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -2968,6 +2992,470 @@
       }
 
       // ========================================================================
+      // ANDROID / MOBILE APP (PWA) HOOKS & IN-APP INSTALL COMPONENTS
+      // ========================================================================
+      function usePWAInstall() {
+        const [deferredPrompt, setDeferredPrompt] = useState(() => window.__deferredPwaPrompt || null);
+        const [isInstalled, setIsInstalled] = useState(false);
+        const [isIOS, setIsIOS] = useState(false);
+        const [isAndroid, setIsAndroid] = useState(false);
+
+        useEffect(() => {
+          const isStandalone =
+            (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+            window.navigator.standalone === true ||
+            document.referrer.includes('android-app://');
+          setIsInstalled(isStandalone);
+
+          const ua = (window.navigator.userAgent || '').toLowerCase();
+          setIsIOS(/iphone|ipad|ipod/.test(ua));
+          setIsAndroid(/android/.test(ua));
+
+          if (window.__deferredPwaPrompt) {
+            setDeferredPrompt(window.__deferredPwaPrompt);
+          }
+
+          const handleBeforeInstallPrompt = (e) => {
+            e.preventDefault();
+            window.__deferredPwaPrompt = e;
+            setDeferredPrompt(e);
+          };
+
+          const handlePromptReady = () => {
+            if (window.__deferredPwaPrompt) {
+              setDeferredPrompt(window.__deferredPwaPrompt);
+            }
+          };
+
+          const handleAppInstalled = () => {
+            setIsInstalled(true);
+            setDeferredPrompt(null);
+            window.__deferredPwaPrompt = null;
+          };
+
+          window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+          window.addEventListener('modanova-pwa-prompt-ready', handlePromptReady);
+          window.addEventListener('appinstalled', handleAppInstalled);
+
+          return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            window.removeEventListener('modanova-pwa-prompt-ready', handlePromptReady);
+            window.removeEventListener('appinstalled', handleAppInstalled);
+          };
+        }, []);
+
+        const install = async () => {
+          const promptEvt = deferredPrompt || window.__deferredPwaPrompt;
+          if (!promptEvt) return false;
+          try {
+            await promptEvt.prompt();
+            const choice = await promptEvt.userChoice;
+            if (choice && choice.outcome === 'accepted') {
+              setIsInstalled(true);
+              setDeferredPrompt(null);
+              window.__deferredPwaPrompt = null;
+              return true;
+            }
+          } catch (err) {
+            console.warn('PWA install prompt notice:', err);
+          }
+          return false;
+        };
+
+        return {
+          isInstallable: Boolean(deferredPrompt),
+          isInstalled,
+          isIOS,
+          isAndroid,
+          install,
+        };
+      }
+
+      function useOnlineStatus() {
+        const [isOnline, setIsOnline] = useState(
+          typeof navigator !== 'undefined' ? navigator.onLine : true
+        );
+
+        useEffect(() => {
+          const handleOnline = () => setIsOnline(true);
+          const handleOffline = () => setIsOnline(false);
+          window.addEventListener('online', handleOnline);
+          window.addEventListener('offline', handleOffline);
+          return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+          };
+        }, []);
+
+        return isOnline;
+      }
+
+      function OfflineIndicator({ lang }) {
+        const isOnline = useOnlineStatus();
+        if (isOnline) return null;
+        return (
+          <div className="fixed bottom-4 start-4 z-50 flex items-center gap-2 rounded-xs bg-amber-600 px-3.5 py-2 text-xs font-semibold text-white shadow-lg border border-amber-400/50">
+            <span className="h-2 w-2 rounded-full bg-white animate-pulse shrink-0" />
+            <span>
+              {lang === 'ar'
+                ? 'وضع عدم الاتصال — يتم عرض البيانات المحفوظة.'
+                : 'Mode hors-ligne — Données mises en cache affichées.'}
+            </span>
+          </div>
+        );
+      }
+
+      function PWAInstallButton({ lang, variant = 'header', onAction }) {
+        const { isInstallable, isInstalled, isIOS, isAndroid, install } = usePWAInstall();
+        const [showGuide, setShowGuide] = useState(false);
+
+        if (isInstalled) return null;
+
+        const handleClick = async () => {
+          if (isInstallable) {
+            const ok = await install();
+            if (ok && onAction) onAction();
+          } else {
+            setShowGuide(true);
+          }
+        };
+
+        const isAr = lang === 'ar';
+        const label = isAr
+          ? (isIOS ? 'تثبيت على iPhone' : 'تطبيق Android')
+          : (isIOS ? "Installer l'App" : 'App Android');
+
+        const btnClass =
+          variant === 'drawer'
+            ? 'w-full py-3 px-4 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 rounded-xs shadow-xs transition-colors'
+            : variant === 'footer'
+              ? 'mt-4 inline-flex items-center gap-2 px-4 py-2.5 bg-caramel hover:bg-white hover:text-noir text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shadow-xs'
+              : 'inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-noir hover:bg-caramel text-canvas text-[11px] font-semibold uppercase tracking-wider rounded-xs transition-colors shadow-2xs shrink-0';
+
+        return (
+          <>
+            <button
+              type="button"
+              onClick={handleClick}
+              className={btnClass}
+              title={isAr ? 'تثبيت تطبيق MODANOVA على هاتفك' : "Installer l'application MODANOVA sur votre téléphone"}
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.9" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              <span>{label}</span>
+            </button>
+
+            {showGuide && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+                <div className="w-full max-w-md bg-canvas border border-taupe/30 rounded-xs p-6 shadow-2xl text-noir">
+                  <div className="flex items-start justify-between gap-3 border-b border-taupe/20 pb-3 mb-4">
+                    <div className="flex items-center gap-3">
+                      <img src="/pwa-192x192.png" alt="MODANOVA" className="w-11 h-11 rounded-lg border border-taupe/25 bg-white object-contain" />
+                      <div>
+                        <h3 className="font-serif text-lg font-bold text-noir">
+                          {isAr
+                            ? (isIOS ? 'تثبيت تطبيق MODANOVA على iPhone' : 'تثبيت تطبيق MODANOVA على Android')
+                            : (isIOS ? 'Installer MODANOVA sur iPhone / iPad' : 'Installer MODANOVA sur Android')}
+                        </h3>
+                        <p className="text-[11px] text-taupe-dark">
+                          {isAr ? 'وصول فوري من الشاشة الرئيسية بدون متصفح' : "Accès plein écran depuis votre écran d'accueil"}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowGuide(false)}
+                      className="text-taupe-dark hover:text-noir p-1"
+                      aria-label="Fermer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {isIOS ? (
+                    <ol className="space-y-2.5 text-xs text-noir/90 list-decimal list-inside bg-white p-4 rounded-xs border border-taupe/20">
+                      <li>
+                        {isAr ? (
+                          <>افتح الموقع في متصفح <strong>Safari</strong> ثم اضغط على زر <strong>المشاركة (Share)</strong> أسفل الشاشة.</>
+                        ) : (
+                          <>Appuyez sur le bouton <strong>Partager</strong> (carré avec flèche) dans la barre Safari.</>
+                        )}
+                      </li>
+                      <li>
+                        {isAr ? (
+                          <>مرّر للأسفل واختر <strong>إضافة إلى الشاشة الرئيسية (Add to Home Screen)</strong>.</>
+                        ) : (
+                          <>Faites défiler vers le bas puis touchez <strong>Sur l&apos;écran d&apos;accueil</strong>.</>
+                        )}
+                      </li>
+                      <li>
+                        {isAr ? (
+                          <>اضغط <strong>إضافة</strong> — سيظهر تطبيق MODANOVA مثل أي تطبيق أصلي!</>
+                        ) : (
+                          <>Appuyez sur <strong>Ajouter</strong> : l&apos;icône <strong>MODANOVA</strong> apparaît immédiatement sur votre téléphone.</>
+                        )}
+                      </li>
+                    </ol>
+                  ) : (
+                    <ol className="space-y-2.5 text-xs text-noir/90 list-decimal list-inside bg-white p-4 rounded-xs border border-taupe/20">
+                      <li>
+                        {isAr ? (
+                          <>افتح رابط المتجر في <strong>Google Chrome</strong> على هاتفك Android.</>
+                        ) : (
+                          <>Ouvrez ce site dans <strong>Google Chrome</strong> sur votre téléphone Android.</>
+                        )}
+                      </li>
+                      <li>
+                        {isAr ? (
+                          <>اضغط على قائمة النقاط الثلاث <strong>⋮</strong> في الأعلى.</>
+                        ) : (
+                          <>Appuyez sur le menu <strong>⋮</strong> en haut à droite du navigateur.</>
+                        )}
+                      </li>
+                      <li>
+                        {isAr ? (
+                          <>اختر <strong>تثبيت التطبيق (Installer l&apos;application)</strong> ثم اضغط <strong>تثبيت</strong>.</>
+                        ) : (
+                          <>Touchez <strong>Installer l&apos;application</strong> (ou <em>Ajouter à l&apos;écran d&apos;accueil</em>) puis confirmez.</>
+                        )}
+                      </li>
+                    </ol>
+                  )}
+
+                  {!isIOS && !isAndroid && (
+                    <p className="mt-3 text-[11px] text-taupe-dark">
+                      Sur PC / Mac (Chrome ou Edge), vous pouvez aussi cliquer sur l&apos;icône d&apos;installation dans la barre d&apos;adresse pour ouvrir MODANOVA comme une application dédiée.
+                    </p>
+                  )}
+
+                  <div className="mt-5 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowGuide(false)}
+                      className="px-5 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors"
+                    >
+                      {isAr ? 'حسناً' : 'Compris'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      }
+
+      function MobileAndroidAppBanner({ lang }) {
+        const { isInstallable, isInstalled, install } = usePWAInstall();
+        const [dismissed, setDismissed] = useState(() => {
+          try {
+            return sessionStorage.getItem('modanova_pwa_banner_dismissed') === '1';
+          } catch {
+            return false;
+          }
+        });
+
+        if (isInstalled || !isInstallable || dismissed) return null;
+
+        const isAr = lang === 'ar';
+        return (
+          <div className="fixed bottom-24 start-4 end-4 sm:end-auto sm:max-w-sm z-40 bg-noir text-canvas border border-caramel/40 rounded-xs p-3.5 shadow-2xl flex items-center gap-3 animate-slide-up">
+            <img
+              src="/pwa-192x192.png"
+              alt="MODANOVA App"
+              className="w-11 h-11 rounded-lg bg-white p-0.5 shrink-0 border border-white/15"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-bold tracking-wide text-white truncate">
+                {isAr ? 'تطبيق MODANOVA لنظام Android' : 'Application Android MODANOVA'}
+              </div>
+              <div className="text-[11px] text-white/70 truncate">
+                {isAr ? 'تصفح أسرع ووصول فوري من شاشتك' : "Navigation rapide & plein écran sur votre mobile"}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={install}
+              className="px-3 py-1.5 bg-caramel hover:bg-white hover:text-noir text-white text-[11px] font-bold uppercase tracking-wider rounded-xs transition-colors shrink-0"
+            >
+              {isAr ? 'تثبيت' : 'Installer'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDismissed(true);
+                try { sessionStorage.setItem('modanova_pwa_banner_dismissed', '1'); } catch {}
+              }}
+              className="text-white/50 hover:text-white text-xs px-1"
+              aria-label="Fermer"
+            >
+              ✕
+            </button>
+          </div>
+        );
+      }
+
+      function AdminAndroidAppCard({ storePhone, showToast }) {
+        const { isInstallable, isInstalled, install } = usePWAInstall();
+        const [swReady, setSwReady] = useState(false);
+        const [manifestOk, setManifestOk] = useState(false);
+
+        useEffect(() => {
+          let active = true;
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistration().then((reg) => {
+              if (active && reg) setSwReady(true);
+            }).catch(() => {});
+          }
+          fetch('/manifest.webmanifest')
+            .then((r) => {
+              if (active && r.ok) setManifestOk(true);
+            })
+            .catch(() => {});
+          return () => { active = false; };
+        }, []);
+
+        const liveOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+        const pwaBuilderUrl = `https://www.pwabuilder.com/reportcard?site=${encodeURIComponent(liveOrigin)}`;
+        const phoneDigits = String(storePhone || '').replace(/\D+/g, '');
+        const waSelfLink = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(
+          `📱 Installer l'Application Android MODANOVA : ${liveOrigin}`
+        )}`;
+
+        const copyAppLink = async () => {
+          try {
+            await navigator.clipboard.writeText(liveOrigin);
+            if (showToast) showToast("Lien de l'application Android copié !");
+          } catch {
+            if (showToast) showToast(liveOrigin);
+          }
+        };
+
+        return (
+          <div className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-taupe/15 pb-4 mb-5">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-noir flex items-center gap-2">
+                  <span>📱</span>
+                  <span>Application Android (Installation Directe & Export APK / Play Store)</span>
+                </h3>
+                <p className="text-xs text-taupe-dark mt-0.5">
+                  Votre site <strong>MODANOVA</strong> est configuré comme une véritable <strong>application Android installable (PWA / TWA)</strong> avec icône adaptative, plein écran et accès hors-ligne.
+                </p>
+              </div>
+              {!isInstalled && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (isInstallable) {
+                      await install();
+                    } else if (showToast) {
+                      showToast("Ouvrez ce lien dans Chrome sur Android puis touchez ⋮ → Installer l'application.");
+                    }
+                  }}
+                  className="px-4 py-2 bg-noir hover:bg-caramel text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors shrink-0 shadow-xs"
+                >
+                  {isInstallable ? "📲 Installer l'App Maintenant" : '📲 Installer sur Android'}
+                </button>
+              )}
+              {isInstalled && (
+                <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xs shrink-0">
+                  ✓ Application Installée
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Left: Instant Android Install (No Play Store fee) */}
+              <div className="bg-[#FAF7F2] border border-caramel/35 p-4 rounded-xs space-y-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/pwa-maskable-512x512.png"
+                    alt="Icône Android MODANOVA"
+                    className="w-14 h-14 rounded-2xl border border-taupe/30 bg-white shadow-xs object-contain shrink-0"
+                  />
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-noir">
+                      1. Installation Directe sur Android (Gratuit & Immédiat)
+                    </div>
+                    <p className="text-[11px] text-taupe-dark mt-0.5">
+                      Vos clients (et vous-même) peuvent installer l&apos;app en 1 clic sur leur écran d&apos;accueil Android avec raccourcis rapides <strong>Catalogue</strong> et <strong>Admin</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px] bg-white p-3 rounded-xs border border-taupe/20">
+                  <div className="flex items-center gap-1.5">
+                    <span className={manifestOk ? 'text-emerald-600 font-bold' : 'text-amber-600'}>{manifestOk ? '✓' : '•'}</span>
+                    <span>Manifest Android</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={swReady ? 'text-emerald-600 font-bold' : 'text-amber-600'}>{swReady ? '✓' : '•'}</span>
+                    <span>Service Worker</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-emerald-600 font-bold">✓</span>
+                    <span>Icônes 192 / 512 + Maskable</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-emerald-600 font-bold">✓</span>
+                    <span>Mode Plein Écran</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={copyAppLink}
+                    className="px-3.5 py-2 bg-noir hover:bg-caramel text-white text-[11px] font-bold uppercase tracking-wider rounded-xs transition-colors"
+                  >
+                    📋 Copier le Lien d&apos;Installation
+                  </button>
+                  <a
+                    href={waSelfLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-2 bg-[#25D366] hover:bg-[#20ba5a] text-white text-[11px] font-bold uppercase tracking-wider rounded-xs transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <span>📲 Envoyer sur mon WhatsApp</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Right: Generate real .APK / Google Play .AAB */}
+              <div className="bg-[#FAF9F6] border border-taupe/25 p-4 rounded-xs flex flex-col justify-between space-y-3">
+                <div className="space-y-2.5">
+                  <div className="text-xs font-bold uppercase tracking-wider text-noir">
+                    2. Générer un Fichier .APK ou Publier sur Google Play Store
+                  </div>
+                  <p className="text-[11px] text-taupe-dark leading-relaxed">
+                    Grâce à la configuration PWA complète de votre boutique, vous pouvez générer un fichier <strong>Android .APK</strong> (installable directement) ou <strong>.AAB</strong> (pour Google Play Store) en 2 minutes sans aucun code :
+                  </p>
+                  <ol className="text-[11px] text-noir/90 list-decimal list-inside space-y-1 bg-white p-3 rounded-xs border border-taupe/20">
+                    <li>Cliquez sur <strong>« Générer mon APK (PWABuilder) »</strong> ci-dessous.</li>
+                    <li>Cliquez sur <strong>Package For Stores</strong> puis choisissez <strong>Android</strong>.</li>
+                    <li>Téléchargez le ZIP contenant votre <strong>.apk</strong> prêt à installer et votre <strong>.aab</strong> pour le Play Store.</li>
+                  </ol>
+                </div>
+
+                <div className="pt-1">
+                  <a
+                    href={pwaBuilderUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2.5 px-4 bg-caramel hover:bg-noir text-white text-xs font-bold uppercase tracking-wider rounded-xs transition-colors inline-flex items-center justify-center gap-2 shadow-2xs"
+                  >
+                    <span>🤖 Générer mon APK Android (PWABuilder)</span>
+                    <span>↗</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ========================================================================
       // MAIN REACT APPLET COMPONENT
       // ========================================================================
       function App() {
@@ -4244,6 +4732,11 @@
                     </button>
                   </div>
 
+                  {/* Android / Mobile App Install Button */}
+                  <div className="hidden md:flex items-center">
+                    <PWAInstallButton lang={lang} variant="header" />
+                  </div>
+
                   {/* Order Tracking Button (Desktop) */}
                   <button
                     onClick={() => setTrackingOpen(true)}
@@ -5288,6 +5781,7 @@
                     <p className="text-xs text-white/60 leading-relaxed font-light">
                       {t.footer_desc}
                     </p>
+                    <PWAInstallButton lang={lang} variant="footer" />
                   </div>
 
                   {/* Col 2: Navigation Links */}
@@ -5456,6 +5950,12 @@
             </div>
 
             {/* ================================================================ */}
+            {/* 8B. ANDROID APP INSTALL BANNER & OFFLINE INDICATOR */}
+            {/* ================================================================ */}
+            <MobileAndroidAppBanner lang={lang} />
+            <OfflineIndicator lang={lang} />
+
+            {/* ================================================================ */}
             {/* 9. MOBILE DRAWER NAVIGATION */}
             {/* ================================================================ */}
             {mobileDrawerOpen && (
@@ -5574,8 +6074,13 @@
                     </button>
                   </div>
 
-                  {/* WhatsApp button bottom */}
-                  <div className="mt-auto pt-6 border-t border-taupe/20">
+                  {/* Android App & WhatsApp buttons bottom */}
+                  <div className="mt-auto pt-6 border-t border-taupe/20 space-y-2.5">
+                    <PWAInstallButton
+                      lang={lang}
+                      variant="drawer"
+                      onAction={() => setMobileDrawerOpen(false)}
+                    />
                     <a
                       href={`https://wa.me/${storeConfig.storePhoneDigits}`}
                       target="_blank"
@@ -12941,6 +13446,9 @@
                         </div>
                       </div>
                     </div>
+
+                    {/* 3B. APPLICATION ANDROID (PWA & EXPORT APK / PLAY STORE) */}
+                    <AdminAndroidAppCard storePhone={storePhone} showToast={showToast} />
 
                     {/* 4. MAINTENANCE & VIDAGE DU CACHE (CLEAR CACHE) */}
                     <div className="bg-white border border-taupe/20 p-6 rounded-xs shadow-2xs">

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E6C687" />
+      <stop offset="50%" stop-color="#C28B53" />
+      <stop offset="100%" stop-color="#E6C687" />
+    </linearGradient>
+  </defs>
+  <!-- Deep Obsidian Background -->
+  <rect width="64" height="64" rx="10" fill="#141414" />
+  <!-- Subtle Luxury Inner Frame -->
+  <rect x="4.5" y="4.5" width="55" height="55" rx="7" fill="none" stroke="url(#goldGrad)" stroke-width="1.5" stroke-opacity="0.75" />
+  <!-- Top Diamond Accent -->
+  <polygon points="32,8 34.5,10.5 32,13 29.5,10.5" fill="#E6C687" />
+  <!-- Bespoke Serif Monogram 'M' -->
+  <path
+    d="M15 47V20h5.5l11.5 18.2L43.5 20H49v27h-5V28.2L33.2 45h-2.4L20 28.2V47h-5z"
+    fill="url(#goldGrad)"
+  />
+  <!-- Bottom Hairline -->
+  <line x1="22" y1="53" x2="42" y2="53" stroke="#C28B53" stroke-width="1.5" stroke-linecap="round" />
+</svg>

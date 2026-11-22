@@ -1,0 +1,52 @@
+{
+  "id": "/",
+  "name": "MODANOVA — Men's Essentials",
+  "short_name": "MODANOVA",
+  "description": "Maison masculine de luxe contemporain au Maroc. Pièces d'exception, coupes précises et paiement à la livraison (COD).",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "theme_color": "#171717",
+  "background_color": "#FAF9F6",
+  "categories": ["shopping", "lifestyle", "fashion"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Tous les Produits",
+      "short_name": "Catalogue",
+      "description": "Explorer toute la collection MODANOVA",
+      "url": "/produits",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Espace Admin",
+      "short_name": "Admin",
+      "description": "Gérer les commandes et le stock",
+      "url": "/admin",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

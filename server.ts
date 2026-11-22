@@ -4415,6 +4415,32 @@ async function startServer() {
   app.get('/app-bundle.js', serveBundle);
   app.get('/app-bundle.v2.js', serveBundle);
 
+  // Serve Web App Manifest & Service Worker with strict PWA/Android headers
+  app.get(['/manifest.webmanifest', '/manifest.json'], (_req: Request, res: Response) => {
+    const distManifest = path.resolve(__dirname, 'dist', 'manifest.webmanifest');
+    const pubManifest = path.resolve(__dirname, 'public', 'manifest.webmanifest');
+    const targetPath = isProduction && fs.existsSync(distManifest) ? distManifest : pubManifest;
+    if (fs.existsSync(targetPath)) {
+      res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.sendFile(targetPath);
+    }
+    return res.status(404).end();
+  });
+
+  app.get('/sw.js', (_req: Request, res: Response) => {
+    const distSw = path.resolve(__dirname, 'dist', 'sw.js');
+    const pubSw = path.resolve(__dirname, 'public', 'sw.js');
+    const targetPath = isProduction && fs.existsSync(distSw) ? distSw : pubSw;
+    if (fs.existsSync(targetPath)) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Service-Worker-Allowed', '/');
+      return res.sendFile(targetPath);
+    }
+    return res.status(404).end();
+  });
+
   // Serve brand OpenGraph logos with Firestore fallback so WhatsApp/Messenger always get the logo
   app.get(['/og-logo.jpg', '/og-logo-square.jpg', '/logo.png'], async (req: Request, res: Response) => {
     const fileName = path.basename(req.path);
