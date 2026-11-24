@@ -4401,10 +4401,7 @@ async function startServer() {
     console.warn('[Firestore] Background sync notice:', err);
   });
 
-  // Precompile app bundle once on boot for instant first launch
-  getOrBuildBundle();
-
-  // Optimized bundle routes with cache-busting support
+  // Optimized bundle routes with cache-busting support (builds lazily on first request or right after listen)
   const serveBundle = (req: Request, res: Response) => {
     const code = getOrBuildBundle();
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -4525,26 +4522,71 @@ async function startServer() {
     return next();
   });
 
+  const serveFallbackHtml = (req: Request, res: Response) => {
+    const distHtmlPath = path.resolve(__dirname, 'dist', 'index.html');
+    const fallbackHtmlPath = isProduction && fs.existsSync(distHtmlPath)
+      ? distHtmlPath
+      : path.resolve(__dirname, 'index.html');
+    const rawHtml = fs.readFileSync(fallbackHtmlPath, 'utf8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(injectSocialMetaTags(rawHtml, req));
+  };
+
   if (!isProduction) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
+    let viteMiddleware: any = null;
+    const viteReadyPromise = import('vite')
+      .then(({ createServer: createViteServer }) =>
+        createViteServer({
+          server: { middlewareMode: true, hmr: false },
+          appType: 'spa',
+        })
+      )
+      .then((vite) => {
+        viteMiddleware = vite.middlewares;
+      })
+      .catch((err) => {
+        console.warn('[Vite] Background dev middleware notice:', err);
+      });
+
+    app.use((req: Request, res: Response, next) => {
+      if (viteMiddleware) {
+        return viteMiddleware(req, res, next);
+      }
+      // If Vite is still warming up on cold boot, wait briefly only for non-HTML module requests
+      if (req.path.startsWith('/@') || req.path.startsWith('/src/') || req.path.startsWith('/node_modules/')) {
+        viteReadyPromise.then(() => {
+          if (viteMiddleware) viteMiddleware(req, res, next);
+          else next();
+        });
+        return;
+      }
+      return next();
     });
-    app.use(vite.middlewares);
+
+    app.get('*', (req: Request, res: Response) => {
+      try {
+        return serveFallbackHtml(req, res);
+      } catch {
+        return res.status(404).end();
+      }
+    });
   } else {
     app.use(express.static(path.resolve(__dirname, 'dist'), { index: false }));
     app.get('*', (req: Request, res: Response) => {
-      const distHtmlPath = path.resolve(__dirname, 'dist', 'index.html');
-      const fallbackHtmlPath = fs.existsSync(distHtmlPath) ? distHtmlPath : path.resolve(__dirname, 'index.html');
-      const rawHtml = fs.readFileSync(fallbackHtmlPath, 'utf8');
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.send(injectSocialMetaTags(rawHtml, req));
+      return serveFallbackHtml(req, res);
     });
   }
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server listening on port ${PORT}`);
+    // Warm up compiled client bundle immediately after port 3000 is open
+    setImmediate(() => {
+      try {
+        getOrBuildBundle();
+      } catch (err) {
+        console.warn('[Bundle] Initial warmup notice:', err);
+      }
+    });
   });
 }
 

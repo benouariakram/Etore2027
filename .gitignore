@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+.data/
+.aistudio/
+public/uploads/
+public/app-bundle.js
+public/app-bundle.v2.js

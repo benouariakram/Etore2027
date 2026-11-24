@@ -214,14 +214,14 @@
           url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%239E8C7A' fill-opacity='0.055' fill-rule='evenodd'%3E%3Cpath d='M30 0l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm0 30l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm15-15l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zM0 15l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm30 30l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5zm15-15l7.5 7.5-7.5 7.5-7.5-7.5 7.5-7.5z'/%3E%3Ccircle cx='30' cy='30' r='1.5' fill='%23C28B53' fill-opacity='0.16'/%3E%3C/g%3E%3C/svg%3E");
         backdrop-filter: blur(14px);
         -webkit-backdrop-filter: blur(14px);
-        overflow: hidden;
+        overflow: visible;
         max-width: 100vw;
       }
 
       /* Golden hairline glow for header bottom */
       .header-gold-line {
         position: relative;
-        overflow: hidden;
+        overflow: visible;
       }
       .header-gold-line::after {
         content: '';
@@ -3753,7 +3753,47 @@
 
         // --- Modals & Drawers ---
         const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+        const [productsMenuOpen, setProductsMenuOpen] = useState(false);
+        const [mobileProductsSubmenuOpen, setMobileProductsSubmenuOpen] = useState(false);
+        const productsMenuRef = useRef(null);
         const [cartOpen, setCartOpen] = useState(false);
+
+        useEffect(() => {
+          if (!productsMenuOpen) return;
+          const handleOutside = (e) => {
+            if (productsMenuRef.current && !productsMenuRef.current.contains(e.target)) {
+              setProductsMenuOpen(false);
+            }
+          };
+          const handleEsc = (e) => {
+            if (e.key === 'Escape') setProductsMenuOpen(false);
+          };
+          document.addEventListener('mousedown', handleOutside);
+          document.addEventListener('keydown', handleEsc);
+          return () => {
+            document.removeEventListener('mousedown', handleOutside);
+            document.removeEventListener('keydown', handleEsc);
+          };
+        }, [productsMenuOpen]);
+
+        const menuCategoryItems = useMemo(() => {
+          const seen = new Set();
+          const list = [];
+          const pushCat = (rawCat) => {
+            const label = String(rawCat || '').trim();
+            if (!label) return;
+            const key = label.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            const count = products.filter(
+              (p) => String(p.category || '').trim().toLowerCase() === key
+            ).length;
+            list.push({ id: label, label, count });
+          };
+          PRODUCT_CATEGORIES.forEach(pushCat);
+          products.forEach((p) => pushCat(p.category));
+          return list;
+        }, [products]);
         const [badgePulsing, setBadgePulsing] = useState(false);
         const [lastAddedLineKey, setLastAddedLineKey] = useState(null);
         const [scrolled, setScrolled] = useState(false);
@@ -4615,9 +4655,11 @@
             {/* ================================================================ */}
             {/* 1. HEADER STICKY & TOP BAR (Luxury Mashrabiya BG & Gold Line) */}
             {/* ================================================================ */}
-            <header className={`sticky top-0 z-40 header-luxury-bg header-gold-line overflow-hidden w-full max-w-full transition-all duration-300 ${scrolled ? 'shadow-lg shadow-noir/5' : ''}`}>
-              <div className="header-shimmer-beam" />
-              <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 transition-all duration-300 ${scrolled ? 'h-16' : 'h-20'}`}>
+            <header className={`sticky top-0 z-40 header-luxury-bg header-gold-line w-full max-w-full transition-all duration-300 ${scrolled ? 'shadow-lg shadow-noir/5' : ''}`}>
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="header-shimmer-beam" />
+              </div>
+              <div className={`relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 transition-all duration-300 ${scrolled ? 'h-16' : 'h-20'}`}>
                 
                 {/* Zone 1: Burger Mobile & Navigation Desktop */}
                 <div className="flex items-center gap-6">
@@ -4639,6 +4681,7 @@
                       href="/"
                       onClick={(e) => {
                         e.preventDefault();
+                        setProductsMenuOpen(false);
                         backToHome();
                       }}
                       className={`nav-link-indicator py-1 transition-colors whitespace-nowrap ${
@@ -4647,19 +4690,85 @@
                     >
                       {lang === 'ar' ? 'الرئيسية' : 'Accueil'}
                     </a>
-                    <a
-                      href="/produits"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigateToProductsPage();
-                      }}
-                      className={`nav-link-indicator py-1 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                        !selectedProductId && isProductsPage ? 'text-caramel font-semibold' : 'text-noir hover:text-caramel'
-                      }`}
+
+                    {/* Produits + Sous-menu Toutes les créations */}
+                    <div
+                      ref={productsMenuRef}
+                      className="relative"
+                      onMouseEnter={() => setProductsMenuOpen(true)}
+                      onMouseLeave={() => setProductsMenuOpen(false)}
                     >
-                      <span>{lang === 'ar' ? 'جميع المنتجات' : 'Tous les Produits'}</span>
-                      <span className="text-[10px] font-mono text-taupe-dark">({products.length})</span>
-                    </a>
+                      <button
+                        type="button"
+                        onClick={() => setProductsMenuOpen((prev) => !prev)}
+                        aria-expanded={productsMenuOpen}
+                        aria-haspopup="menu"
+                        className={`nav-link-indicator py-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                          !selectedProductId && isProductsPage ? 'text-caramel font-semibold' : 'text-noir hover:text-caramel'
+                        }`}
+                      >
+                        <span>{lang === 'ar' ? 'المنتجات' : 'Produits'}</span>
+                        <svg
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${productsMenuOpen ? 'rotate-180 text-caramel' : 'text-taupe-dark'}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {productsMenuOpen && (
+                        <div className="absolute top-full start-0 pt-2 z-50 w-72">
+                          <div className="bg-canvas border border-taupe/30 shadow-2xl rounded-xs py-1.5 overflow-hidden">
+                            <a
+                              href="/produits"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setProductsMenuOpen(false);
+                                navigateToProductsPage('all');
+                              }}
+                              className={`flex items-center justify-between px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors border-b border-taupe/20 ${
+                                isProductsPage && selectedCategory === 'all'
+                                  ? 'bg-noir text-canvas'
+                                  : 'bg-card/70 text-noir hover:bg-noir hover:text-canvas'
+                              }`}
+                            >
+                              <span>{t.filter_all}</span>
+                              <span className="font-mono text-[11px] opacity-80">({products.length})</span>
+                            </a>
+                            <div className="max-h-[75vh] overflow-y-auto py-1">
+                              {menuCategoryItems.map((cat) => {
+                                const isCatActive =
+                                  isProductsPage &&
+                                  selectedCategory.toLowerCase() === cat.id.toLowerCase();
+                                return (
+                                  <a
+                                    key={cat.id}
+                                    href="/produits"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setProductsMenuOpen(false);
+                                      navigateToProductsPage(cat.id);
+                                    }}
+                                    className={`flex items-center justify-between px-4 py-2 text-[13px] transition-colors ${
+                                      isCatActive
+                                        ? 'bg-caramel/15 text-caramel font-semibold'
+                                        : 'text-noir hover:bg-card hover:text-caramel'
+                                    }`}
+                                  >
+                                    <span className="truncate">{cat.label}</span>
+                                    <span className="text-[10px] font-mono text-taupe-dark ms-2">
+                                      ({cat.count})
+                                    </span>
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <a
                       href="#savoir-faire"
                       onClick={(e) => {
@@ -5802,10 +5911,10 @@
                       <li>
                         <a
                           href="/produits"
-                          onClick={(e) => { e.preventDefault(); navigateToProductsPage(); }}
+                          onClick={(e) => { e.preventDefault(); navigateToProductsPage('all'); }}
                           className="hover:text-white transition-colors"
                         >
-                          {lang === 'ar' ? 'جميع المنتجات والفلترة' : 'Tous les Produits & Filtres'}
+                          {lang === 'ar' ? 'المنتجات' : 'Produits'}
                         </a>
                       </li>
                       <li>
@@ -6005,13 +6114,63 @@
                     >
                       {lang === 'ar' ? 'الرئيسية (Accueil)' : 'Accueil (Page Principale)'}
                     </a>
-                    <a
-                      href="/produits"
-                      onClick={(e) => { e.preventDefault(); setMobileDrawerOpen(false); navigateToProductsPage(); }}
-                      className={`block text-base font-medium ${isProductsPage && !selectedProductId ? 'text-caramel font-semibold' : 'text-noir hover:text-caramel'}`}
-                    >
-                      {lang === 'ar' ? `جميع المنتجات والفلترة (${products.length})` : `Tous les Produits & Filtres (${products.length})`}
-                    </a>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setMobileProductsSubmenuOpen((prev) => !prev)}
+                        className={`w-full flex items-center justify-between text-base font-medium ${
+                          isProductsPage && !selectedProductId ? 'text-caramel font-semibold' : 'text-noir hover:text-caramel'
+                        }`}
+                      >
+                        <span>{lang === 'ar' ? 'المنتجات' : 'Produits'}</span>
+                        <svg
+                          className={`w-4 h-4 transition-transform duration-200 ${mobileProductsSubmenuOpen ? 'rotate-180 text-caramel' : 'text-taupe-dark'}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {mobileProductsSubmenuOpen && (
+                        <div className="mt-2.5 ps-3 border-s-2 border-caramel/40 space-y-2">
+                          <a
+                            href="/produits"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setMobileDrawerOpen(false);
+                              navigateToProductsPage('all');
+                            }}
+                            className={`flex items-center justify-between py-1 text-sm font-semibold ${
+                              isProductsPage && selectedCategory === 'all' ? 'text-caramel' : 'text-noir hover:text-caramel'
+                            }`}
+                          >
+                            <span>{t.filter_all}</span>
+                            <span className="text-[11px] font-mono text-taupe-dark">({products.length})</span>
+                          </a>
+                          {menuCategoryItems.map((cat) => (
+                            <a
+                              key={cat.id}
+                              href="/produits"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setMobileDrawerOpen(false);
+                                navigateToProductsPage(cat.id);
+                              }}
+                              className={`flex items-center justify-between py-0.5 text-xs ${
+                                isProductsPage && selectedCategory.toLowerCase() === cat.id.toLowerCase()
+                                  ? 'text-caramel font-semibold'
+                                  : 'text-taupe-dark hover:text-noir'
+                              }`}
+                            >
+                              <span>{cat.label}</span>
+                              <span className="text-[10px] font-mono">{cat.count}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <a
                       href="#savoir-faire"
                       onClick={(e) => {
