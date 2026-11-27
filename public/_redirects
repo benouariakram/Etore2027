@@ -1,5 +1,7 @@
 # Cloudflare Pages SPA Routing Rules
 /admin /index.html 200
 /admin/* /index.html 200
+/p/* /index.html 200
 /produit/* /index.html 200
 /product/* /index.html 200
+/produits /index.html 200

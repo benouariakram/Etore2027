@@ -4327,16 +4327,123 @@ app.post('/api/orders/:id/exchange', async (req: Request, res: Response) => {
   return res.json({ ok: true, order: updatedOrder, products: productsStore });
 });
 
-// Helper to inject absolute OpenGraph image & URL tags for WhatsApp / Messenger / Facebook link previews
+// Helper to resolve a product from short (/p/5) or SEO (/produit/slug-5) URLs
+function findProductForSocialMeta(req: Request): any | null {
+  try {
+    const pathname = String(req.path || '');
+    const shortMatch = pathname.match(/^\/p\/([^/?#]+)/i);
+    const fullMatch = pathname.match(/^\/(?:produit|product)\/([^/?#]+)/i);
+    const rawParam =
+      (shortMatch && shortMatch[1]) ||
+      (fullMatch && fullMatch[1]) ||
+      (typeof req.query?.p === 'string' ? req.query.p : '') ||
+      (typeof req.query?.produit === 'string' ? req.query.produit : '') ||
+      (typeof req.query?.product === 'string' ? req.query.product : '');
+
+    if (!rawParam) return null;
+    const decoded = decodeURIComponent(String(rawParam)).trim();
+    const idTail = decoded.match(/-(\d+)$/);
+    const numericId = /^\d+$/.test(decoded)
+      ? parseInt(decoded, 10)
+      : idTail
+        ? parseInt(idTail[1], 10)
+        : NaN;
+
+    if (!Number.isNaN(numericId)) {
+      const byId = productsStore.find((p: any) => Number(p.id) === numericId);
+      if (byId) return byId;
+    }
+
+    const lower = decoded.toLowerCase();
+    return (
+      productsStore.find((p: any) => String(p.id).toLowerCase() === lower) ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
+// Helper to inject absolute OpenGraph image & URL tags for WhatsApp / Messenger / Facebook / Instagram / TikTok previews
 function injectSocialMetaTags(html: string, req: Request): string {
   const forwardedProto = req.headers['x-forwarded-proto'];
   const proto = typeof forwardedProto === 'string' ? forwardedProto.split(',')[0].trim() : (req.protocol || 'https');
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'modanova.ma';
   const origin = `${proto === 'http' && !String(host).includes('localhost') ? 'https' : proto}://${host}`;
   const fullUrl = `${origin}${req.originalUrl || '/'}`;
+  const escapeAttr = (s: string) =>
+    String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+  // If this is a product link (/p/:id or /produit/:slug), inject that exact product's title, price & photo
+  const matchedProduct = findProductForSocialMeta(req);
+  if (matchedProduct) {
+    const prodName = String(matchedProduct.nameFr || matchedProduct.nameAr || 'Création MODANOVA').trim();
+    const prodPrice = Number(matchedProduct.price || 0);
+    const ogTitle = `${prodName} — ${prodPrice.toLocaleString('fr-FR')} MAD | MODANOVA`;
+    const rawDesc = String(matchedProduct.descFr || matchedProduct.descAr || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const ogDesc = rawDesc
+      ? `${rawDesc.slice(0, 155)} · Paiement à la livraison (COD) partout au Maroc.`
+      : `${prodName} disponible chez MODANOVA au prix de ${prodPrice} MAD. Livraison rapide & paiement à la livraison partout au Maroc.`;
+
+    const candidateImgs: string[] = [];
+    if (Array.isArray(matchedProduct.images)) {
+      matchedProduct.images.forEach((img: any) => {
+        if (typeof img === 'string' && img.trim()) candidateImgs.push(img.trim());
+      });
+    }
+    if (typeof matchedProduct.image === 'string' && matchedProduct.image.trim()) {
+      candidateImgs.push(matchedProduct.image.trim());
+    }
+    // Social crawlers (Facebook, WhatsApp, TikTok, Instagram) require HTTP(S) image URLs, not inline data: URLs
+    const rawProdImg = candidateImgs.find((u) => !/^data:/i.test(u)) || '';
+    const resolvedImg = rawProdImg
+      ? /^https?:\/\//i.test(rawProdImg)
+        ? rawProdImg
+        : `${origin}${rawProdImg.startsWith('/') ? '' : '/'}${rawProdImg}`
+      : `${origin}/og-logo.jpg`;
+
+    const safeTitle = escapeAttr(ogTitle);
+    const safeDesc = escapeAttr(ogDesc);
+    const safeImg = escapeAttr(resolvedImg);
+    const shortCanonical = `${origin}/p/${encodeURIComponent(String(matchedProduct.id))}`;
+    const mimeGuess = /\.png(\?|$)/i.test(resolvedImg)
+      ? 'image/png'
+      : /\.webp(\?|$)/i.test(resolvedImg)
+        ? 'image/webp'
+        : 'image/jpeg';
+
+    const prodOgTags = `
+    <link rel="canonical" href="${escapeAttr(shortCanonical)}" />
+    <meta property="og:url" content="${escapeAttr(shortCanonical)}" />
+    <meta property="og:site_name" content="MODANOVA — Men's Essentials" />
+    <meta property="og:image" content="${safeImg}" />
+    <meta property="og:image:secure_url" content="${safeImg}" />
+    <meta property="og:image:type" content="${mimeGuess}" />
+    <meta property="og:image:alt" content="${safeTitle}" />
+    <meta property="product:price:amount" content="${escapeAttr(String(prodPrice))}" />
+    <meta property="product:price:currency" content="MAD" />
+    <meta name="twitter:image" content="${safeImg}" />
+    <link rel="image_src" href="${safeImg}" />
+    <meta itemprop="image" content="${safeImg}" />`;
+
+    return html
+      .replace(/<title>[\s\S]*?<\/title>/i, `<title>${safeTitle}</title>`)
+      .replace(/<meta\s+name="description"\s+content="[^"]*"\s*\/?>/i, `<meta name="description" content="${safeDesc}" />`)
+      .replace(/<meta\s+property="og:title"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:title" content="${safeTitle}" />`)
+      .replace(/<meta\s+property="og:description"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:description" content="${safeDesc}" />`)
+      .replace(/<meta\s+property="og:type"\s+content="[^"]*"\s*\/?>/i, `<meta property="og:type" content="product" />`)
+      .replace(/<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:title" content="${safeTitle}" />`)
+      .replace(/<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/?>/i, `<meta name="twitter:description" content="${safeDesc}" />`)
+      .replace('<!-- DYNAMIC_OG_META -->', prodOgTags);
+  }
 
   const rawCustomOg = String(adminConfigStore.ogImageUrl || '').trim();
-  const escapeAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   let dynamicOgTags = '';
   if (rawCustomOg) {
@@ -4504,8 +4611,8 @@ async function startServer() {
   app.use('/images', express.static(path.resolve(__dirname, 'public/images'), { maxAge: '7d' }));
   app.use(express.static(path.resolve(__dirname, 'public'), { maxAge: '1d', index: false }));
 
-  // Serve index.html with dynamic absolute OpenGraph image tags for WhatsApp, Messenger & social crawlers
-  app.get(['/', '/admin', '/produit/*', '/produits', '/catalogue', '/products'], (req: Request, res: Response, next) => {
+  // Serve index.html with dynamic absolute OpenGraph image tags for WhatsApp, Facebook, Instagram & TikTok crawlers
+  app.get(['/', '/admin', '/p/:id', '/p/*', '/produit/*', '/product/*', '/produits', '/catalogue', '/products'], (req: Request, res: Response, next) => {
     try {
       const htmlPath = isProduction && fs.existsSync(path.resolve(__dirname, 'dist', 'index.html'))
         ? path.resolve(__dirname, 'dist', 'index.html')

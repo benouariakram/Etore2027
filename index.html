@@ -1614,6 +1614,12 @@
         return `${base}-${product.id}`;
       }
 
+      function getShortProductUrl(prodOrId) {
+        const id = typeof prodOrId === 'object' && prodOrId !== null ? prodOrId.id : prodOrId;
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        return `${origin}/p/${encodeURIComponent(String(id))}`;
+      }
+
       // ========================================================================
       // Variant Stock (Taille / Pointure / Format × Couleur) & Color Helpers
       // ========================================================================
@@ -2139,25 +2145,42 @@
         const isProductCompletelyOut = !product.inStock || product.stock <= 0;
         const isOut = isProductCompletelyOut || selectedVariantStock <= 0;
         const isLow = !isOut && selectedVariantStock > 0 && selectedVariantStock <= 5;
-        const productSlug = getProductSlug(product);
-        const currentUrl = `${window.location.origin}/produit/${productSlug}`;
+        const currentUrl = getShortProductUrl(product);
 
         const copyLink = () => {
           try {
             navigator.clipboard.writeText(currentUrl);
             setCopied(true);
-            showToast(t.product_link_copied, 'success');
+            showToast(`${t.product_link_copied} (${currentUrl})`, 'success');
             setTimeout(() => setCopied(false), 3000);
           } catch {
             showToast(currentUrl, 'info');
           }
         };
 
-        const shareWhatsApp = () => {
-          const text = lang === 'ar'
+        const whatsappShareHref = `https://wa.me/?text=${encodeURIComponent(
+          lang === 'ar'
             ? `مرحباً، اكتشف هذه القطعة الراقية من دار مودانوفا (MODANOVA):\n\n*${title}*\nالسعر: ${product.price} درهم مغربي (الدفع عند الاستلام)\n\nرابط المنتج المباشر:\n${currentUrl}`
-            : `Bonjour, découvrez cette création de la Maison MODANOVA :\n\n*${title}*\nPrix : ${product.price} MAD (Paiement à la livraison)\n\nLien direct vers la pièce :\n${currentUrl}`;
-          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            : `Bonjour, découvrez cette création de la Maison MODANOVA :\n\n*${title}*\nPrix : ${product.price} MAD (Paiement à la livraison)\n\nLien direct :\n${currentUrl}`
+        )}`;
+
+        const facebookShareHref = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`;
+
+        const copySocialCaption = () => {
+          const caption = lang === 'ar'
+            ? `✨ ${title} — ${product.price} درهم\n🚚 التوصيل متوفر لجميع المدن المغربية (الدفع عند الاستلام)\n👇 للطلب المباشر:\n${currentUrl}`
+            : `✨ ${title} — ${product.price} MAD\n🚚 Livraison partout au Maroc • Paiement à la livraison (COD)\n👇 Commander directement :\n${currentUrl}`;
+          try {
+            navigator.clipboard.writeText(caption);
+            showToast(
+              lang === 'ar'
+                ? 'تم نسخ النص والرابط القصير لـ Instagram / TikTok !'
+                : 'Lien court + texte copiés pour Instagram / TikTok !',
+              'success'
+            );
+          } catch {
+            showToast(currentUrl, 'info');
+          }
         };
 
         const handleDirectOrder = () => {
@@ -2233,8 +2256,8 @@
                   </span>
                 </div>
 
-                {/* Direct Share Buttons */}
-                <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                {/* Direct Short Link & Social Share Buttons (WhatsApp, Facebook, Instagram, TikTok) */}
+                <div className="flex items-center flex-wrap gap-2 shrink-0 self-start sm:self-auto">
                   <button
                     type="button"
                     onClick={copyLink}
@@ -2243,23 +2266,42 @@
                         ? 'border-[#25D366] bg-[#ECFDF5] text-[#065F46]'
                         : 'border-taupe/30 hover:border-noir bg-canvas text-noir hover:bg-card'
                     }`}
-                    title="Copier le lien direct pour vos clients"
+                    title={`Copier le lien court : ${currentUrl}`}
                   >
                     <svg className="w-3.5 h-3.5 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                     </svg>
-                    <span>{copied ? '✓ Lien copié !' : t.product_share_link}</span>
+                    <span>{copied ? '✓ Lien copié !' : `/p/${product.id}`}</span>
                   </button>
+
+                  <a
+                    href={whatsappShareHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xs flex items-center gap-1.5 font-semibold tracking-wider transition-colors shadow-xs"
+                    title="Partager le lien court sur WhatsApp"
+                  >
+                    <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
+                    <span>WhatsApp</span>
+                  </a>
+
+                  <a
+                    href={facebookShareHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-[#1877F2] hover:bg-[#1465ce] text-white rounded-xs flex items-center gap-1.5 font-semibold tracking-wider transition-colors shadow-xs"
+                    title="Partager le lien court sur Facebook"
+                  >
+                    <span>Facebook</span>
+                  </a>
 
                   <button
                     type="button"
-                    onClick={shareWhatsApp}
-                    className="px-3 py-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xs flex items-center gap-1.5 font-semibold tracking-wider transition-colors shadow-xs"
-                    title="Envoyer le produit directement au client via WhatsApp"
+                    onClick={copySocialCaption}
+                    className="px-3 py-1.5 bg-noir hover:bg-caramel text-white rounded-xs flex items-center gap-1.5 font-semibold tracking-wider transition-colors shadow-xs"
+                    title="Copier le lien court + texte de vente pour Instagram & TikTok"
                   >
-                    <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
-                    <span className="hidden sm:inline">{t.product_share_whatsapp}</span>
-                    <span className="sm:hidden">WhatsApp</span>
+                    <span>IG / TikTok</span>
                   </button>
                 </div>
               </div>
@@ -3803,10 +3845,17 @@
         const [quickViewSize, setQuickViewSize] = useState('');
         const [quickViewColor, setQuickViewColor] = useState('');
 
-        // --- Dedicated SEO Friendly Product Page & Products Catalog URL Routing Helpers ---
+        // --- Dedicated Short (/p/:id) & SEO (/produit/:slug) Product URL Routing Helpers ---
         const getProductIdentifierFromURL = () => {
           try {
-            // 1. Path match: /produit/:slug or /product/:slug
+            // 1. Ultra-short link match: /p/:id
+            const shortMatch = window.location.pathname.match(/^\/p\/([^/?#]+)/i);
+            if (shortMatch && shortMatch[1]) {
+              const rawId = decodeURIComponent(shortMatch[1]).trim();
+              if (/^\d+$/.test(rawId)) return parseInt(rawId, 10);
+              return rawId;
+            }
+            // 2. Path match: /produit/:slug or /product/:slug
             const pathMatch = window.location.pathname.match(/\/(?:produit|product)\/([^/?#]+)/i);
             if (pathMatch && pathMatch[1]) {
               const slugStr = decodeURIComponent(pathMatch[1]);
@@ -3815,17 +3864,17 @@
               if (/^\d+$/.test(slugStr)) return parseInt(slugStr, 10);
               return slugStr;
             }
-            // 2. Query param ?produit=slug or ?product=id
+            // 3. Query param ?p=id or ?produit=slug or ?product=id
             const params = new URLSearchParams(window.location.search);
-            const p = params.get('produit') || params.get('product');
+            const p = params.get('p') || params.get('produit') || params.get('product');
             if (p) {
               const idMatch = p.match(/-(\d+)$/);
               if (idMatch) return parseInt(idMatch[1], 10);
               if (/^\d+$/.test(p)) return parseInt(p, 10);
               return p;
             }
-            // 3. Hash fallback
-            const hashMatch = window.location.hash.match(/(?:produit|product)[-=/]([^/?#]+)/i);
+            // 4. Hash fallback
+            const hashMatch = window.location.hash.match(/(?:p|produit|product)[-=/]([^/?#]+)/i);
             if (hashMatch && hashMatch[1]) {
               const idMatch = hashMatch[1].match(/-(\d+)$/);
               if (idMatch) return parseInt(idMatch[1], 10);
@@ -3871,12 +3920,11 @@
           const prod = typeof target === 'object' ? target : products.find(p => p.id === Number(target));
           const prodId = prod ? prod.id : Number(target);
           setSelectedProductIdentifier(prodId);
-          const slug = prod ? getProductSlug(prod) : `produit-${prodId}`;
-          const targetUrl = `/produit/${slug}`;
+          const targetUrl = `/p/${prodId}`;
           try {
-            window.history.pushState({ productId: prodId, slug }, '', targetUrl);
+            window.history.pushState({ productId: prodId }, '', targetUrl);
           } catch (e) {
-            window.history.pushState({ productId: prodId }, '', `?produit=${slug}`);
+            window.history.pushState({ productId: prodId }, '', `?p=${prodId}`);
           }
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }, [products]);
@@ -5556,22 +5604,22 @@
 
                             {/* Top End Actions: Client Link Copy & Wishlist */}
                             <div className="absolute top-1.5 end-1.5 sm:top-3 sm:end-3 flex items-center gap-1 sm:gap-1.5 z-10">
-                              {/* Copy direct client link (SEO Slug) */}
+                              {/* Copy short product link (/p/:id) for WhatsApp, Facebook, Instagram & TikTok */}
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const url = `${window.location.origin}/produit/${getProductSlug(product)}`;
+                                  const url = getShortProductUrl(product);
                                   try {
                                     navigator.clipboard.writeText(url);
-                                    showToast(t.product_link_copied, 'success');
+                                    showToast(`✓ Lien court copié : ${url}`, 'success');
                                   } catch {
                                     showToast(url, 'info');
                                   }
                                 }}
                                 className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/85 hover:bg-white flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-110 active:scale-90 text-noir/70 hover:text-caramel"
-                                title="Copier le lien direct client"
-                                aria-label="Copier le lien client"
+                                title="Copier le lien court pour WhatsApp / Facebook / Instagram / TikTok"
+                                aria-label="Copier le lien court"
                               >
                                 <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -7127,12 +7175,10 @@
                   navigateToProduct(prodId);
                 }}
                 onCopyProductLink={(prodId) => {
-                  const prod = products.find(p => p.id === prodId);
-                  const slug = prod ? getProductSlug(prod) : `produit-${prodId}`;
-                  const url = `${window.location.origin}/produit/${slug}`;
+                  const url = getShortProductUrl(prodId);
                   try {
                     navigator.clipboard.writeText(url);
-                    showToast(t.product_link_copied, 'success');
+                    showToast(`✓ Lien court copié : ${url}`, 'success');
                   } catch {
                     showToast(url, 'info');
                   }
@@ -7792,6 +7838,7 @@
         const [draggedProdId, setDraggedProdId] = useState(null);
         const [dragOverProdId, setDragOverProdId] = useState(null);
         const [reorderingProds, setReorderingProds] = useState(false);
+        const [shareProductModal, setShareProductModal] = useState(null);
         const PRODUCTS_PER_PAGE = 10;
 
         // Order filter, search, edit & pagination (10 orders per page)
@@ -11167,10 +11214,17 @@
                                     <div className="flex items-center justify-end gap-1.5 flex-wrap">
                                       <button
                                         onClick={() => onCopyProductLink(p.id)}
-                                        className="px-2 py-1 bg-white border border-taupe/30 hover:border-noir text-noir text-[11px] rounded-xs shadow-2xs"
-                                        title="Copier le lien SEO du produit"
+                                        className="px-2 py-1 bg-white border border-taupe/30 hover:border-noir text-noir text-[11px] font-mono rounded-xs shadow-2xs"
+                                        title={`Copier le lien court : ${getShortProductUrl(p.id)}`}
                                       >
-                                        🔗 Copier Lien
+                                        🔗 /p/{p.id}
+                                      </button>
+                                      <button
+                                        onClick={() => setShareProductModal(p)}
+                                        className="px-2 py-1 bg-[#25D366]/15 hover:bg-[#25D366] text-[#065F46] hover:text-white border border-[#25D366]/40 text-[11px] font-semibold rounded-xs transition-colors"
+                                        title="Partager le lien court sur WhatsApp, Facebook, Instagram & TikTok"
+                                      >
+                                        📤 Partager
                                       </button>
                                       <button
                                         onClick={() => onViewProductPage(p.id)}
@@ -14002,6 +14056,125 @@
                 </div>
               </div>
             )}
+
+            {/* ========================================================= */}
+            {/* SUB-MODAL: LIEN COURT & PARTAGE RÉSEAUX SOCIAUX           */}
+            {/* ========================================================= */}
+            {shareProductModal && (() => {
+              const sp = shareProductModal;
+              const shortUrl = getShortProductUrl(sp.id);
+              const titleFr = sp.nameFr || sp.nameAr || `Produit #${sp.id}`;
+              const titleAr = sp.nameAr || sp.nameFr || titleFr;
+              const priceStr = Number(sp.price || 0).toLocaleString('fr-FR');
+              const waMessage = `Bonjour ! Découvrez *${titleFr}* chez MODANOVA :\nPrix : ${priceStr} MAD (Paiement à la livraison partout au Maroc)\n\n👉 Commander ici : ${shortUrl}`;
+              const waHref = `https://wa.me/?text=${encodeURIComponent(waMessage)}`;
+              const fbHref = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shortUrl)}`;
+              const captionFr = `✨ ${titleFr} — ${priceStr} MAD\n🚚 Livraison rapide partout au Maroc • Paiement à la livraison (COD)\n👇 Commandez directement ici :\n${shortUrl}`;
+              const captionAr = `✨ ${titleAr} — ${priceStr} درهم\n🚚 التوصيل متوفر لجميع المدن المغربية • الدفع عند الاستلام\n👇 للطلب المباشر من هنا :\n${shortUrl}`;
+              const copyText = (txt, msg) => {
+                try {
+                  navigator.clipboard.writeText(txt);
+                  showToast(msg, 'success');
+                } catch {
+                  showToast(txt, 'info');
+                }
+              };
+              return (
+                <div className="fixed inset-0 z-60 bg-black/70 flex items-center justify-center p-4">
+                  <div className="bg-white w-full max-w-lg rounded-xs shadow-2xl border border-taupe/30 overflow-hidden">
+                    <div className="p-4 bg-noir text-white flex items-center justify-between">
+                      <h3 className="font-serif text-sm font-bold tracking-wide">
+                        🔗 Lien Court & Partage Réseaux Sociaux
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setShareProductModal(null)}
+                        className="text-white/60 hover:text-white"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="p-5 space-y-4 text-xs">
+                      {/* Product Mini Preview */}
+                      <div className="flex items-center gap-3 p-3 bg-[#FAF9F6] border border-taupe/20 rounded-xs">
+                        <img
+                          src={(Array.isArray(sp.images) && sp.images[0]) || sp.image || '/logo.png'}
+                          alt={titleFr}
+                          className="w-14 h-16 object-cover rounded-xs border border-taupe/20 bg-white shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] uppercase tracking-wider text-taupe-dark">{sp.category}</div>
+                          <div className="font-serif text-sm font-bold text-noir truncate">{titleFr}</div>
+                          <div className="text-xs font-bold text-caramel mt-0.5">{priceStr} MAD</div>
+                        </div>
+                      </div>
+
+                      {/* Short Link Input + Copy */}
+                      <div>
+                        <label className="block font-bold uppercase text-[10px] text-taupe-dark mb-1">
+                          Lien Court Produit (WhatsApp · Facebook · Instagram · TikTok)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={shortUrl}
+                            onFocus={(e) => e.target.select()}
+                            className="flex-1 bg-[#FAF9F6] border border-taupe/30 px-3 py-2 font-mono text-xs font-semibold text-noir rounded-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => copyText(shortUrl, `✓ Lien court copié : ${shortUrl}`)}
+                            className="px-4 py-2 bg-noir hover:bg-caramel text-white font-bold uppercase tracking-wider text-[11px] rounded-xs transition-colors shrink-0"
+                          >
+                            📋 Copier
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-taupe-dark mt-1.5">
+                          La photo, le titre et le prix du produit s&apos;affichent automatiquement dans l&apos;aperçu WhatsApp &amp; Facebook.
+                        </p>
+                      </div>
+
+                      {/* Direct Social Platform Buttons */}
+                      <div className="grid grid-cols-2 gap-2.5 pt-1">
+                        <a
+                          href={waHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-2.5 px-3 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold uppercase tracking-wider text-[11px] rounded-xs flex items-center justify-center gap-2 transition-colors shadow-2xs"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 fill-white shrink-0" />
+                          <span>WhatsApp</span>
+                        </a>
+                        <a
+                          href={fbHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-2.5 px-3 bg-[#1877F2] hover:bg-[#1465ce] text-white font-bold uppercase tracking-wider text-[11px] rounded-xs flex items-center justify-center gap-2 transition-colors shadow-2xs"
+                        >
+                          <span>📘 Facebook</span>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => copyText(captionFr, '✓ Texte FR + lien court copiés pour Instagram / TikTok !')}
+                          className="py-2.5 px-3 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white font-bold uppercase tracking-wider text-[11px] rounded-xs flex items-center justify-center gap-1.5 hover:opacity-95 transition-opacity shadow-2xs"
+                        >
+                          <span>📸 Copier IG / TikTok (FR)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => copyText(captionAr, '✓ تم نسخ النص العربي والرابط القصير لـ Instagram / TikTok !')}
+                          className="py-2.5 px-3 bg-noir hover:bg-caramel text-white font-bold uppercase tracking-wider text-[11px] rounded-xs flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+                        >
+                          <span>🎵 Copier IG / TikTok (AR)</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ========================================================= */}
             {/* SUB-MODAL: CRÉER / MODIFIER UN COUPON DISCOUNT            */}
